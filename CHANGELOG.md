@@ -5,6 +5,7 @@
 - Choose Follow System, Light, or Dark in Settings. Both screenshot HUD capsules
   use untinted Regular Liquid Glass and follow the selected appearance. The desktop
   shows through the capsules while the surrounding selection stays dimmed.
+  Use softer icon and dimension colors in both appearances.
 - Require macOS 26 or later.
 
 - Open history screenshots in the editor or recordings in the player with a

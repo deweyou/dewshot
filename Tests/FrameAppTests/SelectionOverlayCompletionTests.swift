@@ -96,12 +96,12 @@ final class SelectionOverlayCompletionTests: XCTestCase {
         window.setAppearanceForTesting(darkAppearance)
         let darkIcons = window.hudButtonTintColorsForTesting()
         XCTAssertEqual(darkIcons.count, 6)
-        XCTAssertTrue(darkIcons.values.allSatisfy { $0.relativeLuminanceForTesting > 0.8 })
+        XCTAssertTrue(darkIcons.values.allSatisfy { (0.84...0.96).contains($0.relativeLuminanceForTesting) })
 
         window.setAppearanceForTesting(lightAppearance)
         let lightIcons = window.hudButtonTintColorsForTesting()
         XCTAssertEqual(lightIcons.count, 6)
-        XCTAssertTrue(lightIcons.values.allSatisfy { $0.relativeLuminanceForTesting < 0.2 })
+        XCTAssertTrue(lightIcons.values.allSatisfy { (0.16...0.28).contains($0.relativeLuminanceForTesting) })
 
         window.setAppearanceForTesting(darkAppearance)
         XCTAssertEqual(window.hudButtonTintColorsForTesting(), darkIcons)

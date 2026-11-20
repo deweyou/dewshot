@@ -3086,9 +3086,9 @@ private enum HUDTheme: Equatable {
     var foregroundColor: NSColor {
         switch self {
         case .lightContent:
-            .white
+            NSColor(white: 0.90, alpha: 1)
         case .darkContent:
-            NSColor(white: 0.07, alpha: 1)
+            NSColor(white: 0.22, alpha: 1)
         }
     }
 

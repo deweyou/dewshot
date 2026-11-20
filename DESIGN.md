@@ -76,7 +76,8 @@ system tool, not a branded dashboard.
 
 - Use untinted AppKit Regular Liquid Glass for both capture HUD capsules.
   The glass and tooltip follow the app appearance. Pair the native material
-  with dark icons in light appearance and white icons in dark appearance.
+  with charcoal icons in light appearance and soft light gray icons in dark
+  appearance.
 - Keep the HUD small and low-priority. It should not compete with the selected
   content.
 - Keep HUD width stable while users edit size, toggle ratio lock, or open ratio
