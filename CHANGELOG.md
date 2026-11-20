@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Label all six actions beneath their icons in the screenshot selection HUD.
+
 - Keep explicitly replaced and newly saved screenshot edits in capture history.
   Copying or exporting an image delivers the current edit without changing its
   history entry.

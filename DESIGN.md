@@ -84,7 +84,9 @@ system tool, not a branded dashboard.
 - Keep HUD width stable while users edit size, toggle ratio lock, or open ratio
   presets. Avoid adding extra persistent buttons when an inline icon can carry
   the interaction.
-- Place mode/actions on the left and the size readout on the right.
+- Place mode/actions on the left and the size readout on the right. In the
+  screenshot HUD, use short labels beneath all six action icons. Each label
+  and its icon share the same button.
 - Size is persistent in screenshot modes. If a mode cannot edit size, disable
   editing rather than hiding or moving the size position.
 - Size editing uses fixed-width numeric fields. Commit edited dimensions on

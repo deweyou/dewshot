@@ -16,6 +16,7 @@ final class SelectionOverlayWindow {
         placeholderText: String,
         scrollingActionText: String = "滚动长截图",
         ocrActionText: String,
+        strings: AppStrings = AppStrings(language: .en),
         delayCountdownNanoseconds: UInt64 = 5_000_000_000,
         onInteraction: @escaping () -> Void,
         onWindowSelectionRequested: @escaping (CGPoint, Int?) -> WindowCandidate?,
@@ -31,6 +32,7 @@ final class SelectionOverlayWindow {
             placeholderText: placeholderText,
             scrollingActionText: scrollingActionText,
             ocrActionText: ocrActionText,
+            strings: strings,
             delayCountdownNanoseconds: delayCountdownNanoseconds,
             onInteraction: onInteraction,
             onWindowSelectionRequested: onWindowSelectionRequested,
@@ -294,6 +296,8 @@ private final class SelectionOverlayNativeWindow: NSWindow {
 @MainActor
 private final class SelectionOverlayView: NSView {
     private let hudHeight: CGFloat = 42
+    private let screenshotActionsHeight: CGFloat = 50
+    private let strings: AppStrings
     private let buttonWidth: CGFloat = 36
     private let defaultHUDSpacing: CGFloat = 7
     private let activeRecordingHUDSpacing: CGFloat = 4
@@ -309,6 +313,7 @@ private final class SelectionOverlayView: NSView {
     private let hudStackView = NSStackView()
     private let modeView = NSVisualEffectView()
     private var modeViewWidthConstraint: NSLayoutConstraint?
+    private var modeViewHeightConstraint: NSLayoutConstraint?
     private var sizeViewWidthConstraint: NSLayoutConstraint?
     private var modeButtonConstraints: [NSLayoutConstraint] = []
     private let sizeView = NSVisualEffectView()
@@ -359,6 +364,7 @@ private final class SelectionOverlayView: NSView {
         placeholderText: String,
         scrollingActionText: String,
         ocrActionText: String,
+        strings: AppStrings,
         delayCountdownNanoseconds: UInt64,
         onInteraction: @escaping () -> Void,
         onWindowSelectionRequested: @escaping (CGPoint, Int?) -> WindowCandidate?,
@@ -366,6 +372,7 @@ private final class SelectionOverlayView: NSView {
         onComplete: @escaping (SelectionOverlayCompletion?) -> Void
     ) {
         self.screenFrame = screen.frame
+        self.strings = strings
         self.showsCenteredHUDWhenEmpty = showsCenteredHUDWhenEmpty
         self.onInteraction = onInteraction
         self.onWindowSelectionRequested = onWindowSelectionRequested
@@ -697,12 +704,14 @@ private final class SelectionOverlayView: NSView {
 
         let modeViewWidthConstraint = modeView.widthAnchor.constraint(equalToConstant: modeViewWidth)
         let sizeViewWidthConstraint = sizeView.widthAnchor.constraint(equalToConstant: currentSizeViewWidth)
+        let modeViewHeightConstraint = modeView.heightAnchor.constraint(equalToConstant: modeViewHeight)
         self.modeViewWidthConstraint = modeViewWidthConstraint
+        self.modeViewHeightConstraint = modeViewHeightConstraint
         self.sizeViewWidthConstraint = sizeViewWidthConstraint
         sizeControl.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             modeViewWidthConstraint,
-            modeView.heightAnchor.constraint(equalToConstant: hudHeight),
+            modeViewHeightConstraint,
             sizeViewWidthConstraint,
             sizeView.heightAnchor.constraint(equalToConstant: hudHeight),
             sizeControl.leadingAnchor.constraint(equalTo: sizeView.leadingAnchor),
@@ -748,8 +757,12 @@ private final class SelectionOverlayView: NSView {
         }
     }
 
+    private var modeViewHeight: CGFloat {
+        recordingHUDMode == .screenshot ? screenshotActionsHeight : hudHeight
+    }
+
     private var hudSize: CGSize {
-        CGSize(width: modeViewWidth + currentHUDSpacing + currentSizeViewWidth, height: hudHeight)
+        CGSize(width: modeViewWidth + currentHUDSpacing + currentSizeViewWidth, height: modeViewHeight)
     }
 
     private func installModeButtons(_ buttons: [HUDIconButton]) {
@@ -766,7 +779,7 @@ private final class SelectionOverlayView: NSView {
             modeButtonConstraints.append(contentsOf: [
                 button.centerYAnchor.constraint(equalTo: modeView.centerYAnchor),
                 button.widthAnchor.constraint(equalToConstant: button.preferredHUDWidth),
-                button.heightAnchor.constraint(equalToConstant: hudHeight),
+                button.heightAnchor.constraint(equalToConstant: modeViewHeight),
             ])
 
             if let previousButton {
@@ -786,9 +799,10 @@ private final class SelectionOverlayView: NSView {
             )
         }
 
-        NSLayoutConstraint.activate(modeButtonConstraints)
         modeViewWidthConstraint?.constant = modeViewWidth
+        modeViewHeightConstraint?.constant = modeViewHeight
         updateHUDLayoutMetrics()
+        NSLayoutConstraint.activate(modeButtonConstraints)
     }
 
     private func updateHUDLayoutMetrics() {
@@ -849,7 +863,7 @@ private final class SelectionOverlayView: NSView {
     }
 
     private func makeScreenshotModeButtons() -> [HUDIconButton] {
-        [
+        let buttons = [
             makeRegionModeButton(),
             makeFullScreenButton(),
             makeDelayButton(),
@@ -857,6 +871,10 @@ private final class SelectionOverlayView: NSView {
             makeOCRButton(),
             makeRecordingButton(),
         ]
+        for (button, title) in zip(buttons, strings.screenshotActionTitles) {
+            button.setCaption(title, color: hudTheme.foregroundColor)
+        }
+        return buttons
     }
 
     private func makeRecordingSetupButtons() -> [HUDIconButton] {
@@ -884,7 +902,7 @@ private final class SelectionOverlayView: NSView {
         button.target = self
         button.action = #selector(regionModeButtonClicked)
         button.onHoverChange = { [weak self, weak button] isHovering in
-            self?.setHUDTooltip(isHovering ? "区域截图" : nil, anchorView: button)
+            self?.setHUDTooltip(isHovering ? self?.strings.confirmScreenshotHint : nil, anchorView: button)
         }
         button.contentTintColor = hudTheme.foregroundColor
         return button
@@ -1154,7 +1172,9 @@ private final class SelectionOverlayView: NSView {
             button.contentTintColor = tintColor
             button.slashColor = tintColor
             button.hoverColor = theme.hoverColor
-            if button.isFormatToggle {
+            if let caption = button.caption {
+                button.setCaption(caption, color: tintColor)
+            } else if button.isFormatToggle {
                 button.attributedTitle = formatButtonTitle(button.title, color: tintColor)
             }
         }
@@ -1828,7 +1848,7 @@ private final class SelectionOverlayView: NSView {
         (
             buttonWidth: buttonWidth,
             hoverDiameter: HUDIconButton.hoverDiameter,
-            screenshotModeWidth: CGFloat(makeScreenshotModeButtons().count) * buttonWidth + modeViewHorizontalPadding * 2
+            screenshotModeWidth: makeScreenshotModeButtons().reduce(modeViewHorizontalPadding * 2) { $0 + $1.preferredHUDWidth }
         )
     }
 
@@ -2733,6 +2753,7 @@ private final class HUDIconButton: NSButton {
     let showsSlashOverlay: Bool
     let iconPointSize: CGFloat
     var preferredHUDWidth: CGFloat = 36
+    private(set) var caption: String?
     var isPrimaryAction = false {
         didSet {
             updatePrimaryAppearance()
@@ -2801,6 +2822,14 @@ private final class HUDIconButton: NSButton {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         nil
+    }
+
+    func setCaption(_ text: String, color: NSColor) {
+        caption = text
+        imagePosition = .imageAbove
+        let font = NSFont.systemFont(ofSize: 10, weight: .medium)
+        attributedTitle = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: color])
+        preferredHUDWidth = max(36, ceil(attributedTitle.size().width) + 12)
     }
 
     override func layout() {

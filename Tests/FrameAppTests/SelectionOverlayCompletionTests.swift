@@ -143,8 +143,8 @@ final class SelectionOverlayCompletionTests: XCTestCase {
 
         XCTAssertEqual(metrics.buttonWidth, 36)
         XCTAssertEqual(metrics.hoverDiameter, metrics.buttonWidth)
-        XCTAssertEqual(metrics.screenshotModeWidth, 222)
-        XCTAssertEqual(metrics.screenshotModeWidth - metrics.buttonWidth * 6, 6)
+        XCTAssertGreaterThan(metrics.screenshotModeWidth, metrics.buttonWidth * 6)
+        XCTAssertEqual(window.hudButtonVisibleTitlesForTesting(), ["Capture", "Full Screen", "Delay", "Scroll", "Copy Text", "Record"])
     }
 
     @MainActor
