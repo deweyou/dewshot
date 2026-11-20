@@ -1789,7 +1789,7 @@ private final class SelectionOverlayView: NSView {
     func hudButtonVisibleTitlesForTesting() -> [String] {
         modeView.subviews
             .compactMap { $0 as? HUDIconButton }
-            .map(\.title)
+            .map { $0.caption ?? $0.title }
             .filter { !$0.isEmpty }
     }
 
@@ -2837,6 +2837,7 @@ private final class HUDIconButton: NSButton {
             icon.setAccessibilityElement(false)
             addSubview(icon)
             captionImageView = icon
+            image = nil
 
             let label = NSTextField(labelWithString: text)
             label.font = .systemFont(ofSize: 10, weight: .medium)
@@ -2848,7 +2849,6 @@ private final class HUDIconButton: NSButton {
         }
 
         caption = text
-        title = text
         captionLabel?.textColor = color
         captionImageView?.contentTintColor = color
         needsLayout = true
@@ -2857,12 +2857,6 @@ private final class HUDIconButton: NSButton {
     override func hitTest(_ point: NSPoint) -> NSView? {
         guard let hit = super.hitTest(point) else { return nil }
         return caption == nil ? hit : self
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        if caption == nil {
-            super.draw(dirtyRect)
-        }
     }
 
     override func layout() {

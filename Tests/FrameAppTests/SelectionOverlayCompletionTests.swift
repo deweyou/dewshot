@@ -232,6 +232,41 @@ final class SelectionOverlayCompletionTests: XCTestCase {
     }
 
     @MainActor
+    func testRecordingSetupRendersWhiteTitleOnTheRedStartButton() throws {
+        _ = NSApplication.shared
+        let screen = try XCTUnwrap(NSScreen.screens.first)
+        let selection = CGRect(x: screen.frame.midX - 210, y: screen.frame.midY - 120, width: 420, height: 240)
+        let existingWindows = Set(NSApp.windows.map(ObjectIdentifier.init))
+        let overlay = try makeOverlayWindowForTesting(initialGlobalRect: selection, initialMode: .recordingSetup)
+        defer { overlay.close() }
+        overlay.orderFrontRegardless()
+        overlay.makeKey()
+
+        let window = try XCTUnwrap(NSApp.windows.first { !existingWindows.contains(ObjectIdentifier($0)) && $0.isVisible })
+        let view = try XCTUnwrap(window.contentView)
+        view.layoutSubtreeIfNeeded()
+        window.displayIfNeeded()
+
+        let hud = overlay.recordingHUDFrameForTesting()
+        // Sample the middle of the start button, away from the border and adjacent icons.
+        let titleRect = CGRect(x: hud.minX + 16, y: hud.midY - 10, width: 66, height: 20)
+        let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: titleRect))
+        view.cacheDisplay(in: titleRect, to: bitmap)
+        var whitePixels = 0
+        for y in 0..<bitmap.pixelsHigh {
+            for x in 0..<bitmap.pixelsWide {
+                if let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB),
+                   color.alphaComponent > 0.9, color.redComponent > 0.85,
+                   color.greenComponent > 0.85, color.blueComponent > 0.85 {
+                    whitePixels += 1
+                }
+            }
+        }
+
+        XCTAssertGreaterThan(whitePixels, 16, "The red Start Recording button should contain its white title")
+    }
+
+    @MainActor
     func testStartRecordingButtonInvokesRecordingCallbackWithoutCompletingOverlay() throws {
         let screen = try XCTUnwrap(NSScreen.screens.first)
         var startedSelection: SelectionCapture?

@@ -14,6 +14,7 @@
 - Confirm successful Quick Access copies and show the destination after saving.
 
 - Label all six actions beneath their icons in the screenshot selection HUD.
+- Keep the Start Recording title visible on its red button.
 
 - Keep explicitly replaced and newly saved screenshot edits in capture history.
   Copying or exporting an image delivers the current edit without changing its
