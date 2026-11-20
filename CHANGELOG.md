@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Confirm successful Quick Access copies and show the destination after saving.
+
 - Label all six actions beneath their icons in the screenshot selection HUD.
 
 - Keep explicitly replaced and newly saved screenshot edits in capture history.

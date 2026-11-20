@@ -716,6 +716,20 @@ struct AppStrings {
         }
     }
 
+    var quickAccessCopied: String {
+        switch language {
+        case .zhHans: "已复制"
+        case .en: "Copied"
+        }
+    }
+
+    func quickAccessSaved(to folder: String) -> String {
+        switch language {
+        case .zhHans: "已保存到\(folder)"
+        case .en: "Saved to \(folder)"
+        }
+    }
+
     var quickAccessPin: String {
         switch language {
         case .zhHans: "固定到预览窗口"

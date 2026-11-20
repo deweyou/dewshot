@@ -108,6 +108,29 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         XCTAssertEqual(editCallCount, 0)
     }
 
+    func testDeliveryFeedbackOutlivesItsPreviewAndIsClickThrough() throws {
+        _ = NSApplication.shared
+        let controller = QuickAccessPanelController()
+        let screenshot = CapturedScreenshot(
+            pngData: try makePNGData(),
+            image: NSImage(size: CGSize(width: 320, height: 180)),
+            rect: CGRect(x: 0, y: 0, width: 320, height: 180)
+        )
+        controller.show(
+            for: screenshot, preferredAnchor: nil, copy: { true }, save: { true },
+            recognizeText: { true }, openWorkspace: { true }, pin: { true }, close: {}
+        )
+        defer { controller.temporarilyHidePreviews() }
+
+        controller.showDeliveryFeedback("Copied", captureID: screenshot.id)
+        XCTAssertTrue(controller.closePreview(for: screenshot, notify: false))
+        let panel = try XCTUnwrap(NSApp.windows.first {
+            $0.title == QuickAccessPanelController.deliveryFeedbackWindowTitle && $0.isVisible
+        })
+        XCTAssertTrue(panel.ignoresMouseEvents)
+        XCTAssertNotNil(findTextField(in: try XCTUnwrap(panel.contentView), stringValue: "Copied"))
+    }
+
     func testScreenshotQuickAccessKeepsMediaSurfaceSeparateFromDarkActionChrome() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))

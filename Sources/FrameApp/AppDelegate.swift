@@ -427,6 +427,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let currentScreenshot = self.currentQuickAccessScreenshot(for: screenshot)
                 let didCopy = self.copyToClipboard(currentScreenshot)
                 if didCopy {
+                    self.quickAccessPanelController.showDeliveryFeedback(self.strings.quickAccessCopied, captureID: screenshot.id)
                     self.endQuickAccessLifecycle(for: screenshot)
                 }
 
@@ -438,12 +439,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
 
                 let currentScreenshot = self.currentQuickAccessScreenshot(for: screenshot)
-                let didSave = self.saveToDesktop(currentScreenshot)
-                if didSave {
-                    self.endQuickAccessLifecycle(for: screenshot)
+                guard let savedURL = self.saveScreenshotFile(currentScreenshot) else {
+                    return false
                 }
-
-                return didSave
+                self.showQuickAccessSavedFeedback(for: screenshot.id, fileURL: savedURL)
+                self.endQuickAccessLifecycle(for: screenshot)
+                return true
             },
             recognizeText: { [weak self] in
                 guard let self else {
@@ -847,10 +848,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             preferredAnchor: anchor,
             strings: strings,
             download: { [weak self] in
-                self?.downloadRecording(recording) ?? false
+                guard let self, let savedURL = self.saveRecordingFile(recording.fileURL, format: recording.format) else {
+                    return false
+                }
+                self.showQuickAccessSavedFeedback(for: recording.id, fileURL: savedURL)
+                return true
             },
             copy: { [weak self] in
-                self?.copyRecordingToClipboard(recording) ?? false
+                guard let self, self.copyRecordingToClipboard(recording) else {
+                    return false
+                }
+                self.quickAccessPanelController.showDeliveryFeedback(self.strings.quickAccessCopied, captureID: recording.id)
+                return true
             },
             preview: { [weak self] in
                 self?.openVideoPreview(recording) ?? false
@@ -1370,14 +1379,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func showQuickAccessSavedFeedback(for captureID: UUID, fileURL: URL) {
+        let folder = FileManager.default.displayName(atPath: fileURL.deletingLastPathComponent().path)
+        quickAccessPanelController.showDeliveryFeedback(strings.quickAccessSaved(to: folder), captureID: captureID)
+    }
+
     private func saveToDesktop(_ screenshot: CapturedScreenshot) -> Bool {
+        saveScreenshotFile(screenshot) != nil
+    }
+
+    private func saveScreenshotFile(_ screenshot: CapturedScreenshot) -> URL? {
         do {
             let saveURL = try ScreenshotFileWriter(strings: strings).write(pngData: screenshot.pngData)
             NSLog("Frame 已保存截图：\(saveURL.path)")
-            return true
+            return saveURL
         } catch {
             showQuickAccessFailedAlert(title: strings.saveFailedTitle, error: error)
-            return false
+            return nil
         }
     }
 
@@ -1396,16 +1414,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func downloadRecordingFile(_ fileURL: URL, format: RecordingFormat) -> Bool {
+        saveRecordingFile(fileURL, format: format) != nil
+    }
+
+    private func saveRecordingFile(_ fileURL: URL, format: RecordingFormat) -> URL? {
         do {
             let saveURL = try recordingFileWriter.copyRecording(
                 from: fileURL,
                 format: format
             )
             NSLog("Frame 已保存录屏：\(saveURL.path)")
-            return true
+            return saveURL
         } catch {
             showQuickAccessFailedAlert(title: strings.saveFailedTitle, error: error)
-            return false
+            return nil
         }
     }
 

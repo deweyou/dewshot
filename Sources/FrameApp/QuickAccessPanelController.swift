@@ -5,6 +5,7 @@ import AVKit
 final class QuickAccessPanelController: NSObject {
     static let previewWindowTitle = "Frame Quick Access Preview"
     static let hoverPreviewWindowTitle = "Frame Quick Access Hover Preview"
+    static let deliveryFeedbackWindowTitle = "Frame Quick Access Feedback"
     static let defaultHoverPreviewDelayForTesting: TimeInterval = 2
 
     private typealias ConfirmableAction = () -> Bool
@@ -14,6 +15,8 @@ final class QuickAccessPanelController: NSObject {
     private let hoverPreviewDelay: TimeInterval
     private let hoverPreviewController = QuickAccessHoverPreviewController()
     private var previewItems: [QuickAccessPreviewItem] = []
+    private var deliveryFeedbackPanel: NSPanel?
+    private var deliveryFeedbackTimer: Timer?
     private var activeScreenObserver: NSObjectProtocol?
     private var followActiveScreenTimer: Timer?
     private var currentPreviewScreenID: CGDirectDisplayID?
@@ -133,6 +136,63 @@ final class QuickAccessPanelController: NSObject {
         content.layoutSubtreeIfNeeded()
     }
 
+    func showDeliveryFeedback(_ message: String, captureID: UUID) {
+        guard let source = previewItems.first(where: {
+            $0.screenshotID == captureID || $0.recordingID == captureID
+        })?.panel else {
+            return
+        }
+
+        let label = NSTextField(labelWithString: message)
+        label.font = .systemFont(ofSize: 12, weight: .medium)
+        label.textColor = FrameHUDChrome.primaryIcon
+        label.alignment = .center
+        label.lineBreakMode = .byTruncatingMiddle
+        let visibleFrame = source.screen?.visibleFrame ?? source.frame
+        let size = CGSize(width: min(260, max(72, ceil(label.fittingSize.width) + 24)), height: 32)
+        let origin = CGPoint(
+            x: min(max(source.frame.minX, visibleFrame.minX), visibleFrame.maxX - size.width),
+            y: max(visibleFrame.minY, source.frame.minY)
+        )
+
+        let panel = NSPanel(
+            contentRect: CGRect(origin: origin, size: size),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.title = Self.deliveryFeedbackWindowTitle
+        panel.level = .statusBar
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
+        panel.hasShadow = true
+        panel.isReleasedWhenClosed = false
+        panel.ignoresMouseEvents = true
+        panel.sharingType = .none
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
+
+        let glass = NSVisualEffectView(frame: CGRect(origin: .zero, size: size))
+        FrameHUDChrome.configure(glass, surface: .overlay, cornerRadius: size.height / 2)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        glass.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.centerYAnchor.constraint(equalTo: glass.centerYAnchor),
+            label.leadingAnchor.constraint(equalTo: glass.leadingAnchor, constant: 12),
+            label.trailingAnchor.constraint(equalTo: glass.trailingAnchor, constant: -12),
+        ])
+        panel.contentView = glass
+        panel.setFrameOrigin(origin)
+
+        closeDeliveryFeedback()
+        deliveryFeedbackPanel = panel
+        panel.orderFrontRegardless()
+        deliveryFeedbackTimer = Timer.scheduledTimer(withTimeInterval: 1.4, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.closeDeliveryFeedback()
+            }
+        }
+    }
+
     @discardableResult
     func closePreview(for screenshot: CapturedScreenshot, notify: Bool) -> Bool {
         guard let item = previewItems.first(where: { $0.screenshotID == screenshot.id }) else {
@@ -247,7 +307,15 @@ final class QuickAccessPanelController: NSObject {
         }
     }
 
+    private func closeDeliveryFeedback() {
+        deliveryFeedbackTimer?.invalidate()
+        deliveryFeedbackTimer = nil
+        deliveryFeedbackPanel?.close()
+        deliveryFeedbackPanel = nil
+    }
+
     func temporarilyHidePreviews() {
+        closeDeliveryFeedback()
         for item in previewItems {
             item.isTemporarilyHidden = true
             hideTemporarily(item.panel)
