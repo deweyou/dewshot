@@ -1726,6 +1726,8 @@ private final class SelectionOverlayView: NSView {
         let canFitAbove = aboveY + visibleSize.height <= bounds.maxY - 18
         let y = if canFitBelow {
             belowY
+        } else if canFitAbove && recordingHUDMode == .screenshot {
+            aboveY
         } else if canFitInside {
             insideBottomY
         } else if canFitAbove {
@@ -2754,6 +2756,8 @@ private final class HUDIconButton: NSButton {
     let iconPointSize: CGFloat
     var preferredHUDWidth: CGFloat = 36
     private(set) var caption: String?
+    private var captionImageView: NSImageView?
+    private var captionLabel: NSTextField?
     var isPrimaryAction = false {
         didSet {
             updatePrimaryAppearance()
@@ -2825,15 +2829,48 @@ private final class HUDIconButton: NSButton {
     }
 
     func setCaption(_ text: String, color: NSColor) {
+        if captionLabel == nil {
+            let icon = NSImageView()
+            icon.image = image
+            icon.symbolConfiguration = symbolConfiguration
+            icon.imageScaling = .scaleProportionallyDown
+            icon.setAccessibilityElement(false)
+            addSubview(icon)
+            captionImageView = icon
+
+            let label = NSTextField(labelWithString: text)
+            label.font = .systemFont(ofSize: 10, weight: .medium)
+            label.alignment = .center
+            label.setAccessibilityElement(false)
+            addSubview(label)
+            captionLabel = label
+            preferredHUDWidth = max(36, ceil(label.intrinsicContentSize.width) + 12)
+        }
+
         caption = text
-        imagePosition = .imageAbove
-        let font = NSFont.systemFont(ofSize: 10, weight: .medium)
-        attributedTitle = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: color])
-        preferredHUDWidth = max(36, ceil(attributedTitle.size().width) + 12)
+        title = text
+        captionLabel?.textColor = color
+        captionImageView?.contentTintColor = color
+        needsLayout = true
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard let hit = super.hitTest(point) else { return nil }
+        return caption == nil ? hit : self
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        if caption == nil {
+            super.draw(dirtyRect)
+        }
     }
 
     override func layout() {
         super.layout()
+
+        let iconCenterY = caption == nil ? bounds.midY : (isFlipped ? 17 : bounds.height - 17)
+        captionImageView?.frame = NSRect(x: bounds.midX - 11, y: iconCenterY - 11, width: 22, height: 22)
+        captionLabel?.frame = NSRect(x: 2, y: isFlipped ? 29 : bounds.height - 44, width: bounds.width - 4, height: 15)
 
         primaryLayer.cornerRadius = 16
         primaryLayer.cornerCurve = .continuous
@@ -2847,7 +2884,7 @@ private final class HUDIconButton: NSButton {
         )
         hoverLayer.position = CGPoint(
             x: bounds.midX,
-            y: bounds.midY
+            y: iconCenterY
         )
         slashLayer.frame = CGRect(
             x: bounds.midX - 11,

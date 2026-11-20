@@ -148,6 +148,19 @@ final class SelectionOverlayCompletionTests: XCTestCase {
     }
 
     @MainActor
+    func testLabeledScreenshotHUDStaysAboveANarrowSelectionAtTheBottomEdge() throws {
+        _ = NSApplication.shared
+        let screen = try XCTUnwrap(NSScreen.screens.first)
+        let selection = CGRect(x: screen.frame.minX + 18, y: screen.frame.minY + 18, width: 120, height: 75)
+        let window = try makeOverlayWindowForTesting(initialGlobalRect: selection)
+
+        let hudFrame = window.recordingHUDFrameForTesting()
+        XCTAssertGreaterThan(hudFrame.minY, 93)
+        XCTAssertGreaterThanOrEqual(hudFrame.minX, 12)
+        XCTAssertLessThanOrEqual(hudFrame.maxX, screen.frame.width - 12)
+    }
+
+    @MainActor
     func testRecordingButtonSwitchesHUDIntoRecordingSetupMode() throws {
         let screen = try XCTUnwrap(NSScreen.screens.first)
         let window = try makeOverlayWindowForTesting(

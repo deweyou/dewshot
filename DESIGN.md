@@ -86,7 +86,8 @@ system tool, not a branded dashboard.
   the interaction.
 - Place mode/actions on the left and the size readout on the right. In the
   screenshot HUD, use short labels beneath all six action icons. Each label
-  and its icon share the same button.
+  and its icon share the same button. Prefer placing the screenshot HUD outside
+  the selection, below when space allows and above for bottom-edge selections.
 - Size is persistent in screenshot modes. If a mode cannot edit size, disable
   editing rather than hiding or moving the size position.
 - Size editing uses fixed-width numeric fields. Commit edited dimensions on
