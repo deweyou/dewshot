@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Switch OCR results between selectable full text and individual blocks. Frame
+  remembers the last view.
+
 - Explain when scrolling capture stops and how to continue or finish with the
   portion already captured.
 

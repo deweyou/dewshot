@@ -7,10 +7,61 @@ import XCTest
 final class OCRTextPanelControllerTests: XCTestCase {
     private var retainedControllers: [OCRTextPanelController] = []
 
+    func testOCRDefaultsToSelectableFullTextAndRemembersBlocksAcrossWindows() throws {
+        _ = NSApplication.shared
+        let suite = "FrameOCRResultTests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let windowIDs = Set(NSApp.windows.map(ObjectIdentifier.init))
+        let controller = OCRTextPanelController(defaults: defaults)
+        let layout = RecognizedTextLayout(lines: [
+            RecognizedTextLine(text: "hello world", bounds: .zero, confidence: 0.9),
+        ])
+        let screenshot = try makeScreenshot()
+        var copied = ""
+        controller.show(layout: layout, for: screenshot, strings: AppStrings(language: .en)) {
+            copied = $0
+            return true
+        }
+        defer { _ = controller.closePanel(for: screenshot) }
+        let panel = try XCTUnwrap(NSApp.windows.first { !windowIDs.contains(ObjectIdentifier($0)) } as? NSPanel)
+        let content = try XCTUnwrap(panel.contentView)
+        let scrollView = try XCTUnwrap(findScrollView(in: content))
+        let textView = try XCTUnwrap(scrollView.documentView as? NSTextView)
+        XCTAssertEqual(textView.string, "hello world")
+        textView.setSelectedRange(NSRange(location: 6, length: 5))
+        let copyButton = try XCTUnwrap(findButton(in: content, accessibilityLabel: "Copy Selected"))
+        XCTAssertTrue(copyButton.isEnabled)
+        copyButton.performClick(nil)
+        XCTAssertEqual(copied, "world")
+
+        let segments = try XCTUnwrap(content.subviews.compactMap { $0 as? NSSegmentedControl }.first)
+        segments.selectedSegment = OCRResultView.blocks.rawValue
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(segments.action), to: segments.target, from: segments))
+        XCTAssertEqual(defaults.integer(forKey: OCRTextPanelController.resultViewPreferenceKey), OCRResultView.blocks.rawValue)
+
+        let secondScreenshot = try makeScreenshot()
+        let existingWindowIDs = Set(NSApp.windows.map(ObjectIdentifier.init))
+        controller.show(layout: layout, for: secondScreenshot, strings: AppStrings(language: .en), copyText: { _ in true })
+        defer { _ = controller.closePanel(for: secondScreenshot) }
+        let secondContent = try XCTUnwrap(NSApp.windows.first {
+            !existingWindowIDs.contains(ObjectIdentifier($0))
+        }?.contentView)
+        XCTAssertEqual(findButtons(in: secondContent, accessibilityPrefix: "OCR Cut").map(\.title), ["hello", "world"])
+    }
+
+    private func makeBlocksController() -> OCRTextPanelController {
+        let suite = "FrameOCRBlocksTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.set(OCRResultView.blocks.rawValue, forKey: OCRTextPanelController.resultViewPreferenceKey)
+        addTeardownBlock { UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite) }
+        return OCRTextPanelController(defaults: defaults)
+    }
+
     func testOCRPanelShowsClearCutsWithoutScreenshotPreviewAndDisabledCopyButton() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = OCRTextPanelController()
+        let controller = makeBlocksController()
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
 
@@ -53,7 +104,7 @@ final class OCRTextPanelControllerTests: XCTestCase {
     func testOCRCutColorsFollowPanelAppearanceChanges() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = OCRTextPanelController()
+        let controller = makeBlocksController()
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
 
@@ -96,7 +147,7 @@ final class OCRTextPanelControllerTests: XCTestCase {
     func testOCRPanelReusesExistingWindowForSameScreenshot() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = OCRTextPanelController()
+        let controller = makeBlocksController()
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
         let layout = RecognizedTextLayout(lines: [
@@ -114,7 +165,7 @@ final class OCRTextPanelControllerTests: XCTestCase {
     func testOCRPanelReuseUpdatesCutsAndClearsSelection() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = OCRTextPanelController()
+        let controller = makeBlocksController()
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
 
@@ -153,7 +204,7 @@ final class OCRTextPanelControllerTests: XCTestCase {
     func testOCRPanelCutDocumentExpandsBeyondViewportForManyRows() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = OCRTextPanelController()
+        let controller = makeBlocksController()
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
         let lines = (0..<32).map { index in
@@ -184,7 +235,7 @@ final class OCRTextPanelControllerTests: XCTestCase {
     func testOCRPanelWrapsCutsInsteadOfScrollingHorizontally() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = OCRTextPanelController()
+        let controller = makeBlocksController()
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
 
@@ -215,7 +266,7 @@ final class OCRTextPanelControllerTests: XCTestCase {
     func testOCRPanelFooterButtonsUseOrderedStackLayout() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = OCRTextPanelController()
+        let controller = makeBlocksController()
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
 
@@ -253,7 +304,7 @@ final class OCRTextPanelControllerTests: XCTestCase {
     func testOCRPanelReusesOrderedOutWindowForSameScreenshot() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = OCRTextPanelController()
+        let controller = makeBlocksController()
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
         let layout = RecognizedTextLayout(lines: [
@@ -276,7 +327,7 @@ final class OCRTextPanelControllerTests: XCTestCase {
     func testSelectAllThenCopySelectedInvokesClosureWithSelectedText() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = OCRTextPanelController()
+        let controller = makeBlocksController()
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
         var copiedText: String?
@@ -309,7 +360,7 @@ final class OCRTextPanelControllerTests: XCTestCase {
     func testSelectAllButtonTogglesToDeselectAll() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = OCRTextPanelController()
+        let controller = makeBlocksController()
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
 
@@ -339,7 +390,7 @@ final class OCRTextPanelControllerTests: XCTestCase {
     func testCopyAllIsAvailableWithoutSelection() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = OCRTextPanelController()
+        let controller = makeBlocksController()
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
         var copiedText: String?
@@ -370,7 +421,7 @@ final class OCRTextPanelControllerTests: XCTestCase {
     func testCommandASelectsAllCuts() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = OCRTextPanelController()
+        let controller = makeBlocksController()
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
         var copiedText: String?
@@ -414,7 +465,7 @@ final class OCRTextPanelControllerTests: XCTestCase {
     func testSelectingCutsByIDsEnablesCopySelected() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = OCRTextPanelController()
+        let controller = makeBlocksController()
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
 
@@ -441,7 +492,7 @@ final class OCRTextPanelControllerTests: XCTestCase {
     func testShiftSelectingCutSelectsRangeFromPreviousSelection() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = OCRTextPanelController()
+        let controller = makeBlocksController()
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
         var copiedText: String?
@@ -476,7 +527,7 @@ final class OCRTextPanelControllerTests: XCTestCase {
     func testShiftSelectingWithoutAnchorSelectsClickedCut() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = OCRTextPanelController()
+        let controller = makeBlocksController()
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
         var copiedText: String?
@@ -510,7 +561,7 @@ final class OCRTextPanelControllerTests: XCTestCase {
     func testScrubSelectionOnlyContinuesDuringActiveSession() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = OCRTextPanelController()
+        let controller = makeBlocksController()
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
         var copiedText: String?
@@ -547,7 +598,7 @@ final class OCRTextPanelControllerTests: XCTestCase {
     func testScrubSelectionFollowsDraggedWindowPointAcrossCuts() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = OCRTextPanelController()
+        let controller = makeBlocksController()
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
         var copiedText: String?
@@ -586,7 +637,7 @@ final class OCRTextPanelControllerTests: XCTestCase {
 
     func testClosePanelForScreenshotClosesMatchingPanelOnly() throws {
         _ = NSApplication.shared
-        let controller = OCRTextPanelController()
+        let controller = makeBlocksController()
         retainedControllers.append(controller)
         let first = try makeScreenshot()
         let second = try makeScreenshot()

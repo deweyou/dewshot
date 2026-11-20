@@ -1080,6 +1080,14 @@ struct AppStrings {
         }
     }
 
+    var ocrFullTextView: String {
+        language == .zhHans ? "全文" : "Full Text"
+    }
+
+    var ocrTextBlocksView: String {
+        language == .zhHans ? "分块" : "Blocks"
+    }
+
     var ocrCopyAll: String {
         switch language {
         case .zhHans: "复制全部"
