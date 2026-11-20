@@ -84,33 +84,27 @@ final class SelectionOverlayCompletionTests: XCTestCase {
     }
 
     @MainActor
-    func testSelectionHUDUpdatesRegularGlassAndIconsWhenAppearanceChanges() throws {
+    func testSelectionHUDUsesUntintedRegularGlassAndUpdatesIconsWhenAppearanceChanges() throws {
         let window = try makeOverlayWindowForTesting()
         let darkAppearance = try XCTUnwrap(NSAppearance(named: .darkAqua))
         let lightAppearance = try XCTUnwrap(NSAppearance(named: .aqua))
 
         if #available(macOS 26.0, *) {
-            XCTAssertTrue(window.hudHasRegularGlassForTesting())
+            XCTAssertTrue(window.hudUsesUntintedRegularGlassForTesting())
         }
 
         window.setAppearanceForTesting(darkAppearance)
-        let darkChrome = window.hudChromeColorsForTesting()
-        XCTAssertLessThan(darkChrome.background.relativeLuminanceForTesting, 0.08)
-        XCTAssertGreaterThan(darkChrome.foreground.relativeLuminanceForTesting, 0.8)
-        XCTAssertTrue(window.hudButtonTintColorsForTesting().values.allSatisfy {
-            $0.relativeLuminanceForTesting > 0.8
-        })
+        let darkIcons = window.hudButtonTintColorsForTesting()
+        XCTAssertEqual(darkIcons.count, 6)
+        XCTAssertTrue(darkIcons.values.allSatisfy { $0.relativeLuminanceForTesting > 0.8 })
 
         window.setAppearanceForTesting(lightAppearance)
-        let lightChrome = window.hudChromeColorsForTesting()
-        XCTAssertGreaterThan(lightChrome.background.relativeLuminanceForTesting, 0.8)
-        XCTAssertLessThan(lightChrome.foreground.relativeLuminanceForTesting, 0.2)
         let lightIcons = window.hudButtonTintColorsForTesting()
         XCTAssertEqual(lightIcons.count, 6)
         XCTAssertTrue(lightIcons.values.allSatisfy { $0.relativeLuminanceForTesting < 0.2 })
 
         window.setAppearanceForTesting(darkAppearance)
-        XCTAssertEqual(window.hudChromeColorsForTesting().foreground, darkChrome.foreground)
+        XCTAssertEqual(window.hudButtonTintColorsForTesting(), darkIcons)
     }
 
     @MainActor

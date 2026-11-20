@@ -114,20 +114,12 @@ final class SelectionOverlayWindow {
         window.appearance = appearance
     }
 
-    func hudChromeColorsForTesting() -> (
-        foreground: NSColor,
-        background: NSColor,
-        hover: NSColor
-    ) {
-        overlayView.hudChromeColorsForTesting()
-    }
-
     func hudButtonTintColorsForTesting() -> [String: NSColor] {
         overlayView.hudButtonTintColorsForTesting()
     }
 
-    func hudHasRegularGlassForTesting() -> Bool {
-        overlayView.hudHasRegularGlassForTesting()
+    func hudUsesUntintedRegularGlassForTesting() -> Bool {
+        overlayView.hudUsesUntintedRegularGlassForTesting()
     }
 
     func hudButtonLayoutMetricsForTesting() -> (buttonWidth: CGFloat, hoverDiameter: CGFloat, screenshotModeWidth: CGFloat) {
@@ -1148,7 +1140,6 @@ private final class SelectionOverlayView: NSView {
 
     private func applyHUDTheme(_ theme: HUDTheme) {
         hudTheme = theme
-        [modeView, sizeView, placeholderView].forEach { $0.applyTheme(theme) }
         placeholderLabel.textColor = theme.foregroundColor
         for button in modeView.controls.subviews.compactMap({ $0 as? HUDIconButton }) {
             let tintColor = hudTintColor(for: button, theme: theme)
@@ -1823,24 +1814,12 @@ private final class SelectionOverlayView: NSView {
         )
     }
 
-    func hudChromeColorsForTesting() -> (
-        foreground: NSColor,
-        background: NSColor,
-        hover: NSColor
-    ) {
-        (
-            foreground: hudTheme.foregroundColor,
-            background: modeView.backingColor,
-            hover: hudTheme.hoverColor
-        )
-    }
-
-    func hudHasRegularGlassForTesting() -> Bool {
+    func hudUsesUntintedRegularGlassForTesting() -> Bool {
         guard #available(macOS 26.0, *),
               let container = hudPresentationView as? NSGlassEffectContainerView else {
             return false
         }
-        return container.contentView === hudStackView && modeView.hasRegularGlass && sizeView.hasRegularGlass
+        return container.contentView === hudStackView && modeView.usesUntintedRegularGlass && sizeView.usesUntintedRegularGlass
     }
 
     func hudButtonTintColorsForTesting() -> [String: NSColor] {
@@ -3104,28 +3083,12 @@ private enum HUDTheme: Equatable {
             : .darkContent
     }
 
-    var tintColor: NSColor {
-        switch self {
-        case .lightContent: NSColor(white: 0.04, alpha: 0.58)
-        case .darkContent: NSColor(white: 0.97, alpha: 0.22)
-        }
-    }
-
     var foregroundColor: NSColor {
         switch self {
         case .lightContent:
             .white
         case .darkContent:
             NSColor(white: 0.07, alpha: 1)
-        }
-    }
-
-    var backgroundColor: NSColor {
-        switch self {
-        case .lightContent:
-            NSColor(white: 0.035, alpha: 0.72)
-        case .darkContent:
-            NSColor(white: 0.98, alpha: 0.63)
         }
     }
 
@@ -3141,22 +3104,9 @@ private enum HUDTheme: Equatable {
 
 private final class HUDGlassCapsule: NSView {
     let controls = NSView()
-    private let backing = HUDGlassBackingView()
     private let material: NSView
 
     init(cornerRadius: CGFloat) {
-        backing.wantsLayer = true
-        backing.layer?.cornerRadius = cornerRadius - 1
-        backing.layer?.cornerCurve = .continuous
-        backing.translatesAutoresizingMaskIntoConstraints = false
-        controls.addSubview(backing)
-        NSLayoutConstraint.activate([
-            backing.leadingAnchor.constraint(equalTo: controls.leadingAnchor, constant: 1),
-            backing.trailingAnchor.constraint(equalTo: controls.trailingAnchor, constant: -1),
-            backing.topAnchor.constraint(equalTo: controls.topAnchor, constant: 1),
-            backing.bottomAnchor.constraint(equalTo: controls.bottomAnchor, constant: -1),
-        ])
-
         if #available(macOS 26.0, *) {
             let glass = NSGlassEffectView()
             glass.style = .regular
@@ -3180,28 +3130,11 @@ private final class HUDGlassCapsule: NSView {
         nil
     }
 
-    func applyTheme(_ theme: HUDTheme) {
+    var usesUntintedRegularGlass: Bool {
         if #available(macOS 26.0, *), let glass = material as? NSGlassEffectView {
-            glass.tintColor = theme.tintColor
-        }
-        backing.layer?.backgroundColor = theme.backgroundColor.cgColor
-    }
-
-    var backingColor: NSColor {
-        backing.layer?.backgroundColor.flatMap(NSColor.init(cgColor:)) ?? .clear
-    }
-
-    var hasRegularGlass: Bool {
-        if #available(macOS 26.0, *), let glass = material as? NSGlassEffectView {
-            return glass.style == .regular && glass.contentView != nil
+            return glass.style == .regular && glass.contentView === controls && glass.tintColor == nil
         }
         return false
-    }
-}
-
-private final class HUDGlassBackingView: NSView {
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        nil
     }
 }
 

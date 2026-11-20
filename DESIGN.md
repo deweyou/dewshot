@@ -74,10 +74,9 @@ system tool, not a branded dashboard.
   direct actions. Show configured shortcuts using native menu key equivalents;
   keep Record Screen available even when its optional global shortcut is unset.
 
-- Use AppKit Regular Liquid Glass for both capture HUD capsules. The capsules
-  and the tooltip follow the app appearance. Use dark icons on a light backing
-  and light icons on a dark-tinted backing. Keep enough backing opacity to
-  separate the controls from busy desktop content.
+- Use untinted AppKit Regular Liquid Glass for both capture HUD capsules.
+  The glass and tooltip follow the app appearance. Pair the native material
+  with dark icons in light appearance and white icons in dark appearance.
 - Keep the HUD small and low-priority. It should not compete with the selected
   content.
 - Keep HUD width stable while users edit size, toggle ratio lock, or open ratio
