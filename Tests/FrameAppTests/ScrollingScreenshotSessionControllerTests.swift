@@ -97,11 +97,13 @@ final class ScrollingScreenshotSessionControllerTests: XCTestCase {
             onFailure: { error in XCTFail("Unexpected failure: \(error)") }
         )
         controller.beginScrolling()
+        XCTAssertEqual(controller.hudNoticeForTesting(), "请缓慢滚动")
 
         XCTAssertEqual(controller.hudButtonAttributesForTesting().map(\.label), ["完成", "自动滚动", "取消"])
         XCTAssertEqual(controller.hudButtonAttributesForTesting().map(\.symbolName), ["checkmark", "arrow.down.circle.fill", "xmark"])
 
         controller.toggleAutoScroll()
+        XCTAssertNil(controller.hudNoticeForTesting())
 
         XCTAssertEqual(controller.hudButtonAttributesForTesting().map(\.label), ["完成", "停止滚动", "取消"])
         XCTAssertEqual(controller.hudButtonAttributesForTesting().map(\.symbolName), ["checkmark", "stop.circle.fill", "xmark"])
@@ -896,6 +898,7 @@ final class ScrollingScreenshotSessionControllerTests: XCTestCase {
 
         XCTAssertTrue(controller.isActive)
         XCTAssertEqual(scrolledCount, 2)
+        XCTAssertTrue(controller.hudNoticeForTesting()?.contains("自动滚动上限") == true)
         controller.cancel()
     }
 
@@ -941,6 +944,7 @@ final class ScrollingScreenshotSessionControllerTests: XCTestCase {
         XCTAssertEqual(scrolledCount, 4)
         pendingStep?()
         XCTAssertEqual(scrolledCount, 4)
+        XCTAssertEqual(controller.hudNoticeForTesting(), "没有检测到新内容")
         XCTAssertTrue(controller.isActive)
         controller.cancel()
     }

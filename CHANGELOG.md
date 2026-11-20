@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Explain when scrolling capture stops and how to continue or finish with the
+  portion already captured.
+
 - Confirm successful Quick Access copies and show the destination after saving.
 
 - Label all six actions beneath their icons in the screenshot selection HUD.
