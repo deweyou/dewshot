@@ -125,10 +125,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotKeyController?.unregister()
     }
 
-    func applicationDidBecomeActive(_ notification: Notification) {
-        settingsWindowController.refreshPermissions()
-    }
-
     @objc func onCapture() {
         startCaptureFlow()
     }

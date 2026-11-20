@@ -80,7 +80,8 @@ The goal is simple: capture what you need, then get back to what you were doing.
 
 - Requires macOS 26 or later.
 - In Settings → General, choose Follow System, Light, or Dark. The screenshot
-  toolbar uses Liquid Glass and follows the selected appearance.
+  toolbar uses Liquid Glass and follows the selected appearance. The Capture pane
+  groups screenshot, recording, and text recognition settings.
 
 ### Start Automatically
 

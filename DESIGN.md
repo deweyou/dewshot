@@ -14,45 +14,23 @@ system tool, not a branded dashboard.
 
 ## Settings
 
-- Settings is a compact single-page preference list, not a multi-column dashboard.
-  Do not introduce a sidebar unless the number of settings grows enough that
-  scrolling becomes materially harder than category navigation.
-- Use quiet grouped rows with short section labels, fixed label columns, native
-  controls aligned to the trailing edge, and subtle separators. Avoid large
-  empty detail panes, nested cards, or decorative section chrome.
-- The default Settings window should show multiple groups at once and scroll for
-  longer preference sets such as OCR languages. Use a roughly 620 x 600 default
-  window, a 560 x 460 minimum, and about 540 px of content width so the page
-  feels like a preference pane instead of a narrow form. Preserve a resizable
-  native window with a standard centered titlebar and system traffic-light
-  controls.
-- The native window titlebar owns the centered Settings title. Do not duplicate
-  a large "Settings" / "设置" heading inside the content area.
-- Section containers need enough inner padding that row dividers never visually
-  collide with the rounded border. Keep section gaps compact, around 14 px, and
-  use subtle borders instead of heavy card outlines.
-- Settings typography uses the macOS system font throughout. Prefer hierarchy
-  through size, weight, spacing, and grouping rather than custom Chinese display
-  fonts. Section titles and row labels should stay medium-weight; avoid large
-  bold labels that make simple preferences feel oversized.
-- Screenshot and recording shortcut editing use compact inline recorders in the
-  General section. Validate simple local format rules and prevent duplicate
-  Frame capture shortcuts before applying, but do not proactively inspect
-  system-wide shortcut conflicts.
-- Save location settings belong in the General section and use a quiet inline
-  summary: show only a folder icon plus the abbreviated path without repeating
-  the folder name or adding a nested card background, keep folder choosing as a
-  small native action, avoid secondary Finder reveal buttons in the row, and
-  show reset only for custom locations.
-- About/version/build metadata belongs in a small secondary English footer, not
-  a primary settings section.
-- Permissions use one compact group with separate Screen Recording,
-  Accessibility, and Input Monitoring rows. Show the current state and direct
-  request/System Settings actions, then refresh state when Frame becomes active
-  again. Do not imply that optional feature permissions block basic capture.
-- Long option collections such as OCR language toggles should stay out of the
-  main settings scroll. Use a whole-row entry with a selected-count summary that
-  opens an attached sheet for detailed editing.
+- Use a compact sidebar with General, Capture, History, and Permissions.
+  Capture groups screenshots, recording, and text recognition. Keep the native,
+  resizable window and the centered titlebar.
+- Give each pane one clear heading. Use lightly shaded groups, quiet dividers,
+  system typography, and trailing native controls. Put version and build
+  metadata near the bottom of the sidebar.
+- In General, show small previews for Follow System, Light, and Dark and mark the
+  active appearance. Keep language, launch at login, the save folder, and
+  capture shortcuts in General. Display the abbreviated save path and offer
+  reset only for custom locations.
+- Use inline shortcut recorders. Validate the shortcut locally and reject
+  duplicates within Frame before saving.
+- Keep separate Screen Recording, Accessibility, and Input Monitoring rows.
+  Show current status and the actions for checking, requesting, or opening
+  System Settings. Refresh status when Frame becomes active.
+- In Capture, show the selected OCR language count and open the language
+  chooser as a sheet from the entire row.
 
 ## Screenshot Overlay
 

@@ -119,6 +119,27 @@ struct AppStrings {
         }
     }
 
+    var settingsCapture: String {
+        switch language {
+        case .zhHans: "捕获"
+        case .en: "Capture"
+        }
+    }
+
+    var settingsPreferences: String {
+        switch language {
+        case .zhHans: "偏好"
+        case .en: "Preferences"
+        }
+    }
+
+    var settingsShortcuts: String {
+        switch language {
+        case .zhHans: "快捷键"
+        case .en: "Shortcuts"
+        }
+    }
+
     var settingsLaunchAtLogin: String {
         switch language {
         case .zhHans: "登录时启动"

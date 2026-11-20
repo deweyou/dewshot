@@ -7,47 +7,23 @@ import FrameCore
 
 @MainActor
 final class SettingsWindowControllerTests: XCTestCase {
-    func testSettingsWindowUsesSinglePagePreferenceListLayout() {
-        XCTAssertEqual(SettingsWindowLayout.defaultSize.width, 620, accuracy: 0.5)
-        XCTAssertEqual(SettingsWindowLayout.defaultSize.height, 600, accuracy: 0.5)
-        XCTAssertEqual(SettingsWindowLayout.minimumSize.width, 560, accuracy: 0.5)
-        XCTAssertEqual(SettingsWindowLayout.minimumSize.height, 460, accuracy: 0.5)
-        XCTAssertFalse(SettingsWindowLayout.usesSidebar)
-        XCTAssertEqual(SettingsListMetrics.maxContentWidth, 540, accuracy: 0.5)
-        XCTAssertEqual(SettingsListMetrics.contentPadding, 30, accuracy: 0.5)
-        XCTAssertEqual(SettingsListMetrics.sectionSpacing, 14, accuracy: 0.5)
-        XCTAssertFalse(SettingsListMetrics.showsAboutAsSection)
-        XCTAssertTrue(SettingsListMetrics.showsAboutFooter)
-    }
-
-    func testSettingsSinglePageKeepsSettingsDomainsInProductOrder() {
-        XCTAssertEqual(SettingsSection.allCases, [
-            .general,
-            .screenshot,
-            .recording,
-            .textRecognition,
-            .history,
-            .permissions,
+    func testSettingsNavigationKeepsCategoriesInProductOrder() {
+        let sections: [SettingsSection] = [.general, .capture, .history, .permissions]
+        XCTAssertEqual(SettingsSection.allCases, sections)
+        XCTAssertEqual(sections.map { $0.title(strings: AppStrings(language: .zhHans)) }, [
+            "通用", "捕获", "历史", "权限",
         ])
-
-        let strings = AppStrings(language: .zhHans)
-        XCTAssertEqual(SettingsSection.allCases.map { $0.title(strings: strings) }, [
-            "通用",
-            "截图",
-            "录屏",
-            "文字识别",
-            "历史",
-            "权限",
+        XCTAssertEqual(sections.map { $0.title(strings: AppStrings(language: .en)) }, [
+            "General", "Capture", "History", "Permissions",
         ])
     }
 
     func testSettingsTypographyUsesSystemFontsAndReadableRows() {
         XCTAssertTrue(SettingsTypographyMetrics.usesSystemFont)
-        XCTAssertTrue(SettingsTypographyMetrics.usesQuietSectionTitles)
         XCTAssertTrue(SettingsTypographyMetrics.usesMediumRowLabels)
         XCTAssertEqual(SettingsTypographyMetrics.sectionFontSize, 13, accuracy: 0.5)
-        XCTAssertEqual(SettingsTypographyMetrics.rowFontSize, 14, accuracy: 0.5)
-        XCTAssertEqual(SettingsTypographyMetrics.secondaryFontSize, 13, accuracy: 0.5)
+        XCTAssertEqual(SettingsTypographyMetrics.rowFontSize, 13, accuracy: 0.5)
+        XCTAssertEqual(SettingsTypographyMetrics.secondaryFontSize, 12, accuracy: 0.5)
         XCTAssertEqual(SettingsTypographyMetrics.footerFontSize, 11, accuracy: 0.5)
     }
 
@@ -56,18 +32,6 @@ final class SettingsWindowControllerTests: XCTestCase {
             SettingsAboutFooterText.value(appName: "Frame", version: "0.1.0", build: "1"),
             "Frame · Version 0.1.0 · Build 1"
         )
-    }
-
-    func testSettingsRowsUseQuietGroupedListMetrics() {
-        XCTAssertTrue(SettingsGroupMetrics.usesVisibleGroupBackground)
-        XCTAssertEqual(SettingsGroupMetrics.cornerRadius, 10, accuracy: 0.5)
-        XCTAssertEqual(SettingsGroupMetrics.rowMinHeight, 36, accuracy: 0.5)
-        XCTAssertEqual(SettingsGroupMetrics.containerPadding, 10, accuracy: 0.5)
-        XCTAssertEqual(SettingsGroupMetrics.labelColumnWidth, 120, accuracy: 0.5)
-        XCTAssertEqual(SettingsGroupMetrics.horizontalPadding, 12, accuracy: 0.5)
-        XCTAssertEqual(SettingsGroupMetrics.controlSpacing, 14, accuracy: 0.5)
-        XCTAssertEqual(SettingsGroupMetrics.borderOpacity, 0.38, accuracy: 0.01)
-        XCTAssertEqual(SettingsSectionGroupMetrics.titleSpacing, 6, accuracy: 0.5)
     }
 
     func testScreenshotShortcutSettingsUseInlineRecorder() {
@@ -340,10 +304,10 @@ final class SettingsWindowControllerTests: XCTestCase {
             window.close()
         }
 
-        XCTAssertEqual(window.minSize.width, 560, accuracy: 0.5)
+        XCTAssertEqual(window.minSize.width, 688, accuracy: 0.5)
         XCTAssertEqual(window.minSize.height, 460, accuracy: 0.5)
-        XCTAssertEqual(window.frame.size.width, 620, accuracy: 0.5)
-        XCTAssertEqual(window.frame.size.height, 600, accuracy: 0.5)
+        XCTAssertEqual(window.frame.size.width, 752, accuracy: 0.5)
+        XCTAssertEqual(window.frame.size.height, 556, accuracy: 0.5)
         XCTAssertEqual(window.title, "Settings")
         XCTAssertTrue(SettingsWindowLayout.usesCenteredTitlebarLabel)
         XCTAssertEqual(window.titleVisibility, .hidden)
