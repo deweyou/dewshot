@@ -110,11 +110,10 @@ system tool, not a branded dashboard.
 - Tooltips should be delayed and owned above the overlay/HUD layer. Default
   placement is below the hovered control, flipping above only when there is not
   enough space.
-- HUD icon content uses fixed white on a deliberately deep glass background.
-  Do not reintroduce background-aware black/white icon switching or
-  appearance-dependent dynamic icon colors for the capture HUD; keep contrast
-  stable with a dark glass fill that is less transparent than system chrome, a
-  quiet hairline border, and subtle hover fill instead.
+- Group the two capsules in a native glass container and use the material's own
+  edge. Keep the selection scrim around the controls and reveal the desktop
+  directly through the glass. Choose icon colors from the app appearance and
+  keep hover fills subtle.
 - Delay screenshot countdowns are passive: after the user starts the countdown,
   keep a prominent semi-transparent red countdown near the current screen's
   bottom center while letting underlying apps receive mouse interaction. Hide
@@ -123,9 +122,9 @@ system tool, not a branded dashboard.
 
 ## Recording HUD
 
-- Recording HUD states inherit the screenshot HUD chrome: native glass, compact
-  buttons, stable sizing, delayed tooltips, less-transparent dark glass chrome,
-  white icon contrast, and a quiet boundary.
+- The recording setup inherits the screenshot HUD appearance, with compact
+  controls and delayed tooltips. Keep the primary recording action red with
+  white text.
 - The screenshot HUD may switch into recording setup without closing the
   selection overlay. Setup controls stay compact and cover start recording,
   MP4/GIF format, cursor visibility, and keyboard hint visibility. The MP4/GIF

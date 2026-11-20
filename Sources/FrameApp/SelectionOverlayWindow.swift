@@ -117,7 +117,6 @@ final class SelectionOverlayWindow {
     func hudChromeColorsForTesting() -> (
         foreground: NSColor,
         background: NSColor,
-        border: NSColor,
         hover: NSColor
     ) {
         overlayView.hudChromeColorsForTesting()
@@ -318,6 +317,14 @@ private final class SelectionOverlayView: NSView {
     private let onStartRecording: (SelectionCapture, RecordingOptions) -> Void
     private let onComplete: (SelectionOverlayCompletion?) -> Void
     private let hudStackView = NSStackView()
+    private let hudPresentationView: NSView = {
+        if #available(macOS 26.0, *) {
+            let container = NSGlassEffectContainerView()
+            container.spacing = 3
+            return container
+        }
+        return NSView()
+    }()
     private let modeView = HUDGlassCapsule(cornerRadius: 21)
     private var modeViewWidthConstraint: NSLayoutConstraint?
     private var sizeViewWidthConstraint: NSLayoutConstraint?
@@ -478,7 +485,7 @@ private final class SelectionOverlayView: NSView {
     override func resetCursorRects() {
         super.resetCursorRects()
         guard !isActiveRecordingHUD else {
-            addCursorRect(hudStackView.frame, cursor: .pointingHand)
+            addCursorRect(hudPresentationView.frame, cursor: .pointingHand)
             return
         }
 
@@ -492,7 +499,7 @@ private final class SelectionOverlayView: NSView {
                 addCursorRect(hitRect, cursor: handle.cursor)
             }
         }
-        addCursorRect(hudStackView.frame, cursor: .pointingHand)
+        addCursorRect(hudPresentationView.frame, cursor: .pointingHand)
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
@@ -500,7 +507,7 @@ private final class SelectionOverlayView: NSView {
             return super.hitTest(point)
         }
 
-        guard hudStackView.frame.contains(point) else {
+        guard hudPresentationView.frame.contains(point) else {
             return nil
         }
 
@@ -678,8 +685,7 @@ private final class SelectionOverlayView: NSView {
         super.draw(dirtyRect)
 
         guard let displayedLocalRect else {
-            NSColor.black.withAlphaComponent(0.38).setFill()
-            bounds.fill()
+            drawDimmedBackdrop(excluding: nil)
             return
         }
 
@@ -709,7 +715,13 @@ private final class SelectionOverlayView: NSView {
 
         hudStackView.addArrangedSubview(modeView)
         hudStackView.addArrangedSubview(sizeView)
-        addSubview(hudStackView)
+        hudStackView.autoresizingMask = [.width, .height]
+        if #available(macOS 26.0, *), let container = hudPresentationView as? NSGlassEffectContainerView {
+            container.contentView = hudStackView
+        } else {
+            hudPresentationView.addSubview(hudStackView)
+        }
+        addSubview(hudPresentationView)
         configureCountdownLabel()
         tooltipView.isHidden = true
         addSubview(tooltipView)
@@ -1186,16 +1198,38 @@ private final class SelectionOverlayView: NSView {
         }
     }
 
-    private func drawDimmedBackdrop(excluding selectionRect: CGRect) {
-        NSColor.black.withAlphaComponent(0.42).setFill()
-
+    private func drawDimmedBackdrop(excluding selectionRect: CGRect?) {
         NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.current?.shouldAntialias = false
-        let backdropPath = NSBezierPath(rect: bounds)
-        backdropPath.append(NSBezierPath(rect: selectionRect))
-        backdropPath.windingRule = .evenOdd
-        backdropPath.fill()
+        if let selectionRect {
+            NSGraphicsContext.current?.shouldAntialias = false
+            let selectionClip = NSBezierPath(rect: bounds)
+            selectionClip.appendRect(selectionRect)
+            selectionClip.windingRule = .evenOdd
+            selectionClip.addClip()
+        }
+
+        // Leave desktop pixels available to the glass, while keeping the surrounding scrim.
+        NSGraphicsContext.current?.shouldAntialias = true
+        for capsule in visibleGlassCapsules {
+            let rect = capsule.convert(capsule.bounds, to: self).insetBy(dx: 2, dy: 2)
+            guard !rect.isEmpty else { continue }
+            let radius = rect.height / 2
+            let capsuleClip = NSBezierPath(rect: bounds)
+            capsuleClip.appendRoundedRect(rect, xRadius: radius, yRadius: radius)
+            capsuleClip.windingRule = .evenOdd
+            capsuleClip.addClip()
+        }
+
+        NSColor.black.withAlphaComponent(selectionRect == nil ? 0.38 : 0.42).setFill()
+        bounds.fill()
         NSGraphicsContext.restoreGraphicsState()
+    }
+
+    private var visibleGlassCapsules: [HUDGlassCapsule] {
+        if !hudPresentationView.isHidden {
+            return [modeView, sizeView].filter { !$0.isHidden }
+        }
+        return placeholderView.isHidden ? [] : [placeholderView]
     }
 
     private func drawSelectionChrome(_ selectionRect: CGRect) {
@@ -1241,7 +1275,7 @@ private final class SelectionOverlayView: NSView {
         pendingTooltipTask?.cancel()
         pendingTooltipTask = nil
 
-        guard let text, let anchorView, !hudStackView.isHidden else {
+        guard let text, let anchorView, !hudPresentationView.isHidden else {
             tooltipView.isHidden = true
             return
         }
@@ -1259,7 +1293,7 @@ private final class SelectionOverlayView: NSView {
     }
 
     private func showHUDTooltip(_ text: String, anchorView: NSView?) {
-        guard let anchorView, !hudStackView.isHidden else {
+        guard let anchorView, !hudPresentationView.isHidden else {
             tooltipView.isHidden = true
             return
         }
@@ -1490,7 +1524,7 @@ private final class SelectionOverlayView: NSView {
         dragOperation = nil
         pendingTooltipTask?.cancel()
         tooltipView.isHidden = true
-        hudStackView.isHidden = true
+        hudPresentationView.isHidden = true
         modeView.isHidden = true
         sizeView.isHidden = true
         showCountdown(secondsRemaining: 5)
@@ -1552,7 +1586,7 @@ private final class SelectionOverlayView: NSView {
     }
 
     private func selectWindowCandidate(at localPoint: CGPoint) {
-        guard !hudStackView.frame.contains(localPoint) else {
+        guard !hudPresentationView.frame.contains(localPoint) else {
             return
         }
 
@@ -1575,7 +1609,7 @@ private final class SelectionOverlayView: NSView {
     }
 
     private func updateAutoWindowPreselection(at localPoint: CGPoint) {
-        guard hudStackView.isHidden || !hudStackView.frame.contains(localPoint) else {
+        guard hudPresentationView.isHidden || !hudPresentationView.frame.contains(localPoint) else {
             return
         }
 
@@ -1620,7 +1654,7 @@ private final class SelectionOverlayView: NSView {
 
     private func updateMetrics() {
         if isDelayCountdownActive {
-            hudStackView.isHidden = true
+            hudPresentationView.isHidden = true
             modeView.isHidden = true
             sizeView.isHidden = true
             placeholderView.isHidden = true
@@ -1628,7 +1662,7 @@ private final class SelectionOverlayView: NSView {
         }
 
         guard let displayedLocalRect else {
-            hudStackView.isHidden = true
+            hudPresentationView.isHidden = true
             modeView.isHidden = true
             sizeView.isHidden = true
             placeholderView.isHidden = !showsCenteredHUDWhenEmpty
@@ -1638,7 +1672,7 @@ private final class SelectionOverlayView: NSView {
         }
 
         placeholderView.isHidden = true
-        hudStackView.isHidden = false
+        hudPresentationView.isHidden = false
         modeView.isHidden = false
         sizeView.isHidden = false
         updateSizeControl(
@@ -1668,7 +1702,7 @@ private final class SelectionOverlayView: NSView {
         )
 
         guard let displayedLocalRect else {
-            hudStackView.frame = CGRect(origin: fallbackOrigin, size: visibleSize)
+            setHUDFrame(CGRect(origin: fallbackOrigin, size: visibleSize))
             return
         }
 
@@ -1681,7 +1715,7 @@ private final class SelectionOverlayView: NSView {
                 x: min(max(centeredOrigin.x, bounds.minX + 12), bounds.maxX - visibleSize.width - 12),
                 y: min(max(centeredOrigin.y, bounds.minY + 18), bounds.maxY - visibleSize.height - 18)
             )
-            hudStackView.frame = CGRect(origin: origin, size: visibleSize)
+            setHUDFrame(CGRect(origin: origin, size: visibleSize))
             return
         }
 
@@ -1710,7 +1744,13 @@ private final class SelectionOverlayView: NSView {
         origin.x = min(max(origin.x, bounds.minX + 12), bounds.maxX - visibleSize.width - 12)
         origin.y = min(max(origin.y, bounds.minY + 18), bounds.maxY - visibleSize.height - 18)
 
-        hudStackView.frame = CGRect(origin: origin, size: visibleSize)
+        setHUDFrame(CGRect(origin: origin, size: visibleSize))
+    }
+
+    private func setHUDFrame(_ frame: CGRect) {
+        guard hudPresentationView.frame != frame else { return }
+        hudPresentationView.frame = frame
+        needsDisplay = true
     }
 
     private func positionPlaceholder() {
@@ -1722,10 +1762,10 @@ private final class SelectionOverlayView: NSView {
             y: min(max(bounds.midY - height / 2, bounds.minY + 24), bounds.maxY - height - 24)
         )
 
-        placeholderView.frame = CGRect(
-            origin: origin,
-            size: CGSize(width: width, height: height)
-        )
+        let frame = CGRect(origin: origin, size: CGSize(width: width, height: height))
+        guard placeholderView.frame != frame else { return }
+        placeholderView.frame = frame
+        needsDisplay = true
     }
 
     private var modeButton: HUDIconButton? {
@@ -1786,19 +1826,21 @@ private final class SelectionOverlayView: NSView {
     func hudChromeColorsForTesting() -> (
         foreground: NSColor,
         background: NSColor,
-        border: NSColor,
         hover: NSColor
     ) {
         (
             foreground: hudTheme.foregroundColor,
             background: modeView.backingColor,
-            border: modeView.borderColor,
             hover: hudTheme.hoverColor
         )
     }
 
     func hudHasRegularGlassForTesting() -> Bool {
-        modeView.hasRegularGlass && sizeView.hasRegularGlass
+        guard #available(macOS 26.0, *),
+              let container = hudPresentationView as? NSGlassEffectContainerView else {
+            return false
+        }
+        return container.contentView === hudStackView && modeView.hasRegularGlass && sizeView.hasRegularGlass
     }
 
     func hudButtonTintColorsForTesting() -> [String: NSColor] {
@@ -1906,10 +1948,10 @@ private final class SelectionOverlayView: NSView {
         let point = clampedPoint(localPoint)
 
         guard !isActiveRecordingHUD else {
-            return hudStackView.frame.contains(point) ? "pointingHand" : "arrow"
+            return hudPresentationView.frame.contains(point) ? "pointingHand" : "arrow"
         }
 
-        if hudStackView.frame.contains(point) {
+        if hudPresentationView.frame.contains(point) {
             return "pointingHand"
         }
 
@@ -1929,7 +1971,7 @@ private final class SelectionOverlayView: NSView {
     }
 
     func recordingHUDFrameForTesting() -> CGRect {
-        hudStackView.frame
+        hudPresentationView.frame
     }
 
     func startRecordingButtonSnapshotForTesting() -> NSBitmapImageRep? {
@@ -1954,7 +1996,7 @@ private final class SelectionOverlayView: NSView {
     }
 
     func isHUDHiddenForTesting() -> Bool {
-        hudStackView.isHidden
+        hudPresentationView.isHidden
     }
 
     func countdownFrameForTesting() -> CGRect? {
@@ -3065,34 +3107,25 @@ private enum HUDTheme: Equatable {
     var tintColor: NSColor {
         switch self {
         case .lightContent: NSColor(white: 0.04, alpha: 0.58)
-        case .darkContent: NSColor(white: 0.78, alpha: 0.30)
+        case .darkContent: NSColor(white: 0.97, alpha: 0.22)
         }
     }
 
     var foregroundColor: NSColor {
         switch self {
         case .lightContent:
-            HUDChromePalette.deepGlassForegroundColor
+            .white
         case .darkContent:
-            .init(calibratedWhite: 0.06, alpha: 0.86)
+            NSColor(white: 0.07, alpha: 1)
         }
     }
 
     var backgroundColor: NSColor {
         switch self {
         case .lightContent:
-            NSColor(white: 0.035, alpha: 0.76)
+            NSColor(white: 0.035, alpha: 0.72)
         case .darkContent:
-            NSColor(white: 0.98, alpha: 0.67)
-        }
-    }
-
-    var borderColor: NSColor {
-        switch self {
-        case .lightContent:
-            HUDChromePalette.deepGlassBorderColor
-        case .darkContent:
-            .init(calibratedWhite: 0.06, alpha: 0.18)
+            NSColor(white: 0.98, alpha: 0.63)
         }
     }
 
@@ -3115,7 +3148,6 @@ private final class HUDGlassCapsule: NSView {
         backing.wantsLayer = true
         backing.layer?.cornerRadius = cornerRadius - 1
         backing.layer?.cornerCurve = .continuous
-        backing.layer?.borderWidth = 0.5
         backing.translatesAutoresizingMaskIntoConstraints = false
         controls.addSubview(backing)
         NSLayoutConstraint.activate([
@@ -3153,15 +3185,10 @@ private final class HUDGlassCapsule: NSView {
             glass.tintColor = theme.tintColor
         }
         backing.layer?.backgroundColor = theme.backgroundColor.cgColor
-        backing.layer?.borderColor = theme.borderColor.cgColor
     }
 
     var backingColor: NSColor {
         backing.layer?.backgroundColor.flatMap(NSColor.init(cgColor:)) ?? .clear
-    }
-
-    var borderColor: NSColor {
-        backing.layer?.borderColor.flatMap(NSColor.init(cgColor:)) ?? .clear
     }
 
     var hasRegularGlass: Bool {
