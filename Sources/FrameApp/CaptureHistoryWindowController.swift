@@ -122,6 +122,12 @@ final class CaptureHistoryWindowController: NSObject {
         reloadGrid()
     }
 
+    func refreshRecords() {
+        guard isWindowVisible else { return }
+        reloadRecords()
+        reloadGrid()
+    }
+
     func visibleRecords() -> [CaptureHistoryRecord] {
         records
     }

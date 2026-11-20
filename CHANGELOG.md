@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Keep explicitly replaced and newly saved screenshot edits in capture history.
+  Copying or exporting an image delivers the current edit without changing its
+  history entry.
+
 - Add a Launch at Login setting backed by macOS Service Management, with
   approval and failure feedback that reflects the system's real login-item state.
 - Separate development and production packaging as `Frame Dev`

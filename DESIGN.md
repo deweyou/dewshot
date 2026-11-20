@@ -232,10 +232,11 @@ system tool, not a branded dashboard.
 - Workspace Copy and Download are active output actions. On success they close
   the workspace and the originating Quick Access preview. The checkmark Save
   Current action follows the user's configured default: Ask Every Time opens the
-  Replace Current / Save As New choice menu, Replace Current updates the
-  current in-memory edited screenshot and any still-active Quick Access preview,
-  and Save As New creates another Quick Access preview. Replace Current must not
-  overwrite a user-saved external file.
+  Replace Current / Save As New choice menu. Replace Current updates the
+  existing history entry and any still-active Quick Access preview. Save As New
+  creates a separate history entry and Quick Access preview. Both respect the
+  history setting. Copy and Download deliver the rendered edit without changing
+  the history entry. Replace Current leaves external files alone.
 - Save Current, Copy, and Download form one compact, evenly sized output group
   in the workspace toolbar. Copy and Download tooltips read Save and Copy and
   Save and Download. The toolbar divides History, Tools, Contextual Style, and

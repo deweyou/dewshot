@@ -47,6 +47,29 @@ final class CaptureHistoryStoreTests: XCTestCase {
         XCTAssertEqual(try store.records(), [record])
     }
 
+    func testSavingAnEditReplacesTheSameHistoryEntryAndSavingACopyAddsOne() throws {
+        let size = CGSize(width: 40, height: 20)
+        let rect = CGRect(origin: .zero, size: size)
+        let configuration = CaptureHistoryConfiguration(isEnabled: true, retention: .forever, sizeLimit: .twoGB)
+        let original = CapturedScreenshot(pngData: Data([1]), image: NSImage(size: size), rect: rect)
+        let record = try XCTUnwrap(try store.addScreenshot(original, configuration: configuration))
+        let edited = CapturedScreenshot(id: original.id, pngData: Data([2, 3]), image: original.image, rect: rect)
+        let copy = CapturedScreenshot(pngData: Data([4]), image: original.image, rect: rect)
+
+        try store.saveEditedScreenshot(edited, configuration: configuration)
+        try store.saveEditedScreenshot(copy, configuration: configuration)
+
+        let reopened = CaptureHistoryStore(rootDirectory: rootDirectory)
+        let records = try reopened.records()
+        XCTAssertEqual(records.count, 2)
+        let replacement = try XCTUnwrap(records.first { $0.id == record.id })
+        XCTAssertEqual(replacement.createdAt, record.createdAt)
+        XCTAssertEqual(replacement.byteSize, 2)
+        XCTAssertEqual(try reopened.data(for: replacement), edited.pngData)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.fileURL(for: record).path))
+        XCTAssertEqual(try reopened.data(for: XCTUnwrap(records.first { $0.id == copy.id })), copy.pngData)
+    }
+
     func testDisabledHistoryDoesNotStoreScreenshot() throws {
         let record = try store.addScreenshot(
             pngData: Data([1, 2, 3]),

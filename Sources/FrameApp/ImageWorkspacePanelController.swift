@@ -42,7 +42,7 @@ final class ImageWorkspacePanelController: NSObject {
         save: @escaping () -> Bool,
         recognizeText: ((CapturedScreenshot) async throws -> RecognizedTextLayout)? = nil,
         copyRecognizedText: ((String) -> Bool)? = nil,
-        replaceCurrent: ((CapturedScreenshot) -> Void)? = nil,
+        replaceCurrent: ((CapturedScreenshot) throws -> Void)? = nil,
         saveAsNew: ((CapturedScreenshot) -> Bool)? = nil,
         closeSaveChoice: (() -> ImageWorkspaceCloseSaveChoice)? = nil
     ) -> Bool {
@@ -68,7 +68,7 @@ final class ImageWorkspacePanelController: NSObject {
         save: @escaping (CapturedScreenshot) -> Bool,
         recognizeText: ((CapturedScreenshot) async throws -> RecognizedTextLayout)? = nil,
         copyRecognizedText: ((String) -> Bool)? = nil,
-        replaceCurrent: ((CapturedScreenshot) -> Void)? = nil,
+        replaceCurrent: ((CapturedScreenshot) throws -> Void)? = nil,
         saveAsNew: ((CapturedScreenshot) -> Bool)? = nil,
         closeSaveChoice: (() -> ImageWorkspaceCloseSaveChoice)? = nil
     ) -> Bool {
@@ -1188,10 +1188,15 @@ final class ImageWorkspacePanelController: NSObject {
             return false
         }
 
+        do {
+            try item.replaceCurrent?(screenshot)
+        } catch {
+            return false
+        }
+
         item.screenshot = screenshot
         item.annotationCanvas?.setBaseScreenshot(screenshot)
         item.annotationCanvas?.markCurrentRenditionSaved()
-        item.replaceCurrent?(screenshot)
         item.saveCurrentButton?.isEnabled = false
         item.saveCurrentButton?.contentTintColor = .disabledControlTextColor
         updateDocumentControls(for: item, document: item.annotationCanvas?.documentForTesting ?? ImageAnnotationDocument())
@@ -1487,7 +1492,7 @@ private final class ImageWorkspaceItem {
     let save: (CapturedScreenshot) -> Bool
     let recognizeText: ((CapturedScreenshot) async throws -> RecognizedTextLayout)?
     let copyRecognizedText: ((String) -> Bool)?
-    let replaceCurrent: ((CapturedScreenshot) -> Void)?
+    let replaceCurrent: ((CapturedScreenshot) throws -> Void)?
     let saveAsNew: ((CapturedScreenshot) -> Bool)?
     let closeSaveChoice: (() -> ImageWorkspaceCloseSaveChoice)?
     var notificationObservers: [NSObjectProtocol] = []
@@ -1512,7 +1517,7 @@ private final class ImageWorkspaceItem {
         save: @escaping (CapturedScreenshot) -> Bool,
         recognizeText: ((CapturedScreenshot) async throws -> RecognizedTextLayout)?,
         copyRecognizedText: ((String) -> Bool)?,
-        replaceCurrent: ((CapturedScreenshot) -> Void)?,
+        replaceCurrent: ((CapturedScreenshot) throws -> Void)?,
         saveAsNew: ((CapturedScreenshot) -> Bool)?,
         closeSaveChoice: (() -> ImageWorkspaceCloseSaveChoice)?
     ) {

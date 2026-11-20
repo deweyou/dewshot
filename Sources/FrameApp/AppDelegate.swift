@@ -406,6 +406,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         anchor: CGRect?,
         isPending: Bool = false
     ) {
+        if activeQuickAccessScreenshotIDs.contains(screenshot.id),
+           quickAccessPanelController.updatePreview(for: screenshot) {
+            activeQuickAccessScreenshots[screenshot.id] = screenshot
+            return
+        }
+
         activeQuickAccessScreenshotIDs.insert(screenshot.id)
         activeQuickAccessScreenshots[screenshot.id] = screenshot
         quickAccessPanelController.show(
@@ -984,7 +990,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             throw CaptureHistoryError.imageDecodeFailed
         }
 
-        return CapturedScreenshot(pngData: data, image: image, rect: record.rect)
+        return CapturedScreenshot(id: record.id, pngData: data, image: image, rect: record.rect)
     }
 
     private func recording(from record: CaptureHistoryRecord) async throws -> CapturedRecording {
@@ -1164,25 +1170,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             replaceCurrent: { [weak self] editedScreenshot in
                 guard let self else {
-                    return
+                    throw CocoaError(.userCancelled)
                 }
 
-                guard self.activeQuickAccessScreenshotIDs.contains(editedScreenshot.id) else {
-                    return
+                try self.persistEditedScreenshot(editedScreenshot)
+                self.recognizedTextLayouts.removeValue(forKey: editedScreenshot.id)
+                if self.activeQuickAccessScreenshotIDs.contains(editedScreenshot.id) {
+                    self.activeQuickAccessScreenshots[editedScreenshot.id] = editedScreenshot
+                    self.quickAccessPanelController.updatePreview(for: editedScreenshot)
                 }
-
-                self.activeQuickAccessScreenshots[editedScreenshot.id] = editedScreenshot
-                self.quickAccessPanelController.updatePreview(for: editedScreenshot)
             },
             saveAsNew: { [weak self] editedScreenshot in
                 guard let self else {
                     return false
                 }
 
-                self.showQuickAccess(for: editedScreenshot, anchor: editedScreenshot.rect)
-                return true
+                do {
+                    try self.persistEditedScreenshot(editedScreenshot)
+                    self.showQuickAccess(for: editedScreenshot, anchor: editedScreenshot.rect)
+                    return true
+                } catch {
+                    return false
+                }
             }
         )
+    }
+
+    private func persistEditedScreenshot(_ screenshot: CapturedScreenshot) throws {
+        do {
+            try captureHistoryStore.saveEditedScreenshot(screenshot)
+            captureHistoryWindowController?.refreshRecords()
+        } catch {
+            showQuickAccessFailedAlert(title: strings.saveFailedTitle, error: error)
+            throw error
+        }
     }
 
     private func recognizeText(in screenshot: CapturedScreenshot) -> Bool {

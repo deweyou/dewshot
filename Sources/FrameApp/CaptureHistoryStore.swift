@@ -202,6 +202,7 @@ final class CaptureHistoryStore {
         kind: CaptureHistoryKind,
         data: Data,
         filenameExtension: String? = nil,
+        id: UUID = UUID(),
         imageSize: CGSize,
         rect: CGRect,
         date: Date = Date(),
@@ -217,7 +218,6 @@ final class CaptureHistoryStore {
 
         try ensureDirectories()
 
-        let id = UUID()
         let fileExtension = filenameExtension ?? kind.fileExtension
         let filename = "\(id.uuidString).\(fileExtension)"
         let record = CaptureHistoryRecord(
@@ -231,10 +231,15 @@ final class CaptureHistoryStore {
             rect: rect
         )
 
-        try data.write(to: captureURL(for: record), options: .atomic)
         var records = try readRecords()
+        try data.write(to: captureURL(for: record), options: .atomic)
         records.append(record)
-        try writeRecords(records)
+        do {
+            try writeRecords(records)
+        } catch {
+            try? fileManager.removeItem(at: captureURL(for: record))
+            throw error
+        }
         try cleanup(now: date, configuration: configuration)
         return try readRecords().first { $0.id == id }
     }
@@ -244,13 +249,54 @@ final class CaptureHistoryStore {
         date: Date = Date(),
         configuration: CaptureHistoryConfiguration = .current()
     ) throws -> CaptureHistoryRecord? {
-        try addScreenshot(
-            pngData: screenshot.pngData,
+        try addCapture(
+            kind: .screenshot,
+            data: screenshot.pngData,
+            id: screenshot.id,
             imageSize: screenshot.image.size,
             rect: screenshot.rect,
             date: date,
             configuration: configuration
         )
+    }
+
+    func saveEditedScreenshot(
+        _ screenshot: CapturedScreenshot,
+        configuration: CaptureHistoryConfiguration = .current()
+    ) throws {
+        guard configuration.isEnabled else {
+            return
+        }
+        guard screenshot.pngData.count <= configuration.sizeLimit.bytes else {
+            throw CocoaError(.fileWriteOutOfSpace)
+        }
+
+        var records = try readRecords()
+        guard let index = records.firstIndex(where: { $0.id == screenshot.id && $0.kind == .screenshot }) else {
+            _ = try addScreenshot(screenshot, configuration: configuration)
+            return
+        }
+
+        let original = records[index]
+        let replacement = CaptureHistoryRecord(
+            id: original.id,
+            kind: original.kind,
+            createdAt: original.createdAt,
+            filename: "\(UUID().uuidString).png",
+            byteSize: screenshot.pngData.count,
+            pixelWidth: Int(screenshot.image.size.width.rounded()),
+            pixelHeight: Int(screenshot.image.size.height.rounded()),
+            rect: screenshot.rect
+        )
+        try screenshot.pngData.write(to: captureURL(for: replacement), options: .atomic)
+        records[index] = replacement
+        do {
+            try writeRecords(records)
+        } catch {
+            try? fileManager.removeItem(at: captureURL(for: replacement))
+            throw error
+        }
+        try? fileManager.removeItem(at: captureURL(for: original))
     }
 
     func addRecording(
