@@ -38,8 +38,8 @@ The goal is simple: capture what you need, then get back to what you were doing.
 - Capture a window.
 - Capture long content by scrolling, with a fixed side preview that follows
   successfully stitched progress while capture is running, fast Finish without
-  restitching the whole capture, and automatic scrolling that waits for each
-  frame and stops at the bottom or when matching becomes unreliable.
+  restitching the whole capture. Automatic scrolling waits for each frame.
+  Frame explains when scrolling stops and lets you finish with the captured portion.
 - Use Frame on multiple displays.
 - Save screenshots as PNG files.
 
@@ -50,6 +50,7 @@ The goal is simple: capture what you need, then get back to what you were doing.
 - Drag a screenshot into another app.
 - Open a larger preview.
 - Pin an image so it stays visible while you work.
+- Recognize text and copy it from a selectable full-text or block view.
 
 ### Edit
 
@@ -70,7 +71,8 @@ The goal is simple: capture what you need, then get back to what you were doing.
 
 ### Find Recent Items
 
-- Open recent screenshots and recordings.
+- Double-click a recent screenshot to edit it or a recording to play it.
+- Replace a history screenshot with its edited version or save a separate copy.
 - Bring an older item back into the corner preview.
 - Choose how long Frame keeps recent items.
 

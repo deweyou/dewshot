@@ -941,6 +941,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showCaptureHistory() {
         let controller = captureHistoryWindowController ?? CaptureHistoryWindowController(
             store: captureHistoryStore,
+            open: { [weak self] record in
+                self?.openHistoryRecord(record)
+            },
             restore: { [weak self] record in
                 self?.restoreHistoryRecord(record)
             },
@@ -1061,6 +1064,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         return duration
+    }
+
+    private func openHistoryRecord(_ record: CaptureHistoryRecord) {
+        switch record.kind {
+        case .screenshot:
+            do {
+                _ = openWorkspace(try screenshot(from: record), kind: .temporaryPreview)
+            } catch {
+                showQuickAccessFailedAlert(title: strings.captureFailedTitle, error: error)
+            }
+        case .recording:
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                do {
+                    _ = self.openVideoPreview(try await self.recording(from: record))
+                } catch {
+                    self.showQuickAccessFailedAlert(title: self.strings.captureFailedTitle, error: error)
+                }
+            }
+        }
     }
 
     private func restoreHistoryRecord(_ record: CaptureHistoryRecord) {

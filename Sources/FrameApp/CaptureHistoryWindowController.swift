@@ -21,6 +21,7 @@ enum CaptureHistoryFilter: Int, CaseIterable {
 final class CaptureHistoryWindowController: NSObject {
     private let store: CaptureHistoryStore
     private let thumbnailProvider: RecordingThumbnailProvider
+    private let open: (CaptureHistoryRecord) -> Void
     private let restore: (CaptureHistoryRecord) -> Void
     private let copy: (CaptureHistoryRecord) -> Void
     private let save: (CaptureHistoryRecord) -> Void
@@ -40,6 +41,7 @@ final class CaptureHistoryWindowController: NSObject {
     init(
         store: CaptureHistoryStore,
         thumbnailProvider: RecordingThumbnailProvider = RecordingThumbnailProvider(),
+        open: @escaping (CaptureHistoryRecord) -> Void = { _ in },
         restore: @escaping (CaptureHistoryRecord) -> Void = { _ in },
         copy: @escaping (CaptureHistoryRecord) -> Void = { _ in },
         save: @escaping (CaptureHistoryRecord) -> Void = { _ in },
@@ -50,6 +52,7 @@ final class CaptureHistoryWindowController: NSObject {
     ) {
         self.store = store
         self.thumbnailProvider = thumbnailProvider
+        self.open = open
         self.restore = restore
         self.copy = copy
         self.save = save
@@ -94,6 +97,7 @@ final class CaptureHistoryWindowController: NSObject {
         window.backgroundColor = .clear
         window.isOpaque = false
         window.contentView = makeContentView()
+        window.initialFirstResponder = gridView
         window.center()
         self.window = window
 
@@ -283,8 +287,11 @@ final class CaptureHistoryWindowController: NSObject {
                 record: record,
                 image: previewImage(for: record),
                 metadata: metadataText(for: record),
+                accessibilityTitle: kindTitle(for: record.kind),
                 strings: strings
             )
+            tileView.onSelect = { [weak self] record in self?.gridView?.select(recordID: record.id) }
+            tileView.onOpen = { [weak self] record in self?.open(record) }
             tileView.onRestore = { [weak self] record in self?.restoreRecord(record) }
             tileView.onCopy = { [weak self] record in self?.copyRecord(record) }
             tileView.onSave = { [weak self] record in self?.saveRecord(record) }
@@ -595,6 +602,7 @@ private final class CaptureHistoryFilterButton: NSButton {
 
 private final class CaptureHistoryGridView: NSView {
     private var tileViews: [CaptureHistoryTileView] = []
+    private var selectedRecordID: UUID?
     private let contentInsets = NSEdgeInsets(top: 14, left: 18, bottom: 22, right: 18)
     private let horizontalSpacing: CGFloat = 14
     private let verticalSpacing: CGFloat = 22
@@ -613,6 +621,46 @@ private final class CaptureHistoryGridView: NSView {
         NSSize(width: NSView.noIntrinsicMetric, height: requiredHeight(for: bounds.width))
     }
 
+    override var acceptsFirstResponder: Bool {
+        true
+    }
+
+    override func keyDown(with event: NSEvent) {
+        let index = tileViews.firstIndex { $0.record.id == selectedRecordID }
+        let columns = layoutMetrics(for: bounds.width).columns
+        let nextIndex: Int
+        switch event.keyCode {
+        case 36, 76:
+            if let index {
+                tileViews[index].openRecord()
+            }
+            return
+        case 123:
+            nextIndex = index.map { $0 - 1 } ?? 0
+        case 124:
+            nextIndex = index.map { $0 + 1 } ?? 0
+        case 125:
+            nextIndex = index.map { $0 + columns } ?? 0
+        case 126:
+            nextIndex = index.map { $0 - columns } ?? 0
+        default:
+            super.keyDown(with: event)
+            return
+        }
+
+        guard tileViews.indices.contains(nextIndex) else { return }
+        let tile = tileViews[nextIndex]
+        select(recordID: tile.record.id)
+        scrollToVisible(tile.frame)
+    }
+
+    func select(recordID: UUID) {
+        selectedRecordID = recordID
+        for tile in tileViews {
+            tile.setSelected(tile.record.id == recordID)
+        }
+    }
+
     func setTileViews(_ tileViews: [CaptureHistoryTileView]) {
         for subview in self.tileViews {
             subview.removeFromSuperview()
@@ -621,6 +669,11 @@ private final class CaptureHistoryGridView: NSView {
         self.tileViews = tileViews
         for tileView in tileViews {
             addSubview(tileView)
+        }
+        if let selectedRecordID, tileViews.contains(where: { $0.record.id == selectedRecordID }) {
+            select(recordID: selectedRecordID)
+        } else {
+            selectedRecordID = nil
         }
 
         invalidateIntrinsicContentSize()
@@ -700,6 +753,8 @@ private final class CaptureHistoryTileView: NSView {
     private var currentShadowRadius: CGFloat = 8
     private var currentShadowOffset = CGSize(width: 0, height: -3)
 
+    var onSelect: ((CaptureHistoryRecord) -> Void)?
+    var onOpen: ((CaptureHistoryRecord) -> Void)?
     var onRestore: ((CaptureHistoryRecord) -> Void)?
     var onCopy: ((CaptureHistoryRecord) -> Void)?
     var onSave: ((CaptureHistoryRecord) -> Void)?
@@ -745,13 +800,25 @@ private final class CaptureHistoryTileView: NSView {
         imageView.imageSizeForTesting
     }
 
-    init(record: CaptureHistoryRecord, image: NSImage, metadata: String, strings: AppStrings) {
+    init(
+        record: CaptureHistoryRecord,
+        image: NSImage,
+        metadata: String,
+        accessibilityTitle: String,
+        strings: AppStrings
+    ) {
         self.record = record
         imageView = CaptureHistoryPreviewImageView(image: image)
         actionsView = NSVisualEffectView()
         deleteActionView = NSVisualEffectView()
         imageHeightConstraint = imageView.heightAnchor.constraint(equalToConstant: 0)
         super.init(frame: .zero)
+
+        identifier = NSUserInterfaceItemIdentifier(record.id.uuidString)
+        setAccessibilityElement(true)
+        setAccessibilityRole(.button)
+        setAccessibilityLabel("\(accessibilityTitle), \(metadata)")
+        setAccessibilityHelp(strings.captureHistoryOpen)
 
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
@@ -904,6 +971,38 @@ private final class CaptureHistoryTileView: NSView {
         )
         addTrackingArea(trackingArea)
         self.trackingArea = trackingArea
+    }
+
+    override var mouseDownCanMoveWindow: Bool {
+        false
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        window?.makeFirstResponder(superview)
+        onSelect?(record)
+        if event.clickCount == 2 {
+            openRecord()
+        }
+    }
+
+    override func accessibilityPerformPress() -> Bool {
+        onSelect?(record)
+        openRecord()
+        return true
+    }
+
+    func setSelected(_ isSelected: Bool) {
+        imageView.layer?.borderColor = isSelected ? NSColor.controlAccentColor.cgColor : NSColor.clear.cgColor
+        imageView.layer?.borderWidth = isSelected ? 2 : 0
+        setAccessibilitySelected(isSelected)
+    }
+
+    func openRecord() {
+        onOpen?(record)
     }
 
     override func mouseEntered(with event: NSEvent) {

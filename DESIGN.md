@@ -334,8 +334,9 @@ system tool, not a branded dashboard.
   rather than adding a separate toolbar band.
 - History tiles follow the Quick Access visual language: rounded image preview,
   fine translucent border, compact metadata, and icon-only hover HUD actions.
-- Restoring a history tile should return the capture to the bottom-left Quick
-  Access stack instead of opening recordings directly in the system player.
+- Single-click selects a history tile. Double-click or Return opens the selected
+  screenshot in the image workspace or recording in Frame's video preview.
+  Restore brings the capture back to the bottom-left Quick Access stack.
   Restored recordings must keep enough media metadata, including duration, for
   the same Preview and Edit actions available after a fresh recording.
 - Recording history tiles should use the first decodable recording frame as the

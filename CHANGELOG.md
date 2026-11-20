@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Open history screenshots in the editor or recordings in the player with a
+  double-click or Return.
+
 - Switch OCR results between selectable full text and individual blocks. Frame
   remembers the last view.
 

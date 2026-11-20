@@ -25,6 +25,55 @@ final class CaptureHistoryWindowControllerTests: XCTestCase {
     }
 
     @MainActor
+    func testDoubleClickAndReturnOpenTheSelectedHistoryItemWithoutRestoring() throws {
+        _ = NSApplication.shared
+        let screenshot = try addRecord(kind: .screenshot, date: Date(timeIntervalSince1970: 100))
+        let recording = try addRecord(kind: .recording, date: Date(timeIntervalSince1970: 101))
+        var opened: [CaptureHistoryRecord] = []
+        let controller = CaptureHistoryWindowController(
+            store: store,
+            open: { opened.append($0) },
+            restore: { _ in XCTFail("Open should not restore to Quick Access") }
+        )
+
+        controller.show(strings: AppStrings(language: .en))
+        defer { controller.close() }
+        let window = try XCTUnwrap(NSApp.windows.first { $0.title == "Capture History" && $0.isVisible })
+        let root = try XCTUnwrap(window.contentView)
+        let scrollView = try XCTUnwrap(findView(in: root, ofType: NSScrollView.self))
+        let grid = try XCTUnwrap(scrollView.documentView)
+        root.layoutSubtreeIfNeeded()
+
+        func pressKey(_ keyCode: UInt16, characters: String) throws {
+            grid.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+                windowNumber: window.windowNumber, context: nil, characters: characters,
+                charactersIgnoringModifiers: characters, isARepeat: false, keyCode: keyCode
+            )))
+        }
+
+        XCTAssertTrue(window.makeFirstResponder(grid))
+        try pressKey(124, characters: "")
+        try pressKey(36, characters: "\r")
+        XCTAssertEqual(opened, [recording])
+
+        let screenshotTile = try XCTUnwrap(grid.subviews.first { $0.identifier?.rawValue == screenshot.id.uuidString })
+        let clickLocation = screenshotTile.convert(CGPoint(x: 20, y: 40), to: nil)
+        for clickCount in [1, 2] {
+            let click = try XCTUnwrap(NSEvent.mouseEvent(
+                with: .leftMouseDown, location: clickLocation, modifierFlags: [], timestamp: 0,
+                windowNumber: window.windowNumber, context: nil, eventNumber: 0,
+                clickCount: clickCount, pressure: 1
+            ))
+            let gridPoint = grid.convert(clickLocation, from: nil)
+            let clickedView = try XCTUnwrap(grid.hitTest(grid.superview?.convert(gridPoint, from: grid) ?? gridPoint))
+            clickedView.mouseDown(with: click)
+            XCTAssertTrue(screenshotTile.isAccessibilitySelected())
+            XCTAssertEqual(opened, clickCount == 1 ? [recording] : [recording, screenshot])
+        }
+    }
+
+    @MainActor
     func testShowCreatesWindowWithPreviewGrid() throws {
         _ = try addRecord(kind: .screenshot, date: Date(timeIntervalSince1970: 100))
         let controller = CaptureHistoryWindowController(store: store)
