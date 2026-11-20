@@ -296,7 +296,6 @@ private final class SelectionOverlayNativeWindow: NSWindow {
 @MainActor
 private final class SelectionOverlayView: NSView {
     private let hudHeight: CGFloat = 42
-    private let screenshotActionsHeight: CGFloat = 50
     private let strings: AppStrings
     private let buttonWidth: CGFloat = 36
     private let defaultHUDSpacing: CGFloat = 7
@@ -313,7 +312,6 @@ private final class SelectionOverlayView: NSView {
     private let hudStackView = NSStackView()
     private let modeView = NSVisualEffectView()
     private var modeViewWidthConstraint: NSLayoutConstraint?
-    private var modeViewHeightConstraint: NSLayoutConstraint?
     private var sizeViewWidthConstraint: NSLayoutConstraint?
     private var modeButtonConstraints: [NSLayoutConstraint] = []
     private let sizeView = NSVisualEffectView()
@@ -704,14 +702,12 @@ private final class SelectionOverlayView: NSView {
 
         let modeViewWidthConstraint = modeView.widthAnchor.constraint(equalToConstant: modeViewWidth)
         let sizeViewWidthConstraint = sizeView.widthAnchor.constraint(equalToConstant: currentSizeViewWidth)
-        let modeViewHeightConstraint = modeView.heightAnchor.constraint(equalToConstant: modeViewHeight)
         self.modeViewWidthConstraint = modeViewWidthConstraint
-        self.modeViewHeightConstraint = modeViewHeightConstraint
         self.sizeViewWidthConstraint = sizeViewWidthConstraint
         sizeControl.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             modeViewWidthConstraint,
-            modeViewHeightConstraint,
+            modeView.heightAnchor.constraint(equalToConstant: hudHeight),
             sizeViewWidthConstraint,
             sizeView.heightAnchor.constraint(equalToConstant: hudHeight),
             sizeControl.leadingAnchor.constraint(equalTo: sizeView.leadingAnchor),
@@ -757,12 +753,8 @@ private final class SelectionOverlayView: NSView {
         }
     }
 
-    private var modeViewHeight: CGFloat {
-        recordingHUDMode == .screenshot ? screenshotActionsHeight : hudHeight
-    }
-
     private var hudSize: CGSize {
-        CGSize(width: modeViewWidth + currentHUDSpacing + currentSizeViewWidth, height: modeViewHeight)
+        CGSize(width: modeViewWidth + currentHUDSpacing + currentSizeViewWidth, height: hudHeight)
     }
 
     private func installModeButtons(_ buttons: [HUDIconButton]) {
@@ -779,7 +771,7 @@ private final class SelectionOverlayView: NSView {
             modeButtonConstraints.append(contentsOf: [
                 button.centerYAnchor.constraint(equalTo: modeView.centerYAnchor),
                 button.widthAnchor.constraint(equalToConstant: button.preferredHUDWidth),
-                button.heightAnchor.constraint(equalToConstant: modeViewHeight),
+                button.heightAnchor.constraint(equalToConstant: hudHeight),
             ])
 
             if let previousButton {
@@ -800,7 +792,6 @@ private final class SelectionOverlayView: NSView {
         }
 
         modeViewWidthConstraint?.constant = modeViewWidth
-        modeViewHeightConstraint?.constant = modeViewHeight
         updateHUDLayoutMetrics()
         NSLayoutConstraint.activate(modeButtonConstraints)
     }
@@ -863,7 +854,7 @@ private final class SelectionOverlayView: NSView {
     }
 
     private func makeScreenshotModeButtons() -> [HUDIconButton] {
-        let buttons = [
+        [
             makeRegionModeButton(),
             makeFullScreenButton(),
             makeDelayButton(),
@@ -871,10 +862,6 @@ private final class SelectionOverlayView: NSView {
             makeOCRButton(),
             makeRecordingButton(),
         ]
-        for (button, title) in zip(buttons, strings.screenshotActionTitles) {
-            button.setCaption(title, color: hudTheme.foregroundColor)
-        }
-        return buttons
     }
 
     private func makeRecordingSetupButtons() -> [HUDIconButton] {
@@ -1172,9 +1159,7 @@ private final class SelectionOverlayView: NSView {
             button.contentTintColor = tintColor
             button.slashColor = tintColor
             button.hoverColor = theme.hoverColor
-            if let caption = button.caption {
-                button.setCaption(caption, color: tintColor)
-            } else if button.isFormatToggle {
+            if button.isFormatToggle {
                 button.attributedTitle = formatButtonTitle(button.title, color: tintColor)
             }
         }
@@ -1789,7 +1774,7 @@ private final class SelectionOverlayView: NSView {
     func hudButtonVisibleTitlesForTesting() -> [String] {
         modeView.subviews
             .compactMap { $0 as? HUDIconButton }
-            .map { $0.caption ?? $0.title }
+            .map(\.title)
             .filter { !$0.isEmpty }
     }
 
@@ -2755,9 +2740,6 @@ private final class HUDIconButton: NSButton {
     let showsSlashOverlay: Bool
     let iconPointSize: CGFloat
     var preferredHUDWidth: CGFloat = 36
-    private(set) var caption: String?
-    private var captionImageView: NSImageView?
-    private var captionLabel: NSTextField?
     var isPrimaryAction = false {
         didSet {
             updatePrimaryAppearance()
@@ -2828,43 +2810,8 @@ private final class HUDIconButton: NSButton {
         nil
     }
 
-    func setCaption(_ text: String, color: NSColor) {
-        if captionLabel == nil {
-            let icon = NSImageView()
-            icon.image = image
-            icon.symbolConfiguration = symbolConfiguration
-            icon.imageScaling = .scaleProportionallyDown
-            icon.setAccessibilityElement(false)
-            addSubview(icon)
-            captionImageView = icon
-            image = nil
-
-            let label = NSTextField(labelWithString: text)
-            label.font = .systemFont(ofSize: 10, weight: .medium)
-            label.alignment = .center
-            label.setAccessibilityElement(false)
-            addSubview(label)
-            captionLabel = label
-            preferredHUDWidth = max(36, ceil(label.intrinsicContentSize.width) + 12)
-        }
-
-        caption = text
-        captionLabel?.textColor = color
-        captionImageView?.contentTintColor = color
-        needsLayout = true
-    }
-
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        guard let hit = super.hitTest(point) else { return nil }
-        return caption == nil ? hit : self
-    }
-
     override func layout() {
         super.layout()
-
-        let iconCenterY = caption == nil ? bounds.midY : (isFlipped ? 17 : bounds.height - 17)
-        captionImageView?.frame = NSRect(x: bounds.midX - 11, y: iconCenterY - 11, width: 22, height: 22)
-        captionLabel?.frame = NSRect(x: 2, y: isFlipped ? 29 : bounds.height - 44, width: bounds.width - 4, height: 15)
 
         primaryLayer.cornerRadius = 16
         primaryLayer.cornerCurve = .continuous
@@ -2878,7 +2825,7 @@ private final class HUDIconButton: NSButton {
         )
         hoverLayer.position = CGPoint(
             x: bounds.midX,
-            y: iconCenterY
+            y: bounds.midY
         )
         slashLayer.frame = CGRect(
             x: bounds.midX - 11,

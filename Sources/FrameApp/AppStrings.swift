@@ -56,13 +56,6 @@ struct AppStrings {
         }
     }
 
-    var screenshotActionTitles: [String] {
-        switch language {
-        case .zhHans: ["截图", "全屏", "延时", "长截图", "取文字", "录屏"]
-        case .en: ["Capture", "Full Screen", "Delay", "Scroll", "Copy Text", "Record"]
-        }
-    }
-
     var confirmScreenshotHint: String {
         switch language {
         case .zhHans: "截图 ↵"
