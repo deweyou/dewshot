@@ -97,6 +97,8 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
     <string>$FRAME_SHORT_VERSION</string>
     <key>CFBundleVersion</key>
     <string>$FRAME_BUILD</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>26.0</string>
     <key>LSUIElement</key>
     <true/>
     <key>NSPrincipalClass</key>

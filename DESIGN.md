@@ -74,11 +74,10 @@ system tool, not a branded dashboard.
   direct actions. Show configured shortcuts using native menu key equivalents;
   keep Record Screen available even when its optional global shortcut is unset.
 
-- Use native glass/material effects first. In AppKit, prefer
-  `NSVisualEffectView` with a HUD-appropriate material before drawing custom
-  backgrounds. In future SwiftUI surfaces, prefer Liquid Glass APIs such as
-  `glassEffect` and glass button styles when the deployment target allows them.
-- The HUD is a compact dark glass hub, not a heavy solid toolbar.
+- Use AppKit Regular Liquid Glass for both capture HUD capsules. The capsules
+  and the tooltip follow the app appearance. Use dark icons on a light backing
+  and light icons on a dark-tinted backing. Keep enough backing opacity to
+  separate the controls from busy desktop content.
 - Keep the HUD small and low-priority. It should not compete with the selected
   content.
 - Keep HUD width stable while users edit size, toggle ratio lock, or open ratio

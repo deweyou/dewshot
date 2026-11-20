@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Choose Follow System, Light, or Dark in Settings. Both screenshot HUD capsules
+  use Regular Liquid Glass and follow the selected appearance.
+- Require macOS 26 or later.
+
 - Open history screenshots in the editor or recordings in the player with a
   double-click or Return.
 

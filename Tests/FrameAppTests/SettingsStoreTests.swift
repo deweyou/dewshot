@@ -29,6 +29,20 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(SettingsStore.appLanguage(defaults: defaults), .en)
     }
 
+    func testThemeDefaultsToSystemForMissingOrUnknownPreference() {
+        XCTAssertEqual(SettingsStore.appTheme(defaults: defaults), .system)
+
+        defaults.set("unknown", forKey: SettingsStore.appThemeKey)
+        XCTAssertEqual(SettingsStore.appTheme(defaults: defaults), .system)
+    }
+
+    func testThemePersistsEachAppearanceChoice() {
+        for theme in AppTheme.allCases {
+            SettingsStore.setAppTheme(theme, defaults: defaults)
+            XCTAssertEqual(SettingsStore.appTheme(defaults: defaults), theme)
+        }
+    }
+
     func testScreenshotShortcutPersistsCustomStorageValue() {
         let shortcut = ScreenshotShortcut(key: .number("7"), modifiers: [.command, .option])
 

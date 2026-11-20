@@ -5,6 +5,7 @@ enum SettingsStore {
     static let screenshotShortcutKey = "screenshotShortcut"
     static let recordingShortcutKey = "recordingShortcut"
     static let appLanguageKey = "appLanguage"
+    static let appThemeKey = "appTheme"
     static let screenshotDirectoryKey = "screenshotDirectory"
     static let windowScreenshotDecorationStyleKey = "windowScreenshotDecorationStyle"
     static let rememberedSelectionKey = "rememberedWindowSelection"
@@ -65,6 +66,14 @@ enum SettingsStore {
         defaults: UserDefaults = .standard
     ) {
         defaults.set(language.rawValue, forKey: appLanguageKey)
+    }
+
+    static func appTheme(defaults: UserDefaults = .standard) -> AppTheme {
+        AppTheme(rawValue: defaults.string(forKey: appThemeKey) ?? "") ?? .system
+    }
+
+    static func setAppTheme(_ theme: AppTheme, defaults: UserDefaults = .standard) {
+        defaults.set(theme.rawValue, forKey: appThemeKey)
     }
 
     static func ocrRecognitionLanguages(defaults: UserDefaults = .standard) -> [String] {

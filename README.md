@@ -76,6 +76,12 @@ The goal is simple: capture what you need, then get back to what you were doing.
 - Bring an older item back into the corner preview.
 - Choose how long Frame keeps recent items.
 
+### Appearance
+
+- Requires macOS 26 or later.
+- In Settings → General, choose Follow System, Light, or Dark. The screenshot
+  toolbar uses Liquid Glass and follows the selected appearance.
+
 ### Start Automatically
 
 - Turn on Launch at Login in Settings to keep Frame available from the menu bar

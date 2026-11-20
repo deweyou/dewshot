@@ -394,6 +394,13 @@ struct AppStrings {
         }
     }
 
+    var settingsAppearance: String {
+        switch language {
+        case .zhHans: "外观"
+        case .en: "Appearance"
+        }
+    }
+
     var settingsOCRLanguages: String {
         switch language {
         case .zhHans: "OCR 识别语言"

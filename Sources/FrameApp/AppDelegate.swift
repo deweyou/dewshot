@@ -79,6 +79,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         strings = AppStrings.current()
+        SettingsStore.appTheme().apply(to: NSApp)
         statusItemController = StatusItemController(
             strings: strings,
             onCapture: { [weak self] in

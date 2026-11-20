@@ -14,9 +14,9 @@ Frame development uses SwiftPM for verification, a local packaging script for ap
 
 ## Requirements
 
-- macOS
+- macOS 26 or later
 - Swift 6.2 toolchain
-- Xcode command line tools
+- Xcode command line tools with the macOS 26 SDK or later
 - Apple Developer Program membership only for Apple Development and public distribution signing
 
 ## Verify
@@ -271,7 +271,7 @@ Agents should use this stable-sign-and-replace flow whenever the user asks to ru
 4. Quit and reopen `~/Applications/Frame Dev.app`.
 5. Open `Frame -> 设置...` / `Frame -> Settings...`, then open it again from another display and confirm it centers on the current display.
 6. Change the language between Follow System, 中文, and English. Confirm the menu, settings window labels, permission alerts opened after the change, Quick Access tooltips, and capture placeholder use the selected language. In General, turn Launch at Login on and confirm Frame appears under System Settings > General > Login Items & Extensions; turn it off and confirm the login item is removed. If macOS reports that approval is required, confirm Settings explains where to approve it. In Permissions, confirm Screen Recording, Accessibility, and Input Monitoring each show their current state; open System Settings from a row, return to Frame, and confirm the states refresh.
-7. In Settings, choose a custom screenshot save folder, quit and reopen Frame, and confirm the path persists.
+7. In Settings, switch Appearance between Light, Dark, and Follow System. Confirm the Settings window updates immediately and both screenshot HUD capsules, icons, dimensions, and tooltips remain readable over light and dark content. Quit and reopen Frame to confirm the choice persists. Also verify that a custom screenshot save folder persists.
 8. In Settings, change Window screenshot style between Soft Backdrop, Canvas Glow, Transparent Shadow, and Original. Change Edited screenshot save between Ask Every Time, Replace Current, and Save As New. Confirm the labels localize and the selected values persist after reopening Settings.
 9. Reset the screenshot save folder and confirm it returns to Desktop.
 10. Confirm the menu has separate Capture Screenshot and Record Screen items, displays configured shortcuts, and keeps Record Screen available when its shortcut is unset. Start each flow from its menu item or configured keyboard shortcut.

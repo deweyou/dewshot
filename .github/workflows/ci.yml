@@ -9,7 +9,7 @@ on:
 jobs:
   test-build-package:
     name: Test, Build, Package
-    runs-on: macos-15
+    runs-on: macos-26
 
     steps:
       - name: Checkout
@@ -41,4 +41,5 @@ jobs:
           test -x .build/app/Frame.app/Contents/MacOS/Frame
           plutil -lint .build/app/Frame.app/Contents/Info.plist
           test "$(plutil -extract CFBundleIdentifier raw .build/app/Frame.app/Contents/Info.plist)" = "dev.deweyou.frame"
+          test "$(plutil -extract LSMinimumSystemVersion raw .build/app/Frame.app/Contents/Info.plist)" = "26.0"
           codesign -dv .build/app/Frame.app

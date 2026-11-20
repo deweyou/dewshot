@@ -110,6 +110,10 @@ final class SelectionOverlayWindow {
         overlayView.hudButtonIconPointSizesForTesting()
     }
 
+    func setAppearanceForTesting(_ appearance: NSAppearance) {
+        window.appearance = appearance
+    }
+
     func hudChromeColorsForTesting() -> (
         foreground: NSColor,
         background: NSColor,
@@ -123,8 +127,8 @@ final class SelectionOverlayWindow {
         overlayView.hudButtonTintColorsForTesting()
     }
 
-    func hudHasDrawnChromeFillForTesting() -> Bool {
-        overlayView.hudHasDrawnChromeFillForTesting()
+    func hudHasRegularGlassForTesting() -> Bool {
+        overlayView.hudHasRegularGlassForTesting()
     }
 
     func hudButtonLayoutMetricsForTesting() -> (buttonWidth: CGFloat, hoverDiameter: CGFloat, screenshotModeWidth: CGFloat) {
@@ -193,6 +197,10 @@ final class SelectionOverlayWindow {
 
     func recordingHUDFrameForTesting() -> CGRect {
         overlayView.recordingHUDFrameForTesting()
+    }
+
+    func startRecordingButtonSnapshotForTesting() -> NSBitmapImageRep? {
+        overlayView.startRecordingButtonSnapshotForTesting()
     }
 
     func startRecordingButtonIsPrimaryForTesting() -> Bool {
@@ -310,14 +318,14 @@ private final class SelectionOverlayView: NSView {
     private let onStartRecording: (SelectionCapture, RecordingOptions) -> Void
     private let onComplete: (SelectionOverlayCompletion?) -> Void
     private let hudStackView = NSStackView()
-    private let modeView = NSVisualEffectView()
+    private let modeView = HUDGlassCapsule(cornerRadius: 21)
     private var modeViewWidthConstraint: NSLayoutConstraint?
     private var sizeViewWidthConstraint: NSLayoutConstraint?
     private var modeButtonConstraints: [NSLayoutConstraint] = []
-    private let sizeView = NSVisualEffectView()
+    private let sizeView = HUDGlassCapsule(cornerRadius: 21)
     private let sizeControl = HUDSizeControl()
     private let recordingElapsedLabel = NSTextField(labelWithString: "00:00")
-    private let placeholderView = NSVisualEffectView()
+    private let placeholderView = HUDGlassCapsule(cornerRadius: 22)
     private let placeholderLabel: NSTextField
     private let scrollingActionText: String
     private let ocrActionText: String
@@ -389,6 +397,7 @@ private final class SelectionOverlayView: NSView {
         isWindowHoverPreselectionEnabled = initialGlobalRect == nil && initialWindowCandidate == nil
         configureHUD()
         configurePlaceholder()
+        applyHUDTheme(HUDTheme(appearance: effectiveAppearance))
         if initialMode == .recordingSetup {
             enterRecordingSetupMode()
         }
@@ -456,7 +465,14 @@ private final class SelectionOverlayView: NSView {
         super.layout()
         positionHUD()
         positionPlaceholder()
-        scheduleHUDThemeUpdate()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        let theme = HUDTheme(appearance: effectiveAppearance)
+        if theme != hudTheme {
+            applyHUDTheme(theme)
+        }
     }
 
     override func resetCursorRects() {
@@ -682,14 +698,12 @@ private final class SelectionOverlayView: NSView {
         hudStackView.spacing = defaultHUDSpacing
         hudStackView.translatesAutoresizingMaskIntoConstraints = true
 
-        configureGlass(modeView, cornerRadius: 21)
         modeView.isHidden = true
         installModeButtons(makeScreenshotModeButtons())
 
-        configureGlass(sizeView, cornerRadius: 21)
         sizeView.isHidden = true
-        sizeView.addSubview(sizeControl)
-        sizeView.addSubview(recordingElapsedLabel)
+        sizeView.controls.addSubview(sizeControl)
+        sizeView.controls.addSubview(recordingElapsedLabel)
         configureSizeControl()
         configureRecordingElapsedLabel()
 
@@ -710,12 +724,12 @@ private final class SelectionOverlayView: NSView {
             modeView.heightAnchor.constraint(equalToConstant: hudHeight),
             sizeViewWidthConstraint,
             sizeView.heightAnchor.constraint(equalToConstant: hudHeight),
-            sizeControl.leadingAnchor.constraint(equalTo: sizeView.leadingAnchor),
-            sizeControl.trailingAnchor.constraint(equalTo: sizeView.trailingAnchor),
-            sizeControl.topAnchor.constraint(equalTo: sizeView.topAnchor),
-            sizeControl.bottomAnchor.constraint(equalTo: sizeView.bottomAnchor),
-            recordingElapsedLabel.centerXAnchor.constraint(equalTo: sizeView.centerXAnchor),
-            recordingElapsedLabel.centerYAnchor.constraint(equalTo: sizeView.centerYAnchor),
+            sizeControl.leadingAnchor.constraint(equalTo: sizeView.controls.leadingAnchor),
+            sizeControl.trailingAnchor.constraint(equalTo: sizeView.controls.trailingAnchor),
+            sizeControl.topAnchor.constraint(equalTo: sizeView.controls.topAnchor),
+            sizeControl.bottomAnchor.constraint(equalTo: sizeView.controls.bottomAnchor),
+            recordingElapsedLabel.centerXAnchor.constraint(equalTo: sizeView.controls.centerXAnchor),
+            recordingElapsedLabel.centerYAnchor.constraint(equalTo: sizeView.controls.centerYAnchor),
         ])
 
         positionHUD()
@@ -730,7 +744,7 @@ private final class SelectionOverlayView: NSView {
     }
 
     private var modeViewWidth: CGFloat {
-        modeView.subviews
+        modeView.controls.subviews
             .compactMap { $0 as? HUDIconButton }
             .reduce(modeViewHorizontalPadding * 2) { $0 + $1.preferredHUDWidth }
     }
@@ -760,16 +774,16 @@ private final class SelectionOverlayView: NSView {
     private func installModeButtons(_ buttons: [HUDIconButton]) {
         NSLayoutConstraint.deactivate(modeButtonConstraints)
         modeButtonConstraints.removeAll()
-        modeView.subviews
+        modeView.controls.subviews
             .compactMap { $0 as? HUDIconButton }
             .forEach { $0.removeFromSuperview() }
 
         var previousButton: HUDIconButton?
         for button in buttons {
             button.translatesAutoresizingMaskIntoConstraints = false
-            modeView.addSubview(button)
+            modeView.controls.addSubview(button)
             modeButtonConstraints.append(contentsOf: [
-                button.centerYAnchor.constraint(equalTo: modeView.centerYAnchor),
+                button.centerYAnchor.constraint(equalTo: modeView.controls.centerYAnchor),
                 button.widthAnchor.constraint(equalToConstant: button.preferredHUDWidth),
                 button.heightAnchor.constraint(equalToConstant: hudHeight),
             ])
@@ -778,7 +792,7 @@ private final class SelectionOverlayView: NSView {
                 modeButtonConstraints.append(button.leadingAnchor.constraint(equalTo: previousButton.trailingAnchor))
             } else {
                 modeButtonConstraints.append(
-                    button.leadingAnchor.constraint(equalTo: modeView.leadingAnchor, constant: modeViewHorizontalPadding)
+                    button.leadingAnchor.constraint(equalTo: modeView.controls.leadingAnchor, constant: modeViewHorizontalPadding)
                 )
             }
 
@@ -787,7 +801,7 @@ private final class SelectionOverlayView: NSView {
 
         if let previousButton {
             modeButtonConstraints.append(
-                previousButton.trailingAnchor.constraint(equalTo: modeView.trailingAnchor, constant: -modeViewHorizontalPadding)
+                previousButton.trailingAnchor.constraint(equalTo: modeView.controls.trailingAnchor, constant: -modeViewHorizontalPadding)
             )
         }
 
@@ -813,7 +827,6 @@ private final class SelectionOverlayView: NSView {
     }
 
     private func configurePlaceholder() {
-        configureGlass(placeholderView, cornerRadius: 22)
         placeholderView.isHidden = true
         placeholderView.translatesAutoresizingMaskIntoConstraints = true
         placeholderLabel.font = .systemFont(ofSize: 13, weight: .medium)
@@ -822,35 +835,16 @@ private final class SelectionOverlayView: NSView {
         placeholderLabel.lineBreakMode = .byTruncatingTail
         placeholderLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        placeholderView.addSubview(placeholderLabel)
+        placeholderView.controls.addSubview(placeholderLabel)
         addSubview(placeholderView)
 
         NSLayoutConstraint.activate([
-            placeholderLabel.leadingAnchor.constraint(equalTo: placeholderView.leadingAnchor, constant: 18),
-            placeholderLabel.trailingAnchor.constraint(equalTo: placeholderView.trailingAnchor, constant: -18),
-            placeholderLabel.centerYAnchor.constraint(equalTo: placeholderView.centerYAnchor),
+            placeholderLabel.leadingAnchor.constraint(equalTo: placeholderView.controls.leadingAnchor, constant: 18),
+            placeholderLabel.trailingAnchor.constraint(equalTo: placeholderView.controls.trailingAnchor, constant: -18),
+            placeholderLabel.centerYAnchor.constraint(equalTo: placeholderView.controls.centerYAnchor),
         ])
 
         positionPlaceholder()
-    }
-
-    private func configureGlass(_ view: NSVisualEffectView, cornerRadius: CGFloat) {
-        view.material = .hudWindow
-        view.blendingMode = .behindWindow
-        view.state = .active
-        view.wantsLayer = true
-        view.layer?.cornerRadius = cornerRadius
-        view.layer?.cornerCurve = .continuous
-        view.layer?.masksToBounds = true
-        view.layer?.shadowOpacity = 0
-        view.layer?.shadowPath = nil
-        view.layer?.borderWidth = 0.5
-        view.layer?.borderColor = HUDChromePalette.deepGlassBorderColor.cgColor
-        view.layer?.backgroundColor = HUDChromePalette.deepGlassBackgroundColor.cgColor
-        let fillView = HUDChromeFillView(cornerRadius: cornerRadius)
-        fillView.frame = view.bounds
-        fillView.autoresizingMask = [.width, .height]
-        view.addSubview(fillView, positioned: .below, relativeTo: nil)
     }
 
     private func makeScreenshotModeButtons() -> [HUDIconButton] {
@@ -981,6 +975,7 @@ private final class SelectionOverlayView: NSView {
         button.preferredHUDWidth = setupPrimaryButtonWidth
         button.isPrimaryAction = true
         button.image = nil
+        button.imagePosition = .noImage
         button.title = "开始录制"
         button.attributedTitle = NSAttributedString(
             string: "开始录制",
@@ -1141,20 +1136,9 @@ private final class SelectionOverlayView: NSView {
 
     private func applyHUDTheme(_ theme: HUDTheme) {
         hudTheme = theme
-        [modeView, sizeView].forEach { view in
-            view.layer?.borderColor = theme.borderColor.cgColor
-            view.layer?.backgroundColor = theme.backgroundColor.cgColor
-            view.subviews
-                .compactMap { $0 as? HUDChromeFillView }
-                .forEach { $0.applyTheme(theme) }
-        }
-        placeholderView.layer?.borderColor = theme.borderColor.cgColor
-        placeholderView.layer?.backgroundColor = theme.backgroundColor.cgColor
-        placeholderView.subviews
-            .compactMap { $0 as? HUDChromeFillView }
-            .forEach { $0.applyTheme(theme) }
+        [modeView, sizeView, placeholderView].forEach { $0.applyTheme(theme) }
         placeholderLabel.textColor = theme.foregroundColor
-        for button in modeView.subviews.compactMap({ $0 as? HUDIconButton }) {
+        for button in modeView.controls.subviews.compactMap({ $0 as? HUDIconButton }) {
             let tintColor = hudTintColor(for: button, theme: theme)
             button.contentTintColor = tintColor
             button.slashColor = tintColor
@@ -1174,6 +1158,9 @@ private final class SelectionOverlayView: NSView {
     }
 
     private func hudTintColor(for button: HUDIconButton, theme: HUDTheme) -> NSColor {
+        if button.isPrimaryAction {
+            return .white
+        }
         if button.accessibilityLabel() == "停止录制" {
             return .systemRed
         }
@@ -1647,7 +1634,6 @@ private final class SelectionOverlayView: NSView {
             placeholderView.isHidden = !showsCenteredHUDWhenEmpty
             positionHUD()
             positionPlaceholder()
-            scheduleHUDThemeUpdate()
             return
         }
 
@@ -1661,7 +1647,6 @@ private final class SelectionOverlayView: NSView {
         )
         positionHUD()
         positionPlaceholder()
-        scheduleHUDThemeUpdate()
     }
 
     private func updateSizeControl(width: Int, height: Int) {
@@ -1744,35 +1729,35 @@ private final class SelectionOverlayView: NSView {
     }
 
     private var modeButton: HUDIconButton? {
-        modeView.subviews.first as? HUDIconButton
+        modeView.controls.subviews.compactMap { $0 as? HUDIconButton }.first
     }
 
     private var fullScreenButton: HUDIconButton? {
-        Array(modeView.subviews.compactMap { $0 as? HUDIconButton }).dropFirst().first
+        Array(modeView.controls.subviews.compactMap { $0 as? HUDIconButton }).dropFirst().first
     }
 
     private var delayButton: HUDIconButton? {
-        Array(modeView.subviews.compactMap { $0 as? HUDIconButton }).dropFirst(2).first
+        Array(modeView.controls.subviews.compactMap { $0 as? HUDIconButton }).dropFirst(2).first
     }
 
     private var ocrButton: HUDIconButton? {
-        Array(modeView.subviews.compactMap { $0 as? HUDIconButton }).dropFirst(3).first
+        Array(modeView.controls.subviews.compactMap { $0 as? HUDIconButton }).dropFirst(3).first
     }
 
     func hudButtonAccessibilityLabelsForTesting() -> [String] {
-        modeView.subviews
+        modeView.controls.subviews
             .compactMap { $0 as? NSButton }
             .compactMap { $0.accessibilityLabel() }
     }
 
     func hudButtonImageDescriptionsForTesting() -> [String] {
-        modeView.subviews
+        modeView.controls.subviews
             .compactMap { $0 as? HUDIconButton }
             .map(\.symbolName)
     }
 
     func hudButtonVisibleTitlesForTesting() -> [String] {
-        modeView.subviews
+        modeView.controls.subviews
             .compactMap { $0 as? HUDIconButton }
             .map(\.title)
             .filter { !$0.isEmpty }
@@ -1780,7 +1765,7 @@ private final class SelectionOverlayView: NSView {
 
     func hudButtonSlashStatesForTesting() -> [String: Bool] {
         Dictionary(
-            uniqueKeysWithValues: modeView.subviews
+            uniqueKeysWithValues: modeView.controls.subviews
                 .compactMap { $0 as? HUDIconButton }
                 .compactMap { button in
                     button.accessibilityLabel().map { ($0, button.showsSlashOverlay) }
@@ -1790,7 +1775,7 @@ private final class SelectionOverlayView: NSView {
 
     func hudButtonIconPointSizesForTesting() -> [String: CGFloat] {
         Dictionary(
-            uniqueKeysWithValues: modeView.subviews
+            uniqueKeysWithValues: modeView.controls.subviews
                 .compactMap { $0 as? HUDIconButton }
                 .compactMap { button in
                     button.accessibilityLabel().map { ($0, button.iconPointSize) }
@@ -1806,20 +1791,19 @@ private final class SelectionOverlayView: NSView {
     ) {
         (
             foreground: hudTheme.foregroundColor,
-            background: NSColor(cgColor: modeView.layer?.backgroundColor ?? NSColor.clear.cgColor) ?? .clear,
-            border: NSColor(cgColor: modeView.layer?.borderColor ?? NSColor.clear.cgColor) ?? .clear,
+            background: modeView.backingColor,
+            border: modeView.borderColor,
             hover: hudTheme.hoverColor
         )
     }
 
-    func hudHasDrawnChromeFillForTesting() -> Bool {
-        modeView.subviews.contains { $0 is HUDChromeFillView }
-            && sizeView.subviews.contains { $0 is HUDChromeFillView }
+    func hudHasRegularGlassForTesting() -> Bool {
+        modeView.hasRegularGlass && sizeView.hasRegularGlass
     }
 
     func hudButtonTintColorsForTesting() -> [String: NSColor] {
         Dictionary(
-            uniqueKeysWithValues: modeView.subviews
+            uniqueKeysWithValues: modeView.controls.subviews
                 .compactMap { $0 as? HUDIconButton }
                 .compactMap { button in
                     guard let label = button.accessibilityLabel() else {
@@ -1840,7 +1824,7 @@ private final class SelectionOverlayView: NSView {
     }
 
     func performHUDActionForTesting(accessibilityLabel: String) -> Bool {
-        guard modeView.subviews.compactMap({ $0 as? NSButton }).contains(where: {
+        guard modeView.controls.subviews.compactMap({ $0 as? NSButton }).contains(where: {
             $0.accessibilityLabel() == accessibilityLabel
         }) else {
             return false
@@ -1948,11 +1932,21 @@ private final class SelectionOverlayView: NSView {
         hudStackView.frame
     }
 
+    func startRecordingButtonSnapshotForTesting() -> NSBitmapImageRep? {
+        guard let button = primaryHUDButton,
+              let bitmap = button.bitmapImageRepForCachingDisplay(in: button.bounds) else {
+            return nil
+        }
+        button.cacheDisplay(in: button.bounds, to: bitmap)
+        return bitmap
+    }
+
+    private var primaryHUDButton: HUDIconButton? {
+        modeView.controls.subviews.compactMap { $0 as? HUDIconButton }.first { $0.isPrimaryAction }
+    }
+
     func startRecordingButtonIsPrimaryForTesting() -> Bool {
-        modeView.subviews
-            .compactMap { $0 as? HUDIconButton }
-            .first { $0.accessibilityLabel() == "开始录制" }?
-            .isPrimaryAction == true
+        primaryHUDButton?.accessibilityLabel() == "开始录制"
     }
 
     func isDelayCountdownActiveForTesting() -> Bool {
@@ -2163,26 +2157,6 @@ private final class SelectionOverlayView: NSView {
 
     private var isShowingAutoWindowPreselection: Bool {
         isWindowHoverPreselectionEnabled && windowCandidate != nil
-    }
-
-    private func updateHUDTheme() {
-        applyHUDTheme(.lightContent)
-    }
-
-    private func updateVisibleHUDTheme() {
-        guard !hudStackView.isHidden || !placeholderView.isHidden else {
-            return
-        }
-
-        updateHUDTheme()
-    }
-
-    private func scheduleHUDThemeUpdate() {
-        updateVisibleHUDTheme()
-
-        DispatchQueue.main.async { [weak self] in
-            self?.updateVisibleHUDTheme()
-        }
     }
 
     private func clampedPoint(_ point: CGPoint) -> CGPoint {
@@ -3078,9 +3052,22 @@ private final class HUDTooltipView: NSView {
     }
 }
 
-private enum HUDTheme {
+private enum HUDTheme: Equatable {
     case lightContent
     case darkContent
+
+    init(appearance: NSAppearance) {
+        self = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            ? .lightContent
+            : .darkContent
+    }
+
+    var tintColor: NSColor {
+        switch self {
+        case .lightContent: NSColor(white: 0.04, alpha: 0.58)
+        case .darkContent: NSColor(white: 0.78, alpha: 0.30)
+        }
+    }
 
     var foregroundColor: NSColor {
         switch self {
@@ -3094,9 +3081,9 @@ private enum HUDTheme {
     var backgroundColor: NSColor {
         switch self {
         case .lightContent:
-            HUDChromePalette.deepGlassBackgroundColor
+            NSColor(white: 0.035, alpha: 0.76)
         case .darkContent:
-            .white.withAlphaComponent(0.96)
+            NSColor(white: 0.98, alpha: 0.67)
         }
     }
 
@@ -3119,13 +3106,41 @@ private enum HUDTheme {
     }
 }
 
-private final class HUDChromeFillView: NSView {
-    private let cornerRadius: CGFloat
-    private var fillColor = HUDChromePalette.deepGlassBackgroundColor
+private final class HUDGlassCapsule: NSView {
+    let controls = NSView()
+    private let backing = HUDGlassBackingView()
+    private let material: NSView
 
     init(cornerRadius: CGFloat) {
-        self.cornerRadius = cornerRadius
+        backing.wantsLayer = true
+        backing.layer?.cornerRadius = cornerRadius - 1
+        backing.layer?.cornerCurve = .continuous
+        backing.layer?.borderWidth = 0.5
+        backing.translatesAutoresizingMaskIntoConstraints = false
+        controls.addSubview(backing)
+        NSLayoutConstraint.activate([
+            backing.leadingAnchor.constraint(equalTo: controls.leadingAnchor, constant: 1),
+            backing.trailingAnchor.constraint(equalTo: controls.trailingAnchor, constant: -1),
+            backing.topAnchor.constraint(equalTo: controls.topAnchor, constant: 1),
+            backing.bottomAnchor.constraint(equalTo: controls.bottomAnchor, constant: -1),
+        ])
+
+        if #available(macOS 26.0, *) {
+            let glass = NSGlassEffectView()
+            glass.style = .regular
+            glass.cornerRadius = cornerRadius
+            glass.contentView = controls
+            material = glass
+        } else {
+            // The package still compiles against a lower target for Core Graphics capture.
+            material = controls
+        }
+
         super.init(frame: .zero)
+
+        material.frame = bounds
+        material.autoresizingMask = [.width, .height]
+        addSubview(material)
     }
 
     @available(*, unavailable)
@@ -3133,29 +3148,33 @@ private final class HUDChromeFillView: NSView {
         nil
     }
 
-    override var isOpaque: Bool {
-        false
+    func applyTheme(_ theme: HUDTheme) {
+        if #available(macOS 26.0, *), let glass = material as? NSGlassEffectView {
+            glass.tintColor = theme.tintColor
+        }
+        backing.layer?.backgroundColor = theme.backgroundColor.cgColor
+        backing.layer?.borderColor = theme.borderColor.cgColor
     }
 
+    var backingColor: NSColor {
+        backing.layer?.backgroundColor.flatMap(NSColor.init(cgColor:)) ?? .clear
+    }
+
+    var borderColor: NSColor {
+        backing.layer?.borderColor.flatMap(NSColor.init(cgColor:)) ?? .clear
+    }
+
+    var hasRegularGlass: Bool {
+        if #available(macOS 26.0, *), let glass = material as? NSGlassEffectView {
+            return glass.style == .regular && glass.contentView != nil
+        }
+        return false
+    }
+}
+
+private final class HUDGlassBackingView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? {
         nil
-    }
-
-    func applyTheme(_ theme: HUDTheme) {
-        fillColor = theme.backgroundColor
-        needsDisplay = true
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
-
-        let path = NSBezierPath(
-            roundedRect: bounds,
-            xRadius: cornerRadius,
-            yRadius: cornerRadius
-        )
-        fillColor.setFill()
-        path.fill()
     }
 }
 

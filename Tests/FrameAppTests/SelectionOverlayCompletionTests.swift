@@ -84,56 +84,33 @@ final class SelectionOverlayCompletionTests: XCTestCase {
     }
 
     @MainActor
-    func testSelectionHUDUsesDeepGlassChromeWithWhiteIcons() throws {
+    func testSelectionHUDUpdatesRegularGlassAndIconsWhenAppearanceChanges() throws {
         let window = try makeOverlayWindowForTesting()
-        let chromeColors = window.hudChromeColorsForTesting()
-
-        XCTAssertTrue(window.hudHasDrawnChromeFillForTesting())
-        XCTAssertLessThan(chromeColors.background.relativeLuminanceForTesting, 0.08)
-        XCTAssertGreaterThanOrEqual(chromeColors.background.relativeAlphaForTesting, 0.88)
-        XCTAssertGreaterThan(chromeColors.foreground.relativeLuminanceForTesting, 0.8)
-        XCTAssertGreaterThan(chromeColors.border.relativeLuminanceForTesting, 0.8)
-        XCTAssertGreaterThanOrEqual(chromeColors.border.relativeAlphaForTesting, 0.28)
-        XCTAssertGreaterThan(chromeColors.hover.relativeLuminanceForTesting, 0.8)
-        XCTAssertLessThanOrEqual(chromeColors.hover.relativeAlphaForTesting, 0.16)
-
-        let tintColors = window.hudButtonTintColorsForTesting()
-        for label in ["区域截图", "全屏截图", "延迟截图", "滚动长截图", "Recognize Text", "录屏"] {
-            let tintColor = try XCTUnwrap(tintColors[label])
-            XCTAssertGreaterThan(tintColor.relativeLuminanceForTesting, 0.8)
-        }
-    }
-
-    @MainActor
-    func testSelectionHUDUsesSameDeepGlassChromeInDarkAppearance() throws {
         let darkAppearance = try XCTUnwrap(NSAppearance(named: .darkAqua))
-        var darkAppearanceWindow: SelectionOverlayWindow?
-        var creationError: Error?
-        darkAppearance.performAsCurrentDrawingAppearance {
-            do {
-                darkAppearanceWindow = try makeOverlayWindowForTesting()
-            } catch {
-                creationError = error
-            }
-        }
-        if let creationError {
-            throw creationError
-        }
-        let window = try XCTUnwrap(darkAppearanceWindow)
-        let chromeColors = window.hudChromeColorsForTesting()
+        let lightAppearance = try XCTUnwrap(NSAppearance(named: .aqua))
 
-        XCTAssertLessThan(chromeColors.background.relativeLuminanceForTesting, 0.08)
-        XCTAssertGreaterThanOrEqual(chromeColors.background.relativeAlphaForTesting, 0.88)
-        XCTAssertGreaterThan(chromeColors.foreground.relativeLuminanceForTesting, 0.8)
-        XCTAssertGreaterThan(chromeColors.border.relativeLuminanceForTesting, 0.8)
-        XCTAssertGreaterThanOrEqual(chromeColors.border.relativeAlphaForTesting, 0.28)
-        XCTAssertGreaterThan(chromeColors.hover.relativeLuminanceForTesting, 0.8)
-
-        let tintColors = window.hudButtonTintColorsForTesting()
-        for label in ["区域截图", "全屏截图", "延迟截图", "滚动长截图", "Recognize Text", "录屏"] {
-            let tintColor = try XCTUnwrap(tintColors[label])
-            XCTAssertGreaterThan(tintColor.relativeLuminanceForTesting, 0.8)
+        if #available(macOS 26.0, *) {
+            XCTAssertTrue(window.hudHasRegularGlassForTesting())
         }
+
+        window.setAppearanceForTesting(darkAppearance)
+        let darkChrome = window.hudChromeColorsForTesting()
+        XCTAssertLessThan(darkChrome.background.relativeLuminanceForTesting, 0.08)
+        XCTAssertGreaterThan(darkChrome.foreground.relativeLuminanceForTesting, 0.8)
+        XCTAssertTrue(window.hudButtonTintColorsForTesting().values.allSatisfy {
+            $0.relativeLuminanceForTesting > 0.8
+        })
+
+        window.setAppearanceForTesting(lightAppearance)
+        let lightChrome = window.hudChromeColorsForTesting()
+        XCTAssertGreaterThan(lightChrome.background.relativeLuminanceForTesting, 0.8)
+        XCTAssertLessThan(lightChrome.foreground.relativeLuminanceForTesting, 0.2)
+        let lightIcons = window.hudButtonTintColorsForTesting()
+        XCTAssertEqual(lightIcons.count, 6)
+        XCTAssertTrue(lightIcons.values.allSatisfy { $0.relativeLuminanceForTesting < 0.2 })
+
+        window.setAppearanceForTesting(darkAppearance)
+        XCTAssertEqual(window.hudChromeColorsForTesting().foreground, darkChrome.foreground)
     }
 
     @MainActor
@@ -248,11 +225,8 @@ final class SelectionOverlayCompletionTests: XCTestCase {
         view.layoutSubtreeIfNeeded()
         window.displayIfNeeded()
 
-        let hud = overlay.recordingHUDFrameForTesting()
-        // Sample the middle of the start button, away from the border and adjacent icons.
-        let titleRect = CGRect(x: hud.minX + 16, y: hud.midY - 10, width: 66, height: 20)
-        let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: titleRect))
-        view.cacheDisplay(in: titleRect, to: bitmap)
+        // Backdrop compositing happens outside the AppKit view cache.
+        let bitmap = try XCTUnwrap(overlay.startRecordingButtonSnapshotForTesting())
         var whitePixels = 0
         for y in 0..<bitmap.pixelsHigh {
             for x in 0..<bitmap.pixelsWide {

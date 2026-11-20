@@ -299,6 +299,7 @@ private struct GeneralSettingsView: View {
     let launchAtLoginService: any LaunchAtLoginServicing
 
     @State private var selectedLanguage = SettingsStore.appLanguage()
+    @State private var selectedTheme = SettingsStore.appTheme()
     @State private var selectedShortcut = SettingsStore.screenshotShortcut()
     @State private var selectedRecordingShortcut = SettingsStore.recordingShortcut()
     @State private var shortcutErrorText: String?
@@ -332,6 +333,24 @@ private struct GeneralSettingsView: View {
     var body: some View {
         SettingsSectionGroup(title: strings.settingsGeneral) {
             SettingsControlGroup {
+                SettingsControlRow(strings.settingsAppearance) {
+                    Picker("", selection: $selectedTheme) {
+                        ForEach(AppTheme.allCases) { theme in
+                            Text(theme.displayName(strings: strings))
+                                .tag(theme)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .accessibilityLabel(strings.settingsAppearance)
+                    .onChange(of: selectedTheme) { _, newTheme in
+                        SettingsStore.setAppTheme(newTheme)
+                        newTheme.apply(to: NSApp)
+                    }
+                }
+
+                SettingsControlDivider()
+
                 SettingsControlRow(strings.settingsLanguage) {
                     Picker("", selection: $selectedLanguage) {
                         ForEach(AppLanguage.allCases) { language in
