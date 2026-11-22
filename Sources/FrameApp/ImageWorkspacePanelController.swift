@@ -312,7 +312,13 @@ final class ImageWorkspacePanelController: NSObject {
         }
         item.textSelectionOverlay = textSelectionOverlay
 
-        let toolbar = MediaWindowHeaderView()
+        let toolbarBackdrop = NSVisualEffectView()
+        toolbarBackdrop.material = .titlebar
+        toolbarBackdrop.blendingMode = .withinWindow
+        toolbarBackdrop.state = .followsWindowActiveState
+        toolbarBackdrop.translatesAutoresizingMaskIntoConstraints = false
+
+        let toolbar = NSView()
         toolbar.translatesAutoresizingMaskIntoConstraints = false
         toolbar.setAccessibilityLabel("Image Workspace Toolbar")
 
@@ -351,15 +357,13 @@ final class ImageWorkspacePanelController: NSObject {
         )
         for button in [undoButton, redoButton] {
             button.isEnabled = false
-            button.contentTintColor = FrameHUDChrome.disabledIcon
+            button.contentTintColor = .disabledControlTextColor
             button.widthAnchor.constraint(equalToConstant: ImageWorkspaceLayout.editingToolSize).isActive = true
             button.heightAnchor.constraint(equalToConstant: ImageWorkspaceLayout.editingToolSize).isActive = true
             historyStack.addArrangedSubview(button)
         }
         item.undoButton = undoButton
         item.redoButton = redoButton
-
-        let historyToolsDivider = makeToolbarDivider(identifier: "ImageWorkspaceToolbarHistoryToolsDivider")
 
         for toolbarItem in ImageWorkspaceToolbarToolOrder.items {
             let button = makeIconButton(
@@ -405,16 +409,19 @@ final class ImageWorkspacePanelController: NSObject {
             toolStack.addArrangedSubview(splitControl)
         }
 
-        let moreMarkup = makeMenuButton("•••") { [weak self, weak item] in
+        let moreMarkup = makeMenuButton("") { [weak self, weak item] in
             guard let item else { return NSMenu() }
             return self?.makeMoreMarkupMenu(for: item) ?? NSMenu()
         }
-        moreMarkup.setAccessibilityLabel(item.strings.editorLabel("更多标注工具", "More Markup Tools"))
+        let moreTitle = item.strings.editorLabel("更多标注工具", "More Markup Tools")
+        configureHeaderCommand(moreMarkup, symbol: "ellipsis")
+        moreMarkup.setAccessibilityLabel(moreTitle)
+        moreMarkup.toolTip = moreTitle
+        moreMarkup.widthAnchor.constraint(equalToConstant: ImageWorkspaceLayout.editingToolSize).isActive = true
         toolStack.addArrangedSubview(moreMarkup)
 
         let styleControl = makeHeaderStyleControl(for: item)
         item.styleControl = styleControl
-        let parameters = makeParameterRow(for: item, styleControl: styleControl)
         let status = makeCanvasStatus(for: item)
         let cropButton = makeCommandButton(item.strings.editorLabel("裁剪", "Crop")) { [weak annotationCanvas] in
             annotationCanvas?.startCrop()
@@ -427,7 +434,13 @@ final class ImageWorkspacePanelController: NSObject {
             guard let item else { return NSMenu() }
             return self?.makeTransformMenu(for: item) ?? NSMenu()
         }
-        let geometryStack = makeRow([cropButton, resizeButton, transformButton], spacing: 4)
+        configureHeaderCommand(cropButton)
+        configureHeaderCommand(resizeButton)
+        configureHeaderCommand(transformButton, symbol: "chevron.down")
+        let geometryStack = makeRow([cropButton, resizeButton, transformButton], spacing: 3)
+        let geometryDivider = makeToolbarDivider(identifier: "ImageWorkspaceToolbarGeometryDivider")
+        let editingTools = makeRow([geometryStack, geometryDivider, toolStack], spacing: 12)
+        let parameters = makeParameterRow(for: item, editingTools: editingTools, styleControl: styleControl)
 
         annotationCanvas.onCanvasResize = { [weak self, weak item] in
             if let item { self?.updateCanvasStatus(item) }
@@ -460,14 +473,16 @@ final class ImageWorkspacePanelController: NSObject {
         let saveEditedButton = NSButton(title: item.strings.workspaceSaveCurrent, target: self, action: #selector(saveEditedButtonClicked))
         let copyButton = NSButton(title: item.strings.workspaceCopy, target: self, action: #selector(copyButtonClicked))
         let downloadButton = NSButton(title: item.strings.editorLabel("导出…", "Export…"), target: self, action: #selector(downloadButtonClicked))
-        let saveOptionsButton = makeMenuButton("⌄") { [weak self, weak item] in
+        let saveOptionsButton = makeMenuButton("") { [weak self, weak item] in
             guard let item else { return NSMenu() }
             return self?.makeSaveCurrentMenu(for: item) ?? NSMenu()
         }
+        configureHeaderCommand(copyButton)
+        configureHeaderCommand(downloadButton)
+        configureHeaderCommand(saveOptionsButton, symbol: "chevron.down")
+        saveOptionsButton.widthAnchor.constraint(equalToConstant: 28).isActive = true
         saveOptionsButton.setAccessibilityLabel(item.strings.editorLabel("保存选项", "Save Options"))
-        for button in [saveEditedButton, copyButton, downloadButton] {
-            configureCommandButton(button)
-        }
+        configureHeaderCommand(saveEditedButton, emphasized: true)
         saveEditedButton.isEnabled = false
         saveEditedButton.bezelColor = NSColor.controlAccentColor
         saveEditedButton.menu = makeSaveCurrentMenu(for: item)
@@ -480,22 +495,22 @@ final class ImageWorkspacePanelController: NSObject {
         outputStack.distribution = .fill
         outputStack.spacing = ImageWorkspaceLayout.outputButtonSpacing
         outputStack.translatesAutoresizingMaskIntoConstraints = false
-        let outputDivider = makeToolbarDivider(identifier: "ImageWorkspaceToolbarOutputDivider")
+
+        let rowDivider = NSBox()
+        rowDivider.boxType = .separator
+        rowDivider.translatesAutoresizingMaskIntoConstraints = false
 
         contentView.addSubview(imageContainer)
+        contentView.addSubview(toolbarBackdrop)
         contentView.addSubview(toolbar)
+        contentView.addSubview(rowDivider)
         contentView.addSubview(parameters)
         contentView.addSubview(status)
         imageContainer.addSubview(annotationCanvas)
         imageContainer.addSubview(textSelectionOverlay)
         toolbar.addSubview(toolbarStack)
         toolbarStack.addArrangedSubview(historyStack)
-        toolbarStack.addArrangedSubview(historyToolsDivider)
-        toolbarStack.addArrangedSubview(geometryStack)
-        toolbarStack.addArrangedSubview(makeToolbarDivider(identifier: "ImageWorkspaceToolbarGeometryDivider"))
-        toolbarStack.addArrangedSubview(toolStack)
         toolbarStack.addArrangedSubview(spacer)
-        toolbarStack.addArrangedSubview(outputDivider)
         toolbarStack.addArrangedSubview(outputStack)
 
         NSLayoutConstraint.activate([
@@ -503,8 +518,8 @@ final class ImageWorkspacePanelController: NSObject {
             imageContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -ImageWorkspaceLayout.toolbarTrailing),
             imageContainer.topAnchor.constraint(equalTo: parameters.bottomAnchor, constant: ImageWorkspaceLayout.imageTopSpacing),
             imageContainer.bottomAnchor.constraint(equalTo: status.topAnchor, constant: -ImageWorkspaceLayout.imageBottomInset),
-            parameters.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
-            parameters.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
+            parameters.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 14),
+            parameters.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -14),
             parameters.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
             parameters.heightAnchor.constraint(equalToConstant: ImageWorkspaceLayout.parameterHeight),
             status.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
@@ -521,6 +536,15 @@ final class ImageWorkspacePanelController: NSObject {
             textSelectionOverlay.trailingAnchor.constraint(equalTo: imageContainer.trailingAnchor),
             textSelectionOverlay.topAnchor.constraint(equalTo: imageContainer.topAnchor),
             textSelectionOverlay.bottomAnchor.constraint(equalTo: imageContainer.bottomAnchor),
+
+            toolbarBackdrop.leadingAnchor.constraint(equalTo: toolbar.leadingAnchor),
+            toolbarBackdrop.trailingAnchor.constraint(equalTo: toolbar.trailingAnchor),
+            toolbarBackdrop.topAnchor.constraint(equalTo: toolbar.topAnchor),
+            toolbarBackdrop.bottomAnchor.constraint(equalTo: parameters.bottomAnchor),
+            rowDivider.leadingAnchor.constraint(equalTo: toolbar.leadingAnchor, constant: 14),
+            rowDivider.trailingAnchor.constraint(equalTo: toolbar.trailingAnchor, constant: -14),
+            rowDivider.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
+            rowDivider.heightAnchor.constraint(equalToConstant: 1),
 
             toolbar.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: ImageWorkspaceLayout.toolbarLeading),
             toolbar.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -ImageWorkspaceLayout.toolbarTrailing),
@@ -613,7 +637,7 @@ final class ImageWorkspacePanelController: NSObject {
         )
         button.toolTip = toolTip ?? title
         button.symbolConfiguration = iconMetrics.symbolConfiguration
-        button.contentTintColor = FrameHUDChrome.primaryIcon
+        button.contentTintColor = .labelColor
         button.setButtonType(buttonType)
         button.setAccessibilityLabel(title)
         button.setAccessibilityHelp(title)
@@ -621,10 +645,9 @@ final class ImageWorkspacePanelController: NSObject {
     }
 
     private func makeToolbarDivider(identifier: String) -> NSView {
-        let divider = NSView()
+        let divider = NSBox()
         divider.identifier = NSUserInterfaceItemIdentifier(identifier)
-        divider.wantsLayer = true
-        divider.layer?.backgroundColor = FrameHUDChrome.divider.cgColor
+        divider.boxType = .separator
         divider.translatesAutoresizingMaskIntoConstraints = false
         divider.widthAnchor.constraint(equalToConstant: 1).isActive = true
         divider.heightAnchor.constraint(equalToConstant: 16).isActive = true
@@ -1130,7 +1153,7 @@ final class ImageWorkspacePanelController: NSObject {
         button.state = isSelected ? .on : .off
         button.contentTintColor = isSelected
             ? FrameHUDChrome.selectedIcon
-            : FrameHUDChrome.primaryIcon
+            : .labelColor
         if let toolbarButton = button as? ImageWorkspaceToolbarButton {
             toolbarButton.isWorkspaceSelected = isSelected
         }
@@ -1172,7 +1195,7 @@ final class ImageWorkspacePanelController: NSObject {
         default: break
         }
         item.styleOptionsButton?.isHidden = !showsOptions
-        item.toolHint?.isHidden = showsOptions
+        item.styleSeparator?.isHidden = !showsOptions
     }
 
     private func styleControlMode(for document: ImageAnnotationDocument) -> ImageWorkspaceStyleControlSizeMode {
@@ -1205,8 +1228,8 @@ final class ImageWorkspacePanelController: NSObject {
         item.saveCurrentButton?.isEnabled = document.hasUncommittedEdits
         item.saveOptionsButton?.isEnabled = document.hasUncommittedEdits
         item.saveCurrentButton?.contentTintColor = document.hasUncommittedEdits
-            ? FrameHUDChrome.primaryIcon
-            : FrameHUDChrome.disabledIcon
+            ? .labelColor
+            : .disabledControlTextColor
         updateHistoryButton(item.undoButton, isEnabled: document.canUndo)
         updateHistoryButton(item.redoButton, isEnabled: document.canRedo)
         updateHeaderStyleControl(for: item, document: document)
@@ -1215,8 +1238,8 @@ final class ImageWorkspacePanelController: NSObject {
     private func updateHistoryButton(_ button: NSButton?, isEnabled: Bool) {
         button?.isEnabled = isEnabled
         button?.contentTintColor = isEnabled
-            ? FrameHUDChrome.primaryIcon
-            : FrameHUDChrome.disabledIcon
+            ? .labelColor
+            : .disabledControlTextColor
     }
 
     private func toolButton(for tool: ImageAnnotationTool, in item: ImageWorkspaceItem) -> NSButton? {
@@ -1572,7 +1595,7 @@ private final class ImageWorkspaceItem {
     let initialElements: [ImageAnnotationElement]
     weak var saveOptionsButton: NSButton?
     weak var styleOptionsButton: NSButton?
-    weak var toolHint: NSTextField?
+    weak var styleSeparator: NSView?
     weak var styleRow: NSView?
     weak var cropRow: NSView?
     weak var cropSizeLabel: NSTextField?
@@ -1690,7 +1713,6 @@ private final class ImageWorkspaceHeaderStyleControlView: NSView {
     private let colorMenuButton = NSButton()
     private let colorMenu = NSMenu()
     private var colorPaletteButtons: [(color: ImageAnnotationColor, button: NSButton)] = []
-    private let sizeIconView = NSImageView()
     private let sizeSlider = NSSlider()
     private let sizeLabel = NSTextField(labelWithString: "")
 
@@ -1778,26 +1800,12 @@ private final class ImageWorkspaceHeaderStyleControlView: NSView {
         colorMenuButton.heightAnchor.constraint(equalToConstant: ImageWorkspaceLayout.headerStyleControlHeight).isActive = true
         stack.addArrangedSubview(colorMenuButton)
 
-        let divider = NSView()
-        divider.wantsLayer = true
-        divider.layer?.backgroundColor = NSColor.separatorColor.withAlphaComponent(0.3).cgColor
-        divider.translatesAutoresizingMaskIntoConstraints = false
-        divider.widthAnchor.constraint(equalToConstant: 1).isActive = true
-        divider.heightAnchor.constraint(equalToConstant: 18).isActive = true
-        stack.addArrangedSubview(divider)
-
-        sizeIconView.imageScaling = .scaleProportionallyDown
-        sizeIconView.contentTintColor = .secondaryLabelColor
-        sizeIconView.widthAnchor.constraint(equalToConstant: 16).isActive = true
-        sizeIconView.heightAnchor.constraint(equalToConstant: 16).isActive = true
-        stack.addArrangedSubview(sizeIconView)
-
         sizeSlider.controlSize = .small
         sizeSlider.target = self
         sizeSlider.action = #selector(sizeSliderChanged)
         sizeSlider.allowsTickMarkValuesOnly = true
         sizeSlider.isContinuous = true
-        sizeSlider.widthAnchor.constraint(equalToConstant: 112).isActive = true
+        sizeSlider.widthAnchor.constraint(equalToConstant: 55).isActive = true
         stack.addArrangedSubview(sizeSlider)
         sizeLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
         sizeLabel.textColor = .secondaryLabelColor
@@ -1915,28 +1923,19 @@ private final class ImageWorkspaceHeaderStyleControlView: NSView {
 
     private func updateSizeControlMetadata(value: CGFloat?) {
         let title: String
-        let symbolName: String
         let valueDescription: String?
         switch sizeMode {
         case .lineWidth:
             title = strings.workspaceThicknessOptions
-            symbolName = "lineweight"
             valueDescription = value.map { strings.workspaceLineWidth($0) }
         case .fontSize:
             title = strings.workspaceFontSizeOptions
-            symbolName = "textformat.size"
             valueDescription = value.map { strings.workspaceFontSize($0) }
         case .disabled:
             title = strings.workspaceThicknessOptions
-            symbolName = "lineweight"
             valueDescription = nil
         }
 
-        let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: title)
-        image?.isTemplate = true
-        sizeIconView.image = image
-        sizeIconView.contentTintColor = currentSizeValues.isEmpty ? .disabledControlTextColor : .secondaryLabelColor
-        sizeIconView.toolTip = title
         sizeSlider.setAccessibilityLabel(title)
         sizeLabel.stringValue = valueDescription ?? ""
         sizeSlider.toolTip = valueDescription.map { "\(title): \($0)" } ?? title
@@ -2013,30 +2012,27 @@ private enum ImageWorkspaceLayout {
     static let toolbarTrailing: CGFloat = 0
     static let toolbarTitlebarOverlap: CGFloat = 2
     static let toolbarStackLeadingInset: CGFloat = 88
-    static let toolbarStackTrailingInset: CGFloat = 6
+    static let toolbarStackTrailingInset: CGFloat = 14
     static let toolbarStackSpacing: CGFloat = 8
-    static let toolbarHeight: CGFloat = 36
+    static let toolbarHeight: CGFloat = 40
     static let imageTopSpacing: CGFloat = 6
     static let imageBottomInset: CGFloat = 0
-    static let parameterHeight: CGFloat = 32
+    static let parameterHeight: CGFloat = 48
     static let statusHeight: CGFloat = 32
-    static let editingToolSize: CGFloat = 28
-    static let toolOptionsButtonWidth: CGFloat = 20
+    static let editingToolSize: CGFloat = 36
+    static let toolOptionsButtonWidth: CGFloat = 24
     static let mosaicSplitControlWidth = editingToolSize + toolOptionsButtonWidth
-    static let editingToolSpacing: CGFloat = 4
-    static let outputButtonSize: CGFloat = 28
-    static let outputButtonSpacing: CGFloat = 2
+    static let editingToolSpacing: CGFloat = 2
+    static let outputButtonSpacing: CGFloat = 5
     static let minimumSpacerWidth: CGFloat = 12
-    static let headerStyleControlWidth: CGFloat = 229
+    static let headerStyleControlWidth: CGFloat = 143
     static let headerStyleControlHeight: CGFloat = 28
-    static let baseMinimumContentWidth: CGFloat = 440
     static let pinnedMinimumContentWidth: CGFloat = 320
     static let initialWindowScreenMargin: CGFloat = 80
     static let minimumScrollableViewportHeight: CGFloat = 260
 
-    static var minimumContentWidth: CGFloat {
-        max(baseMinimumContentWidth, toolbarLeading + minimumToolbarWidth + toolbarTrailing)
-    }
+    // The editing row accommodates the full tool set and the widest localized style controls.
+    static let minimumContentWidth: CGFloat = 930
 
     static func imageAspectRatio(for image: NSImage) -> CGFloat {
         let imageSize = image.size.width > 0 && image.size.height > 0 ? image.size : fallbackImageSize
@@ -2060,29 +2056,7 @@ private enum ImageWorkspaceLayout {
         }
     }
 
-    private static var minimumToolbarWidth: CGFloat {
-        let toolbarItemCount = CGFloat(ImageWorkspaceToolbarToolOrder.items.count)
-        let historyButtonCount: CGFloat = 2
-        let historyWidth = editingToolSize * historyButtonCount
-            + editingToolSpacing * (historyButtonCount - 1)
-        let toolsWidth = editingToolSize * (toolbarItemCount + 1)
-            + 204
-            + toolOptionsButtonWidth
-            + editingToolSpacing * (toolbarItemCount - 1)
-        let dividerCount: CGFloat = 3
-        let dividerWidth = dividerCount
-        let toolbarGroupGapCount: CGFloat = 7
-        let toolbarGroupSpacing = toolbarStackSpacing * toolbarGroupGapCount
-        let outputControlsWidth: CGFloat = 255
-        return toolbarStackLeadingInset
-            + toolbarStackTrailingInset
-            + historyWidth
-            + toolsWidth
-            + dividerWidth
-            + toolbarGroupSpacing
-            + minimumSpacerWidth
-            + outputControlsWidth
-    }
+
 }
 
 private struct ImageWorkspaceResizeMetrics {
@@ -2321,15 +2295,15 @@ struct ImageWorkspaceToolbarIconMetrics {
     }
 
     static let primary = ImageWorkspaceToolbarIconMetrics(
-        pointSize: 12,
+        pointSize: 16,
         weight: .medium,
-        iconSide: 14,
+        iconSide: 18,
         imageScaling: .scaleProportionallyDown
     )
     static let auxiliary = ImageWorkspaceToolbarIconMetrics(
-        pointSize: 8,
+        pointSize: 10,
         weight: .semibold,
-        iconSide: 10,
+        iconSide: 12,
         imageScaling: .scaleProportionallyDown
     )
 }
@@ -2443,7 +2417,10 @@ private final class ImageWorkspaceSplitToolControl: NSView {
             return
         }
 
-        backgroundLayer.backgroundColor = FrameHUDChrome.hoverFill.cgColor
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            backgroundLayer.backgroundColor = NSColor.labelColor.withAlphaComponent(0.10).cgColor
+            dividerLayer.backgroundColor = NSColor.separatorColor.cgColor
+        }
         dividerLayer.opacity = isHovering ? 0.36 : 0.24
         animateBackground(opacity: isHovering ? 1 : 0)
     }
@@ -2553,8 +2530,9 @@ private final class ImageWorkspaceToolbarButton: NSButton {
     override func layout() {
         super.layout()
 
-        let hoverDiameter = min(bounds.width, bounds.height, 22)
-        hoverLayer.cornerRadius = hoverDiameter / 2
+        let hoverDiameter = min(bounds.width, bounds.height, 32)
+        hoverLayer.cornerRadius = 8
+        hoverLayer.cornerCurve = .continuous
         hoverLayer.bounds = CGRect(x: 0, y: 0, width: hoverDiameter, height: hoverDiameter)
         hoverLayer.position = CGPoint(x: bounds.midX, y: bounds.midY)
 
@@ -2671,7 +2649,9 @@ private final class ImageWorkspaceToolbarButton: NSButton {
             return
         }
 
-        hoverLayer.backgroundColor = hoverBackgroundColor.cgColor
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            hoverLayer.backgroundColor = hoverBackgroundColor.cgColor
+        }
         animateHoverLayer(opacity: isHovering || isWorkspaceSelected ? 1 : 0)
     }
 
@@ -2680,7 +2660,7 @@ private final class ImageWorkspaceToolbarButton: NSButton {
             return FrameHUDChrome.selectedFill
         }
 
-        return FrameHUDChrome.hoverFill
+        return NSColor.labelColor.withAlphaComponent(0.10)
     }
 
     private func animateHoverLayer(opacity: Float) {
@@ -2771,6 +2751,22 @@ private extension ImageWorkspacePanelController {
         button.setContentCompressionResistancePriority(.required, for: .horizontal)
     }
 
+    func configureHeaderCommand(_ button: NSButton, symbol: String? = nil, emphasized: Bool = false) {
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.heightAnchor.constraint(equalToConstant: 34).isActive = true
+        button.controlSize = .regular
+        button.font = .systemFont(ofSize: 13, weight: emphasized ? .semibold : .medium)
+        button.bezelStyle = emphasized ? .rounded : .accessoryBarAction
+        button.showsBorderOnlyWhileMouseInside = !emphasized
+        button.setAccessibilityLabel(button.title)
+        button.setContentCompressionResistancePriority(.required, for: .horizontal)
+        if let symbol {
+            button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+            button.symbolConfiguration = .init(pointSize: symbol == "ellipsis" ? 16 : 10, weight: .medium)
+            button.imagePosition = button.title.isEmpty ? .imageOnly : .imageTrailing
+        }
+    }
+
     func makeCommandButton(_ title: String, action: @escaping () -> Void) -> NSButton {
         let button = ImageWorkspaceCommandButton(title: title, action: action)
         configureCommandButton(button)
@@ -2791,25 +2787,24 @@ private extension ImageWorkspacePanelController {
         menu.addItem(ImageWorkspaceCommandMenuItem(title: title, action: action))
     }
 
-    func makeParameterRow(for item: ImageWorkspaceItem, styleControl: NSView) -> NSView {
+    func makeParameterRow(for item: ImageWorkspaceItem, editingTools: NSView, styleControl: NSView) -> NSView {
         let strings = item.strings
-        let hint = NSTextField(labelWithString: strings.editorLabel("按住空格可拖动画布", "Hold Space and drag to pan"))
-        hint.textColor = .secondaryLabelColor
-        hint.font = .systemFont(ofSize: 12)
-        let options = makeMenuButton(strings.editorLabel("样式 ⌄", "Style ⌄")) { [weak self, weak item] in
+        let options = makeMenuButton(strings.editorLabel("样式", "Style")) { [weak self, weak item] in
             guard let item else { return NSMenu() }
             return self?.makeStyleMenu(for: item) ?? NSMenu()
         }
-        let styleRow = makeRow([hint, styleControl, options])
+        configureHeaderCommand(options, symbol: "chevron.down")
+        let styleSeparator = makeToolbarDivider(identifier: "ImageWorkspaceToolbarStyleDivider")
+        let styleRow = makeRow([editingTools, NSView(), styleSeparator, styleControl, options], spacing: 7)
         item.styleOptionsButton = options
+        item.styleSeparator = styleSeparator
         item.styleRow = styleRow
-        item.toolHint = hint
 
         let size = NSTextField(labelWithString: "")
         size.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
         size.textColor = .secondaryLabelColor
         let ratio = NSPopUpButton(frame: .zero, pullsDown: false)
-        ratio.controlSize = .small
+        ratio.controlSize = .regular
         ratio.setAccessibilityLabel(strings.editorLabel("裁剪比例", "Crop aspect ratio"))
         ratio.addItems(withTitles: [
             strings.editorLabel("自由比例", "Freeform"),
@@ -2824,7 +2819,12 @@ private extension ImageWorkspacePanelController {
         let apply = makeCommandButton(strings.editorLabel("应用裁剪", "Apply Crop")) { [weak item] in
             item?.annotationCanvas?.onCropCommit?()
         }
-        let cropRow = makeRow([ratio, size, NSView(), cancel, apply])
+        configureHeaderCommand(cancel)
+        configureHeaderCommand(apply, emphasized: true)
+        apply.bezelColor = .controlAccentColor
+        let cropTitle = NSTextField(labelWithString: strings.editorLabel("裁剪", "Crop"))
+        cropTitle.font = .systemFont(ofSize: 13, weight: .semibold)
+        let cropRow = makeRow([cropTitle, ratio, size, NSView(), cancel, apply], spacing: 12)
         cropRow.isHidden = true
         item.cropRow = cropRow
         item.cropSizeLabel = size
@@ -2832,16 +2832,16 @@ private extension ImageWorkspacePanelController {
         item.cropRatioPopup = ratio
 
         let container = NSView()
+        container.setAccessibilityLabel("Image Workspace Editing Toolbar")
         container.translatesAutoresizingMaskIntoConstraints = false
         for row in [styleRow, cropRow] {
             container.addSubview(row)
             NSLayoutConstraint.activate([
                 row.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-                row.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor),
+                row.trailingAnchor.constraint(equalTo: container.trailingAnchor),
                 row.centerYAnchor.constraint(equalTo: container.centerYAnchor),
             ])
         }
-        cropRow.trailingAnchor.constraint(equalTo: container.trailingAnchor).isActive = true
         return container
     }
 

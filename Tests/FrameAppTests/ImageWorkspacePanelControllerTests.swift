@@ -1203,7 +1203,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         XCTAssertEqual(orderedButtonTitles(in: paletteView), Array(repeating: "", count: 6))
         XCTAssertEqual(orderedButtonAccessibilityLabels(in: paletteView), ["Red", "Yellow", "Blue", "Green", "White", "Black"])
         let thicknessSlider = try XCTUnwrap(findSlider(in: styleControl, accessibilityLabel: "Thickness"))
-        XCTAssertGreaterThan(thicknessSlider.frame.width, 100)
+        XCTAssertGreaterThanOrEqual(thicknessSlider.frame.width, 50)
         XCTAssertEqual(thicknessSlider.numberOfTickMarks, 7)
 
         XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(textButton.action), to: textButton.target, from: textButton))
@@ -1459,7 +1459,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         XCTAssertEqual(colorSelector.toolTip, "Blue")
 
         let sizeSlider = try XCTUnwrap(findSlider(in: styleControl, accessibilityLabel: "Thickness"))
-        XCTAssertGreaterThan(sizeSlider.frame.width, 100)
+        XCTAssertGreaterThanOrEqual(sizeSlider.frame.width, 50)
         sizeSlider.doubleValue = 3
         XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(sizeSlider.action), to: sizeSlider.target, from: sizeSlider))
 
@@ -2647,9 +2647,8 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         let copyButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Copy"))
         let saveButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Save Current"))
         let downloadButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Export…"))
-        let historyToolsDivider = try XCTUnwrap(findView(in: contentView, identifier: "ImageWorkspaceToolbarHistoryToolsDivider"))
-        let styleDivider = try XCTUnwrap(findView(in: contentView, identifier: "ImageWorkspaceToolbarGeometryDivider"))
-        let outputDivider = try XCTUnwrap(findView(in: contentView, identifier: "ImageWorkspaceToolbarOutputDivider"))
+        let editingToolbar = try XCTUnwrap(findView(in: contentView, accessibilityLabel: "Image Workspace Editing Toolbar"))
+        let styleDivider = try XCTUnwrap(findView(in: contentView, identifier: "ImageWorkspaceToolbarStyleDivider"))
         let menu = try XCTUnwrap(contentView.menu(for: try makeRightClickEvent(windowNumber: panel.windowNumber)))
         let copyMenuItem = try XCTUnwrap(menu.item(withTitle: "Copy"))
         let saveMenuItem = try XCTUnwrap(menu.item(withTitle: "Save Current"))
@@ -2667,11 +2666,11 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         let zoomFrame = zoomButton.convert(zoomButton.bounds, to: contentView)
 
         XCTAssertEqual(toolbar.alphaValue, 1, accuracy: 0.01)
-        XCTAssertEqual(toolbar.frame.height, 36, accuracy: 0.5)
-        XCTAssertEqual(toolbar.appearance?.name, .vibrantDark)
-        XCTAssertGreaterThanOrEqual(toolbar.layer?.backgroundColor?.alpha ?? 0, 0.5)
-        XCTAssertEqual(mosaicFrame.width, 28, accuracy: 0.5)
-        XCTAssertEqual(mosaicOptionsFrame.width, 20, accuracy: 0.5)
+        XCTAssertEqual(toolbar.frame.height, 40, accuracy: 0.5)
+        XCTAssertEqual(editingToolbar.frame.height, 48, accuracy: 0.5)
+        XCTAssertEqual(mosaicFrame.width, 36, accuracy: 0.5)
+        XCTAssertEqual(mosaicFrame.height, 36, accuracy: 0.5)
+        XCTAssertEqual(mosaicOptionsFrame.width, 24, accuracy: 0.5)
         XCTAssertEqual(mosaicSplitFrame.width, mosaicFrame.width + mosaicOptionsFrame.width, accuracy: 0.5)
         XCTAssertEqual(mosaicSplitFrame.minX, mosaicFrame.minX, accuracy: 0.5)
         XCTAssertEqual(mosaicSplitFrame.maxX, mosaicOptionsFrame.maxX, accuracy: 0.5)
@@ -2686,16 +2685,14 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         XCTAssertLessThanOrEqual(toolbar.frame.minX, closeFrame.minX - 2)
         XCTAssertEqual(toolbar.frame.maxX, imageContainer.frame.maxX, accuracy: 0.5)
         XCTAssertEqual(toolbar.frame.minX, imageContainer.frame.minX, accuracy: 0.5)
-        XCTAssertGreaterThanOrEqual(mosaicFrame.minX, zoomFrame.maxX + 8)
-        XCTAssertEqual(toolbar.frame.midY, closeFrame.midY, accuracy: 1.5)
-        XCTAssertEqual(toolbar.frame.midY, miniaturizeFrame.midY, accuracy: 1.5)
-        XCTAssertEqual(toolbar.frame.midY, zoomFrame.midY, accuracy: 1.5)
-        XCTAssertFalse(historyToolsDivider.isHidden)
-        XCTAssertFalse(styleDivider.isHidden)
-        XCTAssertFalse(outputDivider.isHidden)
-        XCTAssertEqual(historyToolsDivider.frame.width, 1, accuracy: 0.5)
-        XCTAssertEqual(outputDivider.frame.width, 1, accuracy: 0.5)
-        assertCircularHoverLayer(in: mosaicButton)
+        for trafficLightFrame in [closeFrame, miniaturizeFrame, zoomFrame] {
+            XCTAssertGreaterThan(toolbar.frame.maxY, trafficLightFrame.midY)
+            XCTAssertLessThan(toolbar.frame.minY, trafficLightFrame.midY)
+        }
+        XCTAssertEqual(copyFrame.midY, toolbar.frame.midY, accuracy: 0.5)
+        XCTAssertEqual(mosaicFrame.midY, editingToolbar.frame.midY, accuracy: 0.5)
+        XCTAssertLessThan(mosaicFrame.maxY, copyFrame.minY)
+        XCTAssertTrue(styleDivider.isHidden)
         for button in [selectButton, mosaicButton] {
             try assertToolbarIconViewCentered(in: button)
         }
@@ -2710,7 +2707,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         XCTAssertFalse(saveMenuItem.isEnabled)
         XCTAssertTrue(copyMenuItem.isEnabled)
         XCTAssertTrue(downloadMenuItem.isEnabled)
-        XCTAssertEqual(toolbar.frame.minY - imageContainer.frame.maxY, 38, accuracy: 0.5)
+        XCTAssertEqual(toolbar.frame.minY - imageContainer.frame.maxY, 54, accuracy: 0.5)
         XCTAssertEqual(imageContainer.frame.minX, toolbar.frame.minX, accuracy: 0.5)
         XCTAssertEqual(imageContainer.frame.minY - contentView.bounds.minY, 32, accuracy: 0.5)
         XCTAssertEqual(
@@ -2718,7 +2715,6 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
             320.0 / 240.0,
             accuracy: 0.01
         )
-        XCTAssertGreaterThan(copyFrame.minX, mosaicFrame.maxX)
 
         let mosaicSplitBackground = try XCTUnwrap(mosaicSplitControl.layer?.sublayers?.first)
         XCTAssertEqual(mosaicSplitBackground.opacity, 0, accuracy: 0.01)
@@ -2733,9 +2729,11 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         contentView.layoutSubtreeIfNeeded()
         XCTAssertEqual(mosaicSplitBackground.opacity, 1, accuracy: 0.01)
 
+        let frameBeforeShowingStyle = panel.frame
         canvas.selectTool(.shape)
         contentView.layoutSubtreeIfNeeded()
         XCTAssertFalse(styleDivider.isHidden)
+        XCTAssertEqual(panel.frame.size, frameBeforeShowingStyle.size)
 
         panel.setFrame(NSRect(origin: panel.frame.origin, size: panel.minSize), display: false)
         contentView.layoutSubtreeIfNeeded()
@@ -2746,6 +2744,14 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         let minimumDownloadFrame = minimumDownloadButton.convert(minimumDownloadButton.bounds, to: contentView)
         let minimumVerticalChromeHeight = contentView.bounds.height - minimumImageContainer.frame.height
         XCTAssertLessThanOrEqual(minimumDownloadFrame.maxX, minimumToolbar.frame.maxX - 5)
+        let styleButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Style"))
+        XCTAssertLessThanOrEqual(styleButton.convert(styleButton.bounds, to: contentView).maxX, editingToolbar.frame.maxX + 0.5)
+        let cropButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Crop"))
+        cropButton.performClick(nil)
+        XCTAssertNil(findButton(in: contentView, accessibilityLabel: "Mosaic Options"))
+        XCTAssertNotNil(findButton(in: contentView, accessibilityLabel: "Apply Crop"))
+        XCTAssertNotNil(findButton(in: contentView, accessibilityLabel: "Export…"))
+        canvas.cancelCrop()
         XCTAssertEqual(
             minimumImageContainer.frame.width / minimumImageContainer.frame.height,
             320.0 / 240.0,
@@ -3414,21 +3420,12 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         panel.close()
     }
 
-    private func assertCircularHoverLayer(in button: NSButton) {
-        button.layoutSubtreeIfNeeded()
-        let hoverLayer = button.layer?.sublayers?.first
-        XCTAssertNotNil(hoverLayer)
-        XCTAssertEqual(hoverLayer?.bounds.width ?? 0, hoverLayer?.bounds.height ?? 1, accuracy: 0.5)
-        XCTAssertEqual(hoverLayer?.cornerRadius ?? 0, (hoverLayer?.bounds.height ?? 0) / 2, accuracy: 0.5)
-        XCTAssertEqual(hoverLayer?.opacity ?? 1, 0, accuracy: 0.01)
-    }
-
     private func assertToolbarIconViewCentered(in button: NSButton) throws {
         button.layoutSubtreeIfNeeded()
         let iconView = try XCTUnwrap(button.subviews.compactMap { $0 as? NSImageView }.first)
         XCTAssertEqual(iconView.imageScaling, .scaleProportionallyDown)
-        XCTAssertEqual(iconView.frame.width, 14, accuracy: 0.5)
-        XCTAssertEqual(iconView.frame.height, 14, accuracy: 0.5)
+        XCTAssertEqual(iconView.frame.width, 18, accuracy: 0.5)
+        XCTAssertEqual(iconView.frame.height, 18, accuracy: 0.5)
         XCTAssertEqual(iconView.frame.midX, button.bounds.midX, accuracy: 0.5)
         XCTAssertEqual(iconView.frame.midY, button.bounds.midY, accuracy: 0.5)
 

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Separate image editing tools from window actions and give markup larger targets.
+  Keep contextual style and crop controls in the editing row.
+
 - Open local images and clipboard images in the redesigned editor. Crop on
   the canvas, resize by pixels or percent, rotate, flip, and see zoom and
   pixel dimensions while editing.

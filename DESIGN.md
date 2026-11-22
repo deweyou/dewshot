@@ -156,16 +156,10 @@ system tool, not a branded dashboard.
   icon-only buttons a tooltip and accessibility label.
 - Actions that are visible before their behavior is implemented stay disabled:
   no pointer cursor, no hover fill, and disabled tint.
-- Selected tools keep the same circular affordance, using a compact accent tint
-  with a light glyph rather than a heavy filled segment.
-- Toolbar chrome must not obscure the screenshot. Workspace toolbar rows align
-  vertically with the native traffic-light row and extend behind the native
-  traffic-light controls. The toolbar chrome and image preview run edge-to-edge
-  inside the workspace content; editing actions start after the traffic-light
-  safe area.
-- Workspace toolbar and image preview keep a small vertical gap so the titlebar
-  controls and preview surface read as separate layers without restoring outer
-  padding.
+- Selected tools use a compact accent tint and a light glyph. The image editor uses rounded square targets.
+- The window action row extends behind the native traffic lights. The editing
+  row uses the width below it. Both rows share the same appearance-aware
+  titlebar surface. Keep a small gap between the toolbar and the image.
 - Workspace windows should open with the image area matching the screenshot
   aspect ratio so the initial preview does not show letterbox/pillarbox edges.
 - Workspace resize keeps the image area at the screenshot aspect ratio while the
@@ -222,17 +216,18 @@ system tool, not a branded dashboard.
   pinned window.
 - Opening workspace again for the same captured screenshot activates the existing
   preview/edit window instead of creating duplicates.
-- The editor groups undo and redo, image operations, annotation tools, and output
-  in its top row. Label Crop, Resize, Transform, Copy, Export, and Save Current.
-  Keep markup icons compact, with the shared 28 pt cells, 22 pt hover/selected
-  circles, and 14 pt glyph boxes. The canvas status row shows actual pixel
-  dimensions and zoom and provides Fit and 100% controls.
-- The row above the canvas holds tool-specific parameters. Show the selected
-  object's values, including a numeric line width or font size, and edit the
-  active tool's defaults when nothing is selected. Crop replaces these
-  controls with the aspect ratio, pixel dimensions, Cancel, and Apply.
-  Return applies the crop. Escape cancels it. The canvas has an opaque work
-  area and a checkerboard where the image has transparent pixels.
+- Undo and Redo sit beside the traffic lights. Copy, Export, and Save Current
+  align to the right. Give Save Current the primary button treatment.
+- The 48 pt editing row groups Crop, Resize, and Transform before the markup
+  tools. Use 36 pt targets and 18 pt glyph boxes for markup. Show color,
+  numeric line width or font size, and the style menu on the trailing side
+  when the selected object or tool has adjustable settings. Keep the window
+  size stable as these controls appear.
+- Crop uses the editing row to show the ratio, output dimensions, Cancel,
+  and Apply. Return applies the crop. Escape cancels it. The canvas status
+  row shows actual pixel dimensions and zoom and provides Fit and 100%
+  controls. The canvas has an opaque work area and a checkerboard where the
+  image has transparent pixels.
 - Crop, resize, rotate, flip, and raster adjustments share undo with annotation
   edits. Guides and object handles are visible on canvas only. Shapes use
   corner handles. Lines and arrows use their actual endpoints. Hold Shift
