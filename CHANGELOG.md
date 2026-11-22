@@ -3,7 +3,7 @@
 ## Unreleased
 
 - Organize Settings into four panes and preview each appearance before selecting it.
-  Use Regular Liquid Glass for the sidebar.
+  Use the native macOS split-view sidebar and a unified window header.
 
 - Choose Follow System, Light, or Dark in Settings. Both screenshot HUD capsules
   use untinted Regular Liquid Glass and follow the selected appearance. The desktop

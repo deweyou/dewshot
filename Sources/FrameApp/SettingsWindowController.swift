@@ -8,7 +8,6 @@ import SwiftUI
 final class SettingsWindowController {
     private var window: NSWindow?
     private var settingsViewController: SettingsContentViewController?
-    private weak var centeredTitleField: NSTextField?
     private let launchAtLoginService: any LaunchAtLoginServicing
 
     init(launchAtLoginService: any LaunchAtLoginServicing = LaunchAtLoginService()) {
@@ -49,18 +48,19 @@ final class SettingsWindowController {
 
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: SettingsWindowLayout.defaultSize),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = strings.settingsTitle
         window.titleVisibility = .hidden
-        window.titlebarAppearsTransparent = false
-        window.toolbarStyle = .automatic
+        window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
+        window.toolbar = NSToolbar(identifier: "FrameSettings")
+        window.toolbarStyle = .unifiedCompact
         window.minSize = SettingsWindowLayout.minimumSize
         window.isReleasedWhenClosed = false
         window.contentViewController = settingsViewController
-        installCenteredTitle(in: window, title: strings.settingsTitle)
         window.minSize = SettingsWindowLayout.minimumSize
         window.setFrame(NSRect(origin: window.frame.origin, size: SettingsWindowLayout.defaultSize), display: false)
         centerOnActiveScreen(window)
@@ -74,32 +74,7 @@ final class SettingsWindowController {
 
     func update(strings: AppStrings) {
         window?.title = strings.settingsTitle
-        centeredTitleField?.stringValue = strings.settingsTitle
         settingsViewController?.update(strings: strings)
-    }
-
-    private func installCenteredTitle(in window: NSWindow, title: String) {
-        guard let titlebarView = window.standardWindowButton(.closeButton)?.superview,
-              let closeButton = window.standardWindowButton(.closeButton) else {
-            return
-        }
-
-        let titleField = NSTextField(labelWithString: title)
-        titleField.identifier = SettingsWindowLayout.centeredTitlebarTitleIdentifier
-        titleField.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .semibold)
-        titleField.textColor = .labelColor
-        titleField.alignment = .center
-        titleField.translatesAutoresizingMaskIntoConstraints = false
-        titleField.setContentCompressionResistancePriority(.required, for: .horizontal)
-        titleField.setContentHuggingPriority(.required, for: .horizontal)
-
-        titlebarView.addSubview(titleField)
-        NSLayoutConstraint.activate([
-            titleField.centerXAnchor.constraint(equalTo: titlebarView.centerXAnchor),
-            titleField.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
-        ])
-
-        centeredTitleField = titleField
     }
 
     private func centerOnActiveScreen(_ window: NSWindow) {
@@ -123,8 +98,6 @@ final class SettingsWindowController {
 enum SettingsWindowLayout {
     static let defaultSize = CGSize(width: 752, height: 556)
     static let minimumSize = CGSize(width: 688, height: 460)
-    static let usesCenteredTitlebarLabel = true
-    static let centeredTitlebarTitleIdentifier = NSUserInterfaceItemIdentifier("FrameSettingsCenteredTitle")
 
     static func centeredFrame(windowSize: CGSize, visibleFrame: CGRect) -> CGRect {
         CGRect(
@@ -175,7 +148,7 @@ private final class SettingsPresentation {
 }
 
 @MainActor
-private final class SettingsContentViewController: NSHostingController<AnyView> {
+private final class SettingsContentViewController: NSSplitViewController {
     private let presentation: SettingsPresentation
 
     init(
@@ -192,8 +165,19 @@ private final class SettingsContentViewController: NSHostingController<AnyView> 
     ) {
         let presentation = SettingsPresentation(strings: strings)
         self.presentation = presentation
-        super.init(rootView: AnyView(
-            SettingsRootView(
+        super.init(nibName: nil, bundle: nil)
+
+        let sidebar = NSSplitViewItem(sidebarWithViewController: NSHostingController(
+            rootView: SettingsSidebar(presentation: presentation)
+        ))
+        sidebar.minimumThickness = 176
+        sidebar.maximumThickness = 200
+        sidebar.preferredThicknessFraction = 0.24
+        sidebar.canCollapse = false
+        sidebar.allowsFullHeightLayout = true
+
+        let detail = NSSplitViewItem(viewController: NSHostingController(
+            rootView: SettingsDetailView(
                 presentation: presentation,
                 onShortcutChange: onShortcutChange,
                 onRecordingShortcutChange: onRecordingShortcutChange,
@@ -206,6 +190,13 @@ private final class SettingsContentViewController: NSHostingController<AnyView> 
                 launchAtLoginService: launchAtLoginService
             )
         ))
+        if #available(macOS 26.0, *) {
+            detail.automaticallyAdjustsSafeAreaInsets = true
+        }
+        splitView.isVertical = true
+        splitView.dividerStyle = .thin
+        addSplitViewItem(sidebar)
+        addSplitViewItem(detail)
     }
 
     @available(*, unavailable)
@@ -218,8 +209,8 @@ private final class SettingsContentViewController: NSHostingController<AnyView> 
     }
 }
 
-private struct SettingsRootView: View {
-    @Bindable var presentation: SettingsPresentation
+private struct SettingsDetailView: View {
+    let presentation: SettingsPresentation
     let onShortcutChange: @MainActor (ScreenshotShortcut) -> Bool
     let onRecordingShortcutChange: @MainActor (ScreenshotShortcut?) -> Bool
     let onShortcutRecordingChange: @MainActor (Bool) -> Void
@@ -233,30 +224,24 @@ private struct SettingsRootView: View {
     private var strings: AppStrings { presentation.strings }
 
     var body: some View {
-        HStack(spacing: 0) {
-            SettingsSidebar(strings: strings, selection: $presentation.section)
-                .padding(.leading, 12)
-                .padding(.vertical, 12)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                Text(presentation.section.title(strings: strings))
+                    .font(.system(size: 27, weight: .semibold))
+                    .accessibilityAddTraits(.isHeader)
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    Text(presentation.section.title(strings: strings))
-                        .font(.system(size: 27, weight: .semibold))
-                        .accessibilityAddTraits(.isHeader)
-
-                    sectionContent
-                }
-                .frame(maxWidth: 600, alignment: .leading)
-                .padding(.horizontal, 32)
-                .padding(.top, 26)
-                .padding(.bottom, 32)
-                .frame(maxWidth: .infinity, alignment: .top)
+                sectionContent
             }
-            .id(presentation.section)
-            .background(Color(nsColor: .textBackgroundColor))
+            .frame(maxWidth: 600, alignment: .leading)
+            .padding(.horizontal, 30)
+            .padding(.top, 22)
+            .padding(.bottom, 32)
+            .frame(maxWidth: .infinity, alignment: .top)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .textBackgroundColor))
+        .id(presentation.section)
+        .background {
+            Color(nsColor: .textBackgroundColor).ignoresSafeArea()
+        }
     }
 
     @ViewBuilder
@@ -288,78 +273,24 @@ private struct SettingsRootView: View {
 }
 
 private struct SettingsSidebar: View {
-    let strings: AppStrings
-    @Binding var selection: SettingsSection
+    @Bindable var presentation: SettingsPresentation
 
-    @ViewBuilder
     var body: some View {
-        if #available(macOS 26.0, *) {
-            sidebarContent.glassEffect(.regular, in: .rect(cornerRadius: 16))
-        } else {
-            sidebarContent.background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 16))
-        }
-    }
-
-    private var sidebarContent: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        List(selection: $presentation.section) {
             ForEach(SettingsSection.allCases) { section in
-                SettingsSidebarButton(
-                    title: section.title(strings: strings),
-                    symbol: section.symbol,
-                    isSelected: selection == section,
-                    action: { selection = section }
-                )
-                .accessibilityIdentifier("settings.section.\(section.rawValue)")
+                Label(section.title(strings: presentation.strings), systemImage: section.symbol)
+                    .tag(section)
+                    .accessibilityIdentifier("settings.section.\(section.rawValue)")
             }
-
-            Spacer()
+        }
+        .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             SettingsAboutFooterView()
-                .padding(.leading, 10)
-                .padding(.bottom, 3)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 17)
+                .padding(.vertical, 12)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 18)
-        .frame(width: 164)
-        .frame(maxHeight: .infinity)
-    }
-}
-
-private struct SettingsSidebarButton: View {
-    let title: String
-    let symbol: String
-    let isSelected: Bool
-    let action: () -> Void
-
-    @State private var isHovering = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 9) {
-                Image(systemName: symbol)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
-                    .frame(width: 18)
-                    .accessibilityHidden(true)
-
-                Text(title)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
-            }
-            .padding(.horizontal, 10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: 34)
-            .background {
-                if isSelected {
-                    RoundedRectangle(cornerRadius: 8).fill(Color.accentColor.opacity(0.13))
-                } else if isHovering {
-                    RoundedRectangle(cornerRadius: 8).fill(.primary.opacity(0.06))
-                }
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(.primary)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .onHover { isHovering = $0 }
     }
 }
 

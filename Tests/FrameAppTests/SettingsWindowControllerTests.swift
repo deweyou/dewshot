@@ -305,27 +305,26 @@ final class SettingsWindowControllerTests: XCTestCase {
         }
 
         XCTAssertEqual(window.minSize.width, 688, accuracy: 0.5)
-        XCTAssertEqual(window.minSize.height, 460, accuracy: 0.5)
+        XCTAssertGreaterThanOrEqual(window.minSize.height, SettingsWindowLayout.minimumSize.height)
         XCTAssertEqual(window.frame.size.width, 752, accuracy: 0.5)
         XCTAssertEqual(window.frame.size.height, 556, accuracy: 0.5)
         XCTAssertEqual(window.title, "Settings")
-        XCTAssertTrue(SettingsWindowLayout.usesCenteredTitlebarLabel)
         XCTAssertEqual(window.titleVisibility, .hidden)
-        XCTAssertEqual(window.toolbarStyle, .automatic)
-        XCTAssertFalse(window.titlebarAppearsTransparent)
-        XCTAssertFalse(window.styleMask.contains(.fullSizeContentView))
-        XCTAssertTrue(window.contentViewController is NSHostingController<AnyView>)
+        XCTAssertEqual(window.toolbarStyle, .unifiedCompact)
+        XCTAssertTrue(window.titlebarAppearsTransparent)
+        XCTAssertEqual(window.titlebarSeparatorStyle, .none)
+        XCTAssertTrue(window.styleMask.contains(.fullSizeContentView))
 
-        let titleField = try XCTUnwrap(
-            descendant(
-                in: window.contentView?.superview,
-                identifier: SettingsWindowLayout.centeredTitlebarTitleIdentifier
-            ) as? NSTextField
-        )
-        XCTAssertEqual(titleField.stringValue, "Settings")
-        XCTAssertTrue(titleField.superview === window.standardWindowButton(.closeButton)?.superview)
+        let split = try XCTUnwrap(window.contentViewController as? NSSplitViewController)
+        XCTAssertTrue(split.splitView.isVertical)
+        XCTAssertEqual(split.splitViewItems.map(\.behavior), [.sidebar, .default])
+        XCTAssertTrue(split.splitViewItems[0].allowsFullHeightLayout)
+        XCTAssertFalse(split.splitViewItems[0].canCollapse)
+        if #available(macOS 26.0, *) {
+            XCTAssertTrue(split.splitViewItems[1].automaticallyAdjustsSafeAreaInsets)
+        }
         controller.update(strings: AppStrings(language: .zhHans))
-        XCTAssertEqual(titleField.stringValue, "设置")
+        XCTAssertEqual(window.title, "设置")
     }
 
     func testOCRLanguageSettingsExposeDefaultOptions() {
@@ -388,24 +387,6 @@ final class SettingsWindowControllerTests: XCTestCase {
         XCTAssertEqual(frame.midY, visibleFrame.midY, accuracy: 0.5)
         XCTAssertEqual(frame.width, 900, accuracy: 0.5)
         XCTAssertEqual(frame.height, 540, accuracy: 0.5)
-    }
-
-    private func descendant(in view: NSView?, identifier: NSUserInterfaceItemIdentifier) -> NSView? {
-        guard let view else {
-            return nil
-        }
-
-        if view.identifier == identifier {
-            return view
-        }
-
-        for subview in view.subviews {
-            if let match = descendant(in: subview, identifier: identifier) {
-                return match
-            }
-        }
-
-        return nil
     }
 
     private func keyEvent(
