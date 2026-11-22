@@ -739,7 +739,7 @@ private struct SettingsMenuPicker<Selection: Hashable, Options: View>: View {
             .pickerStyle(.inline)
             .labelsHidden()
         } label: {
-            Text("\(value)  \(Image(systemName: "chevron.down"))")
+            Text("\(value)  \(settingsChevron("chevron.down"))")
                 .font(.system(size: SettingsTypographyMetrics.rowFontSize))
         }
         .menuStyle(.borderlessButton)
@@ -771,9 +771,7 @@ private struct SettingsButtonRow: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.trailing)
 
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.tertiary)
+                settingsChevron("chevron.right")
             }
             .padding(.horizontal, SettingsGroupMetrics.horizontalPadding)
             .frame(minHeight: SettingsGroupMetrics.rowMinHeight)
@@ -782,6 +780,12 @@ private struct SettingsButtonRow: View {
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
     }
+}
+
+private func settingsChevron(_ symbol: String) -> Text {
+    Text("\(Image(systemName: symbol))")
+        .font(.system(size: 10, weight: .semibold))
+        .foregroundStyle(.tertiary)
 }
 
 private struct SettingsControlDivider: View {
