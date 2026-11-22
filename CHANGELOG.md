@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Simplify the image editor and recording player headers, separate pinned-image
+  window controls from the image, and show timeline thumbnails for longer MP4s.
+- Give Capture History a window title, clearer tile metadata, and actions that
+  match empty, filtered, or disabled history.
+- Label scrolling capture’s Start and Finish controls, clarify its toolbar icon,
+  and emphasize copy and save in Quick Access.
+- Reduce the initial height of short OCR results and soften unselected text
+  outlines. Give the recording stop action more visual weight than delete.
+
 - Organize Settings into four panes and preview each appearance before selecting it.
   Use the native macOS split-view sidebar and a unified window header.
 

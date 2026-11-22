@@ -1059,6 +1059,41 @@ struct AppStrings {
         }
     }
 
+    var captureHistoryEmptyMessage: String {
+        switch language {
+        case .zhHans: "截图或录屏后，可以在这里找到最近的捕获。"
+        case .en: "Screenshots and recordings you take will appear here."
+        }
+    }
+
+    var captureHistoryFilterEmptyTitle: String {
+        switch language {
+        case .zhHans: "这个分类还没有记录"
+        case .en: "No captures in this category"
+        }
+    }
+
+    var captureHistoryFilterEmptyMessage: String {
+        switch language {
+        case .zhHans: "查看全部记录，找回其他截图和录屏。"
+        case .en: "View all captures to find other screenshots and recordings."
+        }
+    }
+
+    var captureHistoryDisabledTitle: String {
+        switch language {
+        case .zhHans: "历史记录已关闭"
+        case .en: "Capture history is off"
+        }
+    }
+
+    var captureHistoryDisabledMessage: String {
+        switch language {
+        case .zhHans: "在设置里开启「保存最近捕获」后，新记录会出现在这里。"
+        case .en: "Turn on recent captures in Settings to keep new screenshots and recordings here."
+        }
+    }
+
     var captureHistoryFilterAll: String {
         switch language {
         case .zhHans: "全部"

@@ -502,8 +502,11 @@ final class QuickAccessPanelController: NSObject {
             style: .toolbar
         )
 
-        stackView.addArrangedSubview(saveButton)
         stackView.addArrangedSubview(copyButton)
+        stackView.addArrangedSubview(saveButton)
+        for button in [ocrButton, pinButton, openWorkspaceButton] {
+            button.contentTintColor = FrameHUDChrome.secondaryIcon
+        }
         stackView.addArrangedSubview(ocrButton)
         stackView.addArrangedSubview(pinButton)
         stackView.addArrangedSubview(openWorkspaceButton)

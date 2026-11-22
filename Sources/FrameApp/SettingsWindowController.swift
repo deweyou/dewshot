@@ -77,6 +77,10 @@ final class SettingsWindowController {
         settingsViewController?.update(strings: strings)
     }
 
+    func selectSection(_ section: SettingsSection) {
+        settingsViewController?.selectSection(section)
+    }
+
     private func centerOnActiveScreen(_ window: NSWindow) {
         let mouseLocation = NSEvent.mouseLocation
         let targetScreen = NSScreen.screens.first { $0.frame.contains(mouseLocation) }
@@ -202,6 +206,10 @@ private final class SettingsContentViewController: NSSplitViewController {
     @available(*, unavailable)
     required dynamic init?(coder aDecoder: NSCoder) {
         nil
+    }
+
+    func selectSection(_ section: SettingsSection) {
+        presentation.section = section
     }
 
     func update(strings: AppStrings) {

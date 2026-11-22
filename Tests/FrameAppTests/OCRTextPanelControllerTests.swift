@@ -90,7 +90,7 @@ final class OCRTextPanelControllerTests: XCTestCase {
             XCTAssertEqual(
                 button.layer?.borderColor,
                 resolvedCGColor(appearance: button.effectiveAppearance) {
-                    NSColor.separatorColor.withAlphaComponent(0.35)
+                    NSColor.separatorColor.withAlphaComponent(0.18)
                 }
             )
         }
@@ -137,7 +137,7 @@ final class OCRTextPanelControllerTests: XCTestCase {
             .controlBackgroundColor
         }
         let darkBorderColor = resolvedCGColor(appearance: darkAppearance) {
-            NSColor.separatorColor.withAlphaComponent(0.35)
+            NSColor.separatorColor.withAlphaComponent(0.18)
         }
         XCTAssertEqual(cutButton.layer?.backgroundColor, darkBackgroundColor)
         XCTAssertEqual(cutButton.layer?.borderColor, darkBorderColor)

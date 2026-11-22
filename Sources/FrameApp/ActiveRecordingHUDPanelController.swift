@@ -243,15 +243,16 @@ final class ActiveRecordingHUDPanelController {
         stopButton.isEnabled = !isStopping
         stopButton.contentTintColor = isStopping ? .disabledControlTextColor : Self.recordingAccentColor
         buttonStackView.addArrangedSubview(stopButton)
-        buttonStackView.addArrangedSubview(
-            makeButton(title: "重新开始", symbolName: "arrow.clockwise", action: #selector(restartClicked))
-        )
+        let restartButton = makeButton(title: "重新开始", symbolName: "arrow.clockwise", action: #selector(restartClicked))
+        restartButton.isEnabled = !isStopping
+        buttonStackView.addArrangedSubview(restartButton)
         let deleteButton = makeButton(
             title: "删除录制",
             symbolName: "trash",
             action: #selector(deleteClicked)
         )
-        deleteButton.contentTintColor = HUDChromePalette.deepGlassForegroundColor
+        deleteButton.isEnabled = !isStopping
+        deleteButton.contentTintColor = FrameHUDChrome.secondaryIcon
         buttonStackView.addArrangedSubview(deleteButton)
     }
 

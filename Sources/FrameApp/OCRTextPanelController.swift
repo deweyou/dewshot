@@ -39,7 +39,7 @@ final class OCRTextPanelController: NSObject, NSTextViewDelegate {
             return
         }
 
-        let panel = makePanel(title: strings.ocrPanelTitle)
+        let panel = makePanel(title: strings.ocrPanelTitle, lineCount: layout.lines.count)
         let item = OCRTextPanelItem(
             panel: panel,
             screenshotID: screenshot.id,
@@ -123,12 +123,12 @@ final class OCRTextPanelController: NSObject, NSTextViewDelegate {
         panel.orderFrontRegardless()
     }
 
-    private func makePanel(title: String) -> OCRTextPanel {
+    private func makePanel(title: String, lineCount: Int) -> OCRTextPanel {
         let visibleFrame = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame
             ?? NSRect(x: 0, y: 0, width: 900, height: 700)
         let contentSize = NSSize(
             width: min(520, max(360, visibleFrame.width * 0.42)),
-            height: min(420, max(260, visibleFrame.height * 0.42))
+            height: min(420, max(220, 134 + CGFloat(lineCount) * 30))
         )
         let contentRect = NSRect(
             x: visibleFrame.midX - contentSize.width / 2,
@@ -769,7 +769,7 @@ private final class OCRCutButton: NSButton {
                 : NSColor.controlBackgroundColor
             let borderColor = isCutSelected
                 ? NSColor.controlAccentColor.withAlphaComponent(0.7)
-                : NSColor.separatorColor.withAlphaComponent(0.35)
+                : NSColor.separatorColor.withAlphaComponent(0.18)
 
             layer?.backgroundColor = backgroundColor.cgColor
             layer?.borderColor = borderColor.cgColor

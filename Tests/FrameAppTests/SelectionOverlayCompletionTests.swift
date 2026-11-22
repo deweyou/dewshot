@@ -79,7 +79,7 @@ final class SelectionOverlayCompletionTests: XCTestCase {
 
         XCTAssertEqual(
             window.hudButtonImageDescriptionsForTesting(),
-            ["crop", "display", "timer", "scroll", "character.textbox", "record.circle"]
+            ["crop", "display", "timer", "arrow.up.and.down.text.horizontal", "character.textbox", "record.circle"]
         )
     }
 

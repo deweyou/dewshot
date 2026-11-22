@@ -923,7 +923,7 @@ private final class SelectionOverlayView: NSView {
 
     private func makeScrollingScreenshotButton() -> HUDIconButton {
         let button = HUDIconButton(
-            symbolName: "scroll",
+            symbolName: "arrow.up.and.down.text.horizontal",
             accessibilityDescription: scrollingActionText
         )
         button.target = self

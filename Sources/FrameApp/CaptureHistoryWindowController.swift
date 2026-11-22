@@ -26,10 +26,16 @@ final class CaptureHistoryWindowController: NSObject {
     private let copy: (CaptureHistoryRecord) -> Void
     private let save: (CaptureHistoryRecord) -> Void
     private let delete: (CaptureHistoryRecord) -> Void
+    private let isHistoryEnabled: () -> Bool
+    private let startCapture: (CaptureHistoryFilter) -> Void
+    private let openHistorySettings: () -> Void
     private let confirmDelete: (CaptureHistoryRecord, AppStrings) -> Bool
     private var window: NSWindow?
     private var gridView: CaptureHistoryGridView?
-    private var emptyLabel: NSTextField?
+    private var emptyStateView: NSStackView?
+    private var emptyTitle: NSTextField?
+    private var emptyMessage: NSTextField?
+    private var emptyAction: NSButton?
     private var filterControl: CaptureHistoryFilterControl?
     private var tileViewsByRecordID: [UUID: CaptureHistoryTileView] = [:]
     private var activeHoverRecordID: UUID?
@@ -46,6 +52,9 @@ final class CaptureHistoryWindowController: NSObject {
         copy: @escaping (CaptureHistoryRecord) -> Void = { _ in },
         save: @escaping (CaptureHistoryRecord) -> Void = { _ in },
         delete: @escaping (CaptureHistoryRecord) -> Void = { _ in },
+        isHistoryEnabled: @escaping () -> Bool = { SettingsStore.isCaptureHistoryEnabled() },
+        startCapture: @escaping (CaptureHistoryFilter) -> Void = { _ in },
+        openHistorySettings: @escaping () -> Void = {},
         confirmDelete: @escaping (CaptureHistoryRecord, AppStrings) -> Bool = { _, strings in
             CaptureHistoryDeletionConfirmation.confirm(strings: strings)
         }
@@ -57,6 +66,9 @@ final class CaptureHistoryWindowController: NSObject {
         self.copy = copy
         self.save = save
         self.delete = delete
+        self.isHistoryEnabled = isHistoryEnabled
+        self.startCapture = startCapture
+        self.openHistorySettings = openHistorySettings
         self.confirmDelete = confirmDelete
         super.init()
     }
@@ -91,7 +103,7 @@ final class CaptureHistoryWindowController: NSObject {
         window.minSize = NSSize(width: 520, height: 360)
         window.isReleasedWhenClosed = false
         window.animationBehavior = .none
-        window.titleVisibility = .hidden
+        window.titleVisibility = .visible
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
         window.backgroundColor = .clear
@@ -113,7 +125,10 @@ final class CaptureHistoryWindowController: NSObject {
         window?.close()
         window = nil
         gridView = nil
-        emptyLabel = nil
+        emptyStateView = nil
+        emptyTitle = nil
+        emptyMessage = nil
+        emptyAction = nil
         filterControl = nil
         tileViewsByRecordID = [:]
         activeHoverRecordID = nil
@@ -238,26 +253,45 @@ final class CaptureHistoryWindowController: NSObject {
         scrollView.drawsBackground = false
         scrollView.documentView = gridView
 
-        let emptyLabel = NSTextField(labelWithString: strings.captureHistoryEmpty)
-        emptyLabel.translatesAutoresizingMaskIntoConstraints = false
-        emptyLabel.font = .systemFont(ofSize: 13, weight: .medium)
-        emptyLabel.textColor = .secondaryLabelColor
-        emptyLabel.alignment = .center
-        emptyLabel.isHidden = true
-        self.emptyLabel = emptyLabel
+        let emptyIcon = NSImageView(image: NSImage(systemSymbolName: "clock", accessibilityDescription: nil) ?? NSImage())
+        emptyIcon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 25, weight: .light)
+        emptyIcon.contentTintColor = .secondaryLabelColor
+        emptyIcon.setAccessibilityElement(false)
+
+        let emptyTitle = NSTextField(labelWithString: "")
+        emptyTitle.font = .systemFont(ofSize: 17, weight: .semibold)
+        emptyTitle.alignment = .center
+        let emptyMessage = NSTextField(wrappingLabelWithString: "")
+        emptyMessage.font = .systemFont(ofSize: 13)
+        emptyMessage.textColor = .secondaryLabelColor
+        emptyMessage.alignment = .center
+        let emptyAction = NSButton(title: "", target: self, action: #selector(performEmptyAction))
+        emptyAction.bezelStyle = .rounded
+        emptyAction.identifier = NSUserInterfaceItemIdentifier("CaptureHistoryEmptyAction")
+
+        let emptyState = NSStackView(views: [emptyIcon, emptyTitle, emptyMessage, emptyAction])
+        emptyState.orientation = .vertical
+        emptyState.alignment = .centerX
+        emptyState.spacing = 9
+        emptyState.translatesAutoresizingMaskIntoConstraints = false
+        emptyState.isHidden = true
+        self.emptyStateView = emptyState
+        self.emptyTitle = emptyTitle
+        self.emptyMessage = emptyMessage
+        self.emptyAction = emptyAction
 
         materialView.addSubview(toolbarView)
         materialView.addSubview(scrollView)
-        materialView.addSubview(emptyLabel)
+        materialView.addSubview(emptyState)
 
         NSLayoutConstraint.activate([
             toolbarView.leadingAnchor.constraint(equalTo: materialView.leadingAnchor),
             toolbarView.trailingAnchor.constraint(equalTo: materialView.trailingAnchor),
             toolbarView.topAnchor.constraint(equalTo: materialView.topAnchor),
-            toolbarView.heightAnchor.constraint(equalToConstant: 58),
+            toolbarView.heightAnchor.constraint(equalToConstant: 46),
 
             filterControl.trailingAnchor.constraint(equalTo: toolbarView.trailingAnchor, constant: -18),
-            filterControl.centerYAnchor.constraint(equalTo: toolbarView.centerYAnchor, constant: 6),
+            filterControl.topAnchor.constraint(equalTo: toolbarView.topAnchor, constant: 2),
             filterControl.heightAnchor.constraint(equalToConstant: 32),
 
             scrollView.leadingAnchor.constraint(equalTo: materialView.leadingAnchor),
@@ -270,10 +304,10 @@ final class CaptureHistoryWindowController: NSObject {
             gridView.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
             gridView.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
 
-            emptyLabel.centerXAnchor.constraint(equalTo: scrollView.centerXAnchor),
-            emptyLabel.centerYAnchor.constraint(equalTo: scrollView.centerYAnchor),
-            emptyLabel.leadingAnchor.constraint(greaterThanOrEqualTo: materialView.leadingAnchor, constant: 24),
-            emptyLabel.trailingAnchor.constraint(lessThanOrEqualTo: materialView.trailingAnchor, constant: -24),
+            emptyState.centerXAnchor.constraint(equalTo: scrollView.centerXAnchor),
+            emptyState.centerYAnchor.constraint(equalTo: scrollView.centerYAnchor),
+            emptyState.leadingAnchor.constraint(greaterThanOrEqualTo: materialView.leadingAnchor, constant: 24),
+            emptyState.trailingAnchor.constraint(lessThanOrEqualTo: materialView.trailingAnchor, constant: -24),
         ])
 
         return materialView
@@ -286,6 +320,7 @@ final class CaptureHistoryWindowController: NSObject {
             let tileView = CaptureHistoryTileView(
                 record: record,
                 image: previewImage(for: record),
+                timeText: record.createdAt.formatted(date: .abbreviated, time: .shortened),
                 metadata: metadataText(for: record),
                 accessibilityTitle: kindTitle(for: record.kind),
                 strings: strings
@@ -304,7 +339,46 @@ final class CaptureHistoryWindowController: NSObject {
         }
 
         gridView?.setTileViews(tileViews)
-        emptyLabel?.isHidden = !records.isEmpty
+        updateEmptyState()
+    }
+
+    private enum EmptyReason {
+        case disabled, filter, noCaptures
+    }
+
+    private var emptyReason: EmptyReason {
+        if !isHistoryEnabled() { return .disabled }
+        if selectedFilter != .all, let allRecords = try? store.records(kind: nil), !allRecords.isEmpty {
+            return .filter
+        }
+        return .noCaptures
+    }
+
+    private func updateEmptyState() {
+        emptyStateView?.isHidden = !records.isEmpty
+        guard records.isEmpty else { return }
+        switch emptyReason {
+        case .disabled:
+            emptyTitle?.stringValue = strings.captureHistoryDisabledTitle
+            emptyMessage?.stringValue = strings.captureHistoryDisabledMessage
+            emptyAction?.title = strings.settingsTitle
+        case .filter:
+            emptyTitle?.stringValue = strings.captureHistoryFilterEmptyTitle
+            emptyMessage?.stringValue = strings.captureHistoryFilterEmptyMessage
+            emptyAction?.title = strings.captureHistoryFilterAll
+        case .noCaptures:
+            emptyTitle?.stringValue = strings.captureHistoryEmpty
+            emptyMessage?.stringValue = strings.captureHistoryEmptyMessage
+            emptyAction?.title = selectedFilter == .recordings ? strings.menuRecordScreen : strings.menuCapture
+        }
+    }
+
+    @objc private func performEmptyAction() {
+        switch emptyReason {
+        case .disabled: openHistorySettings()
+        case .filter: setFilter(.all)
+        case .noCaptures: startCapture(selectedFilter)
+        }
     }
 
     private func reloadRecords() {
@@ -328,8 +402,8 @@ final class CaptureHistoryWindowController: NSObject {
 
     private func metadataText(for record: CaptureHistoryRecord) -> String {
         let size = ByteCountFormatter.string(fromByteCount: Int64(record.byteSize), countStyle: .file)
-        let dimensions = "\(record.pixelWidth) x \(record.pixelHeight)"
-        return "\(record.createdAt.formatted(date: .abbreviated, time: .shortened)) | \(dimensions) | \(size)"
+        let dimensions = "\(record.pixelWidth) × \(record.pixelHeight)"
+        return "\(dimensions) · \(size)"
     }
 
     private func kindTitle(for kind: CaptureHistoryKind) -> String {
@@ -608,7 +682,7 @@ private final class CaptureHistoryGridView: NSView {
     private let verticalSpacing: CGFloat = 22
     private let minTileWidth: CGFloat = 200
     private let maxTileWidth: CGFloat = 260
-    private let metadataHeight: CGFloat = 18
+    private let metadataHeight: CGFloat = 33
     private var previewAspectRatio: CGFloat {
         CapturePreviewMetrics.desktopAspectRatio()
     }
@@ -803,6 +877,7 @@ private final class CaptureHistoryTileView: NSView {
     init(
         record: CaptureHistoryRecord,
         image: NSImage,
+        timeText: String,
         metadata: String,
         accessibilityTitle: String,
         strings: AppStrings
@@ -817,7 +892,7 @@ private final class CaptureHistoryTileView: NSView {
         identifier = NSUserInterfaceItemIdentifier(record.id.uuidString)
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
-        setAccessibilityLabel("\(accessibilityTitle), \(metadata)")
+        setAccessibilityLabel("\(accessibilityTitle), \(timeText), \(metadata)")
         setAccessibilityHelp(strings.captureHistoryOpen)
 
         wantsLayer = true
@@ -889,6 +964,11 @@ private final class CaptureHistoryTileView: NSView {
             actionsStack.addArrangedSubview(button)
         }
 
+        let timeLabel = NSTextField(labelWithString: timeText)
+        timeLabel.translatesAutoresizingMaskIntoConstraints = false
+        timeLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        timeLabel.lineBreakMode = .byTruncatingTail
+
         let metadataLabel = NSTextField(labelWithString: metadata)
         metadataLabel.translatesAutoresizingMaskIntoConstraints = false
         metadataLabel.font = .systemFont(ofSize: 11, weight: .regular)
@@ -897,6 +977,7 @@ private final class CaptureHistoryTileView: NSView {
         metadataLabel.maximumNumberOfLines = 1
 
         addSubview(previewShadowView)
+        addSubview(timeLabel)
         addSubview(metadataLabel)
         previewShadowView.addSubview(imageView)
         imageView.addSubview(actionsView)
@@ -917,7 +998,10 @@ private final class CaptureHistoryTileView: NSView {
 
             metadataLabel.leadingAnchor.constraint(equalTo: leadingAnchor),
             metadataLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
-            metadataLabel.topAnchor.constraint(equalTo: previewShadowView.bottomAnchor, constant: 6),
+            timeLabel.leadingAnchor.constraint(equalTo: leadingAnchor),
+            timeLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
+            timeLabel.topAnchor.constraint(equalTo: previewShadowView.bottomAnchor, constant: 6),
+            metadataLabel.topAnchor.constraint(equalTo: timeLabel.bottomAnchor, constant: 3),
 
             actionsView.centerXAnchor.constraint(equalTo: imageView.centerXAnchor),
             actionsView.bottomAnchor.constraint(equalTo: imageView.bottomAnchor, constant: -7),

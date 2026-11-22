@@ -141,16 +141,11 @@ system tool, not a branded dashboard.
 
 - HUD-like controls share one visual language across capture, Image Workspace,
   video preview/editing, and Quick Access surfaces.
-- Glass containers use HUD material, a quiet translucent border, and capsule
-  geometry when the control row is short. For fixed-height toolbars, the left
-  and right ends should read as large rounded caps rather than square panels.
-- Capture, recording, and workspace toolbar rows use a darker,
-  less-transparent glass fill under that material so light icons stay readable
-  without relying on background luminance detection.
-- Icon buttons are icon-only except for compact state toggles such as the
-  MP4/GIF recording format control. Their default state is quiet; hover shows a
-  circular background behind the icon instead of changing the whole toolbar or
-  adding explanatory text.
+- Compact floating controls can use capsule geometry. Keep the workspace and
+  video window headers flat and aligned with the native window controls.
+- Use short visible labels for starting and finishing scrolling capture, starting
+  recording, and the recording format. Keep secondary actions compact and give
+  icon-only buttons a tooltip and accessibility label.
 - Actions that are visible before their behavior is implemented stay disabled:
   no pointer cursor, no hover fill, and disabled tint.
 - Selected tools keep the same circular affordance, using a compact accent tint
@@ -175,23 +170,23 @@ system tool, not a branded dashboard.
 - Image Workspace panels use the native macOS window shadow because the surface
   behaves like a real movable and resizable window. Avoid custom shadow gutters
   unless the workspace becomes a borderless HUD-like surface again.
-- Pinned image windows are image-only. They use native macOS traffic-light
-  controls over the top-left of the image and do not show the workspace toolbar
-  or visible output actions.
+- Pinned windows give the image its own surface below the native titlebar.
+  Put output actions in the context menu.
 - Pinned image windows expose Copy, Download, and Edit through the context menu.
   These actions must not close the pinned window. Edit opens or activates the
   preview/edit workspace for the same screenshot.
 - Every icon-only action must keep a tooltip and accessibility label.
 - Video Preview output actions follow the workspace's traffic-light-safe header
   pattern: a compact, right-aligned group of fixed-width icon cells with a
-  centered hover circle. The MP4 editor remains a deep horizontal workbench for
-  its timeline, playback, duration, and speed controls rather than becoming a
-  second floating capsule toolbar.
+  centered hover circle. Keep playback, duration, speed, and the timeline in the
+  bottom editor bar. Use a few subdued frames in longer MP4 timelines to help
+  users find a position without hiding the trim handles or time labels.
 
 ## Quick Access
 
 - Quick Access is a small fixed post-capture preview with icon-only hover
-  actions for copy, save, workspace, pin, and close.
+  actions for copy, save, workspace, pin, and close. Lead with copy and save,
+  and give secondary actions quieter icons.
 - Keep captured image and video pixels visually true. Apply stable deep glass
   only to hover action overlays, close/status/duration accessories, fallback
   placeholders, and the larger hover preview shell so arbitrary media or
@@ -321,5 +316,7 @@ system tool, not a branded dashboard.
 - Recording history tiles should use the first decodable recording frame as the
   preview image and fall back to a lightweight video placeholder only when
   decoding fails.
-- Keep history actions hidden until the tile is hovered. Metadata should remain
-  one compact line below the preview and must not reintroduce table columns.
+- Keep history actions hidden until the tile is hovered. Place capture time on
+  the first line below the preview and keep dimensions and size secondary.
+  Empty history offers a capture action, a filter reset, or a route to Settings
+  depending on why the grid is empty.

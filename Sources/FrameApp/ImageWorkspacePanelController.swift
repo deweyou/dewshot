@@ -141,11 +141,15 @@ final class ImageWorkspacePanelController: NSObject {
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
+        panel.titlebarSeparatorStyle = .none
+        panel.titlebarAppearsTransparent = kind != .pinned
+        if kind == .pinned {
+            panel.styleMask.remove(.fullSizeContentView)
+        }
         panel.isMovableByWindowBackground = true
-        panel.backgroundColor = .clear
+        panel.backgroundColor = kind == .pinned ? .windowBackgroundColor : .clear
         panel.hasShadow = true
-        panel.isOpaque = false
+        panel.isOpaque = kind == .pinned
         panel.configureResize(
             imageAspectRatio: initialLayout.usesScrollableViewport ? nil : imageAspectRatio,
             metrics: ImageWorkspaceLayout.resizeMetrics(for: kind)
@@ -294,7 +298,7 @@ final class ImageWorkspacePanelController: NSObject {
         }
         item.textSelectionOverlay = textSelectionOverlay
 
-        let toolbar = ImageWorkspaceToolbarView()
+        let toolbar = MediaWindowHeaderView()
         toolbar.translatesAutoresizingMaskIntoConstraints = false
         toolbar.setAccessibilityLabel("Image Workspace Toolbar")
 
@@ -511,6 +515,7 @@ final class ImageWorkspacePanelController: NSObject {
         imageContainer.wantsLayer = true
         imageContainer.layer?.cornerRadius = 10
         imageContainer.layer?.cornerCurve = .continuous
+        imageContainer.layer?.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         imageContainer.layer?.masksToBounds = true
         imageContainer.layer?.backgroundColor = NSColor.black.cgColor
         imageContainer.menuProvider = contextMenuProvider
@@ -2211,21 +2216,6 @@ private class ImageWorkspaceContextMenuView: NSView {
 
     override func menu(for event: NSEvent) -> NSMenu? {
         menuProvider?()
-    }
-}
-
-private final class ImageWorkspaceToolbarView: NSVisualEffectView {
-    private let toolbarHeight = ImageWorkspaceLayout.toolbarHeight
-
-    init() {
-        super.init(frame: .zero)
-        alphaValue = 1
-        FrameHUDChrome.configure(self, surface: .toolbar, cornerRadius: toolbarHeight / 2)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        nil
     }
 }
 

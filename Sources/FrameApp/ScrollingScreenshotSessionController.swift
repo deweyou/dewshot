@@ -888,11 +888,11 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
 
         switch session.phase {
         case .waiting:
-            stackView.addArrangedSubview(makeHUDButton(title: session.strings.scrollingScreenshotStart, symbolName: "play.fill", action: #selector(startButtonClicked)))
+            stackView.addArrangedSubview(makeHUDButton(title: session.strings.scrollingScreenshotStart, symbolName: "play.fill", action: #selector(startButtonClicked), showsTitle: true))
             stackView.addArrangedSubview(makeHUDButton(title: session.strings.scrollingScreenshotCancel, symbolName: "xmark", action: #selector(cancelButtonClicked)))
             updateHUDNotice(nil, baseSize: Self.waitingHUDPanelSize)
         case .running:
-            stackView.addArrangedSubview(makeHUDButton(title: session.strings.scrollingScreenshotFinish, symbolName: "checkmark", action: #selector(finishButtonClicked)))
+            stackView.addArrangedSubview(makeHUDButton(title: session.strings.scrollingScreenshotFinish, symbolName: "checkmark", action: #selector(finishButtonClicked), showsTitle: true))
             let autoScrollButton = makeHUDButton(
                 title: session.isAutoScrollingEnabled ? session.strings.scrollingScreenshotStopAutoScroll : session.strings.scrollingScreenshotAutoScroll,
                 symbolName: session.isAutoScrollingEnabled ? "stop.circle.fill" : "arrow.down.circle.fill",
@@ -933,15 +933,29 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
         }
     }
 
-    private func makeHUDButton(title: String, symbolName: String, action: Selector) -> NSButton {
+    private func makeHUDButton(
+        title: String,
+        symbolName: String,
+        action: Selector,
+        showsTitle: Bool = false
+    ) -> NSButton {
         let button = ScrollingScreenshotHUDButton(
             image: NSImage(systemSymbolName: symbolName, accessibilityDescription: title) ?? NSImage(),
             target: self,
             action: action
         )
         button.identifier = NSUserInterfaceItemIdentifier(symbolName)
-        button.title = ""
-        button.imagePosition = .imageOnly
+        button.title = showsTitle ? title : ""
+        button.imagePosition = showsTitle ? .noImage : .imageOnly
+        if showsTitle {
+            button.image = nil
+            let font = NSFont.systemFont(ofSize: 12, weight: .semibold)
+            button.font = font
+            button.attributedTitle = NSAttributedString(
+                string: title,
+                attributes: [.foregroundColor: HUDChromePalette.deepGlassForegroundColor, .font: font]
+            )
+        }
         button.imageScaling = .scaleNone
         button.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
         button.bezelStyle = .regularSquare
@@ -1305,8 +1319,8 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
         scrollWheelDelta(for: rect)
     }
 
-    private static let waitingHUDPanelSize = CGSize(width: 92, height: 42)
-    private static let runningHUDPanelSize = CGSize(width: 132, height: 42)
+    private static let waitingHUDPanelSize = CGSize(width: 154, height: 42)
+    private static let runningHUDPanelSize = CGSize(width: 200, height: 42)
     private nonisolated static let previewMaximumPixelWidth = 440
 }
 

@@ -110,6 +110,46 @@ final class CaptureHistoryWindowControllerTests: XCTestCase {
     }
 
     @MainActor
+    func testEmptyStateOffersCaptureSettingsOrResettingTheFilter() throws {
+        var historyEnabled = true
+        var beginFilters: [CaptureHistoryFilter] = []
+        var settingsOpened = false
+        let controller = CaptureHistoryWindowController(
+            store: store,
+            isHistoryEnabled: { historyEnabled },
+            startCapture: { beginFilters.append($0) },
+            openHistorySettings: { settingsOpened = true }
+        )
+        let strings = AppStrings(language: .en)
+        controller.show(strings: strings)
+        defer { controller.close() }
+
+        let window = try XCTUnwrap(NSApp.windows.first { $0.title == strings.captureHistoryTitle && $0.isVisible })
+        XCTAssertEqual(window.titleVisibility, .visible)
+        let contentView = try XCTUnwrap(window.contentView)
+        let action = try XCTUnwrap(findButtons(in: contentView).first {
+            $0.identifier?.rawValue == "CaptureHistoryEmptyAction"
+        })
+        XCTAssertEqual(action.title, strings.menuCapture)
+        action.performClick(nil)
+        XCTAssertEqual(beginFilters, [.all])
+
+        historyEnabled = false
+        controller.show(strings: strings)
+        XCTAssertEqual(action.title, strings.settingsTitle)
+        action.performClick(nil)
+        XCTAssertTrue(settingsOpened)
+
+        historyEnabled = true
+        _ = try addRecord(kind: .screenshot, date: Date(timeIntervalSince1970: 100))
+        controller.setFilter(.recordings)
+        XCTAssertEqual(action.title, strings.captureHistoryFilterAll)
+        action.performClick(nil)
+        XCTAssertEqual(controller.selectedFilter, .all)
+        XCTAssertEqual(controller.visibleTileCount(), 1)
+    }
+
+    @MainActor
     func testFilterControlUsesToolbarPillButtons() throws {
         let screenshot = try addRecord(kind: .screenshot, date: Date(timeIntervalSince1970: 100))
         let recording = try addRecord(kind: .recording, date: Date(timeIntervalSince1970: 101))

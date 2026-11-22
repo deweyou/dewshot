@@ -66,9 +66,9 @@ final class ScrollingScreenshotSessionControllerTests: XCTestCase {
 
         let buttons = controller.hudButtonAttributesForTesting()
         XCTAssertEqual(buttons.map(\.label), ["开始", "取消"])
+        XCTAssertEqual(buttons.map(\.imagePosition), [.noImage, .imageOnly])
         for button in buttons {
             XCTAssertEqual(colorComponents(try XCTUnwrap(button.tintColor)), colorComponents(HUDChromePalette.deepGlassForegroundColor))
-            XCTAssertEqual(button.imagePosition, .imageOnly)
             XCTAssertEqual(button.bezelStyle, .regularSquare)
         }
 
@@ -98,6 +98,7 @@ final class ScrollingScreenshotSessionControllerTests: XCTestCase {
         )
         controller.beginScrolling()
         XCTAssertEqual(controller.hudNoticeForTesting(), "请缓慢滚动")
+        XCTAssertEqual(controller.hudButtonAttributesForTesting().map(\.imagePosition), [.noImage, .imageOnly, .imageOnly])
 
         XCTAssertEqual(controller.hudButtonAttributesForTesting().map(\.label), ["完成", "自动滚动", "取消"])
         XCTAssertEqual(controller.hudButtonAttributesForTesting().map(\.symbolName), ["checkmark", "arrow.down.circle.fill", "xmark"])

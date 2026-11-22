@@ -952,6 +952,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             delete: { [weak self] record in
                 self?.deleteHistoryRecord(record)
+            },
+            startCapture: { [weak self] filter in
+                if filter == .recordings {
+                    self?.startRecordingCaptureFlow()
+                } else {
+                    self?.onCapture()
+                }
+            },
+            openHistorySettings: { [weak self] in
+                self?.onSettings()
+                self?.settingsWindowController.selectSection(.history)
             }
         )
         captureHistoryWindowController = controller

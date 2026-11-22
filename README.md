@@ -67,7 +67,8 @@ The goal is simple: capture what you need, then get back to what you were doing.
 - Record a selected area as MP4 or GIF.
 - Choose whether to show the cursor, clicks, and pressed keys.
 - Stop, restart, or delete a recording.
-- Trim MP4 recordings and export faster or slower versions.
+- Trim MP4 recordings and export faster or slower versions. Longer recordings
+  show a few preview frames in the timeline.
 
 ### Find Recent Items
 
