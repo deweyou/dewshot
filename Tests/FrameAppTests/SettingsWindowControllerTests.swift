@@ -73,7 +73,6 @@ final class SettingsWindowControllerTests: XCTestCase {
         XCTAssertTrue(SettingsSaveLocationMetrics.showsResetOnlyForCustomLocation)
         XCTAssertFalse(SettingsSaveLocationMetrics.usesNestedControlBackground)
         XCTAssertFalse(SettingsSaveLocationMetrics.usesSeparateRevealBox)
-        XCTAssertEqual(SettingsSaveLocationMetrics.summaryWidth, 180, accuracy: 0.5)
     }
 
     func testSaveLocationSummaryUsesAbbreviatedPathForDefaultDirectory() {

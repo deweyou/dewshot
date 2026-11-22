@@ -30,36 +30,33 @@ private struct SettingsThemeOption: View {
 
     var body: some View {
         Button(action: select) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 7) {
                 preview
-                    .frame(height: 60)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .frame(height: 48)
+                    .clipShape(RoundedRectangle(cornerRadius: 7))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 7)
+                            .strokeBorder(
+                                isSelected ? Color.accentColor : Color.primary.opacity(isHovering ? 0.25 : 0.10),
+                                lineWidth: isSelected ? 1.5 : 1
+                            )
+                    }
                     .accessibilityHidden(true)
 
-                HStack(spacing: 4) {
-                    Text(title)
-                        .font(.system(size: 12, weight: isSelected ? .semibold : .medium))
-                    Spacer(minLength: 0)
-                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(isSelected ? Color.accentColor : Color.secondary.opacity(0.6))
+                HStack(spacing: 5) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .opacity(isSelected ? 1 : 0)
                         .accessibilityHidden(true)
+
+                    Text(title)
+                        .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                        .foregroundStyle(isSelected ? .primary : .secondary)
                 }
+                .frame(maxWidth: .infinity)
             }
-            .padding(7)
             .frame(maxWidth: .infinity)
-            .background(
-                isSelected ? Color.accentColor.opacity(0.07) : Color.primary.opacity(isHovering ? 0.055 : 0.025),
-                in: RoundedRectangle(cornerRadius: 9)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 9)
-                    .strokeBorder(
-                        isSelected ? Color.accentColor.opacity(0.72) : Color.primary.opacity(0.09),
-                        lineWidth: isSelected ? 1.5 : 1
-                    )
-                    .allowsHitTesting(false)
-            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -122,8 +119,8 @@ private struct ThemeThumbnail: View {
                     .strokeBorder(ink.opacity(0.12), lineWidth: 0.5)
             }
             .padding(.horizontal, 16)
-            .padding(.top, 7)
-            .padding(.bottom, 9)
+            .padding(.top, 6)
+            .padding(.bottom, 7)
 
             HStack(spacing: 5) {
                 Image(systemName: "crop")
@@ -136,7 +133,7 @@ private struct ThemeThumbnail: View {
             .background(Color(white: isDark ? 0.33 : 0.94), in: Capsule())
             .padding(.bottom, 5)
         }
-        .background(Color(white: isDark ? 0.10 : 0.85))
+        .background(isDark ? Color(red: 0.14, green: 0.17, blue: 0.23) : Color(red: 0.81, green: 0.86, blue: 0.92))
     }
 
     private var ink: Color {

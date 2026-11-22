@@ -20,10 +20,11 @@ system tool, not a branded dashboard.
   material and row selection. Place the page heading and controls on a solid
   detail surface, with safe-area insets around the window controls and sidebar.
 - Give each pane one clear heading. Use lightly shaded groups, quiet dividers,
-  system typography, and trailing native controls. Put version and build
-  metadata near the bottom of the sidebar.
+  system typography, and a shared trailing edge for native controls. Place
+  supporting details beneath their row labels. Put version and build metadata
+  near the bottom of the sidebar.
 - In General, show small previews for Follow System, Light, and Dark and mark the
-  active appearance. Keep language, launch at login, the save folder, and
+  active appearance on its preview. Keep language, launch at login, the save folder, and
   capture shortcuts in General. Display the abbreviated save path and offer
   reset only for custom locations.
 - Use inline shortcut recorders. Validate the shortcut locally and reject
