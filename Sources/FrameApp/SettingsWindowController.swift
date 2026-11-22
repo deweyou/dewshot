@@ -93,31 +93,11 @@ final class SettingsWindowController {
         titleField.setContentCompressionResistancePriority(.required, for: .horizontal)
         titleField.setContentHuggingPriority(.required, for: .horizontal)
 
-        if #available(macOS 26.0, *) {
-            let glass = NSGlassEffectView()
-            glass.style = .regular
-            glass.cornerRadius = 12
-            glass.translatesAutoresizingMaskIntoConstraints = false
-
-            let titleContent = NSView()
-            titleContent.addSubview(titleField)
-            glass.contentView = titleContent
-            titlebarView.addSubview(glass)
-            NSLayoutConstraint.activate([
-                titleField.centerXAnchor.constraint(equalTo: titleContent.centerXAnchor),
-                titleField.centerYAnchor.constraint(equalTo: titleContent.centerYAnchor),
-                glass.widthAnchor.constraint(equalTo: titleField.widthAnchor, constant: 24),
-                glass.heightAnchor.constraint(equalToConstant: 24),
-                glass.centerXAnchor.constraint(equalTo: titlebarView.centerXAnchor),
-                glass.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
-            ])
-        } else {
-            titlebarView.addSubview(titleField)
-            NSLayoutConstraint.activate([
-                titleField.centerXAnchor.constraint(equalTo: titlebarView.centerXAnchor),
-                titleField.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
-            ])
-        }
+        titlebarView.addSubview(titleField)
+        NSLayoutConstraint.activate([
+            titleField.centerXAnchor.constraint(equalTo: titlebarView.centerXAnchor),
+            titleField.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
+        ])
 
         centeredTitleField = titleField
     }
