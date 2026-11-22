@@ -112,7 +112,7 @@ final class ScrollingScreenshotSessionControllerTests: XCTestCase {
         controller.cancel()
     }
 
-    func testAutoScrollRequestsAccessibilityBeforeEnabling() throws {
+    func testMissingAccessibilityOffersSettingsAndKeepsManualScrollingAvailable() throws {
         let screenFrame = try XCTUnwrap(NSScreen.screens.first?.frame)
         let selectionRect = CGRect(
             x: screenFrame.minX + 40,
@@ -120,14 +120,15 @@ final class ScrollingScreenshotSessionControllerTests: XCTestCase {
             width: min(120, screenFrame.width - 80),
             height: min(90, screenFrame.height - 100)
         )
-        var didRequestPermission = false
+        var hasAccess = false
+        var didOpenSettings = false
         var didScroll = false
         let controller = ScrollingScreenshotSessionController(
             captureRegion: { rect in self.makeCapturedScreenshot(size: rect.size, rect: rect) },
             scrollRegion: { _ in didScroll = true },
             scheduleStep: { _, _ in },
-            canAutoScroll: { false },
-            requestAutoScrollPermission: { didRequestPermission = true }
+            canAutoScroll: { hasAccess },
+            openAccessibilitySettings: { didOpenSettings = true }
         )
 
         controller.start(
@@ -140,9 +141,21 @@ final class ScrollingScreenshotSessionControllerTests: XCTestCase {
         controller.beginScrolling()
         controller.toggleAutoScroll()
 
-        XCTAssertTrue(didRequestPermission)
+        XCTAssertFalse(didOpenSettings)
         XCTAssertFalse(didScroll)
         XCTAssertFalse(controller.isAutoScrollingEnabledForTesting())
+        XCTAssertTrue(controller.isActive)
+        XCTAssertEqual(controller.hudNoticeForTesting(), AppStrings(language: .en).autoScrollPermissionMessage)
+        XCTAssertEqual(controller.hudButtonAttributesForTesting().map(\.label), ["Finish", "Open Settings", "Cancel"])
+
+        controller.openAutoScrollSettings()
+        XCTAssertTrue(didOpenSettings)
+        XCTAssertEqual(controller.hudNoticeForTesting(), "Scroll slowly")
+
+        hasAccess = true
+        controller.toggleAutoScroll()
+        XCTAssertTrue(didScroll)
+        XCTAssertTrue(controller.isAutoScrollingEnabledForTesting())
         controller.cancel()
     }
 

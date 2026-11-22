@@ -318,7 +318,7 @@ final class SelectionOverlayController: SelectionOverlayControlling {
                 return event
             }
 
-            if self.overlayWindows.contains(where: \.isEditingSize) {
+            if NSApp.modalWindow != nil || self.overlayWindows.contains(where: \.isEditingSize) {
                 return event
             }
 

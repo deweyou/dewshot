@@ -19,7 +19,6 @@ final class SettingsWindowController {
         onShortcutChange: @escaping @MainActor (ScreenshotShortcut) -> Bool,
         onRecordingShortcutChange: @escaping @MainActor (ScreenshotShortcut?) -> Bool = { _ in true },
         onShortcutRecordingChange: @escaping @MainActor (Bool) -> Void = { _ in },
-        onCheckPermission: @escaping @MainActor () -> Void,
         onLanguageChange: @escaping @MainActor (AppLanguage) -> Void,
         onChooseScreenshotDirectory: @escaping @MainActor () -> URL?,
         onResetScreenshotDirectory: @escaping @MainActor () -> Void,
@@ -38,7 +37,6 @@ final class SettingsWindowController {
             onShortcutChange: onShortcutChange,
             onRecordingShortcutChange: onRecordingShortcutChange,
             onShortcutRecordingChange: onShortcutRecordingChange,
-            onCheckPermission: onCheckPermission,
             onLanguageChange: onLanguageChange,
             onChooseScreenshotDirectory: onChooseScreenshotDirectory,
             onResetScreenshotDirectory: onResetScreenshotDirectory,
@@ -160,7 +158,6 @@ private final class SettingsContentViewController: NSSplitViewController {
         onShortcutChange: @escaping @MainActor (ScreenshotShortcut) -> Bool,
         onRecordingShortcutChange: @escaping @MainActor (ScreenshotShortcut?) -> Bool,
         onShortcutRecordingChange: @escaping @MainActor (Bool) -> Void,
-        onCheckPermission: @escaping @MainActor () -> Void,
         onLanguageChange: @escaping @MainActor (AppLanguage) -> Void,
         onChooseScreenshotDirectory: @escaping @MainActor () -> URL?,
         onResetScreenshotDirectory: @escaping @MainActor () -> Void,
@@ -186,7 +183,6 @@ private final class SettingsContentViewController: NSSplitViewController {
                 onShortcutChange: onShortcutChange,
                 onRecordingShortcutChange: onRecordingShortcutChange,
                 onShortcutRecordingChange: onShortcutRecordingChange,
-                onCheckPermission: onCheckPermission,
                 onLanguageChange: onLanguageChange,
                 onChooseScreenshotDirectory: onChooseScreenshotDirectory,
                 onResetScreenshotDirectory: onResetScreenshotDirectory,
@@ -222,7 +218,6 @@ private struct SettingsDetailView: View {
     let onShortcutChange: @MainActor (ScreenshotShortcut) -> Bool
     let onRecordingShortcutChange: @MainActor (ScreenshotShortcut?) -> Bool
     let onShortcutRecordingChange: @MainActor (Bool) -> Void
-    let onCheckPermission: @MainActor () -> Void
     let onLanguageChange: @MainActor (AppLanguage) -> Void
     let onChooseScreenshotDirectory: @MainActor () -> URL?
     let onResetScreenshotDirectory: @MainActor () -> Void
@@ -275,7 +270,7 @@ private struct SettingsDetailView: View {
         case .history:
             HistorySettingsView(strings: strings, onClearCaptureHistory: onClearCaptureHistory)
         case .permissions:
-            PermissionsSettingsView(strings: strings, onCheckPermission: onCheckPermission)
+            PermissionsSettingsView(strings: strings)
         }
     }
 }
@@ -1441,7 +1436,6 @@ private struct HistorySettingsView: View {
 
 private struct PermissionsSettingsView: View {
     let strings: AppStrings
-    let onCheckPermission: @MainActor () -> Void
 
     @State private var hasScreenRecordingAccess = ScreenRecordingPermission.hasAccess
     @State private var hasAccessibilityAccess = AccessibilityPermission.hasAccess
@@ -1449,56 +1443,64 @@ private struct PermissionsSettingsView: View {
 
     var body: some View {
         SettingsControlGroup {
-            permissionRow(strings.settingsScreenRecordingPermission, hasAccess: hasScreenRecordingAccess) {
-                Button(strings.settingsCheckPermission, action: checkPermission)
-                Button(strings.settingsOpenSystemSettings, action: ScreenRecordingPermission.openSettings)
-            }
+            permissionRow(
+                strings.settingsScreenRecordingPermission,
+                purpose: strings.settingsScreenRecordingPurpose,
+                hasAccess: hasScreenRecordingAccess,
+                openSettings: ScreenRecordingPermission.openSettings
+            )
 
             SettingsControlDivider()
 
-            permissionRow(strings.settingsAccessibilityPermission, hasAccess: hasAccessibilityAccess) {
-                Button(strings.settingsRequestPermission, action: requestAccessibilityPermission)
-                Button(strings.settingsOpenSystemSettings, action: AccessibilityPermission.openSettings)
-            }
+            permissionRow(
+                strings.settingsAccessibilityPermission,
+                purpose: strings.settingsAccessibilityPurpose,
+                hasAccess: hasAccessibilityAccess,
+                openSettings: AccessibilityPermission.openSettings
+            )
 
             SettingsControlDivider()
 
-            permissionRow(strings.settingsInputMonitoringPermission, hasAccess: hasInputMonitoringAccess) {
-                Button(strings.settingsRequestPermission, action: requestInputMonitoringPermission)
-                Button(strings.settingsOpenSystemSettings, action: InputMonitoringPermission.openSettings)
-            }
+            permissionRow(
+                strings.settingsInputMonitoringPermission,
+                purpose: strings.settingsInputMonitoringPurpose,
+                hasAccess: hasInputMonitoringAccess,
+                openSettings: InputMonitoringPermission.openSettings
+            )
         }
+        .onAppear(perform: refreshPermissions)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            hasScreenRecordingAccess = ScreenRecordingPermission.hasAccess
-            hasAccessibilityAccess = AccessibilityPermission.hasAccess
-            hasInputMonitoringAccess = InputMonitoringPermission.hasAccess
+            refreshPermissions()
         }
     }
 
-    private func permissionRow<Actions: View>(
+    private func permissionRow(
         _ title: String,
+        purpose: String,
         hasAccess: Bool,
-        @ViewBuilder actions: () -> Actions
+        openSettings: @escaping () -> Void
     ) -> some View {
-        SettingsControlRow(
-            title,
-            subtitle: hasAccess ? strings.settingsPermissionGranted : strings.settingsPermissionMissing
-        ) {
-            HStack(spacing: 8, content: actions)
+        SettingsControlRow(title, subtitle: purpose) {
+            if hasAccess {
+                Label {
+                    Text(strings.settingsPermissionGranted)
+                        .foregroundStyle(.secondary)
+                } icon: {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                }
+                .font(.system(size: SettingsTypographyMetrics.secondaryFontSize))
+            } else {
+                Button(strings.settingsOpenSystemSettings, action: openSettings)
+                    .accessibilityLabel("\(title), \(strings.settingsOpenSystemSettings)")
+            }
         }
     }
 
-    private func checkPermission() {
-        onCheckPermission()
+    private func refreshPermissions() {
         hasScreenRecordingAccess = ScreenRecordingPermission.hasAccess
-    }
-
-    private func requestAccessibilityPermission() {
-        hasAccessibilityAccess = AccessibilityPermission.requestAccess()
-    }
-
-    private func requestInputMonitoringPermission() {
-        hasInputMonitoringAccess = InputMonitoringPermission.requestAccess()
+        hasAccessibilityAccess = AccessibilityPermission.hasAccess
+        hasInputMonitoringAccess = InputMonitoringPermission.hasAccess
     }
 }
 

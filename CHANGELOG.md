@@ -16,6 +16,9 @@
 - Refine Settings spacing and control styling, with compact appearance previews,
   quieter shortcut fields, and save paths and permission status under their labels.
 - Give Settings sidebar items more breathing room and use smaller navigation icons.
+- Show permission purposes and granted status in Settings. Provide a single
+  Settings link for missing access and explain optional permissions where
+  automatic scrolling and recording keystroke hints are used.
 
 - Choose Follow System, Light, or Dark in Settings. Both screenshot HUD capsules
   use untinted Regular Liquid Glass and follow the selected appearance. The desktop

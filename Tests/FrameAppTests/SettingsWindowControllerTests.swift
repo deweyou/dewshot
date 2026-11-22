@@ -291,7 +291,6 @@ final class SettingsWindowControllerTests: XCTestCase {
         controller.show(
             strings: AppStrings(language: .en),
             onShortcutChange: { _ in true },
-            onCheckPermission: {},
             onLanguageChange: { _ in },
             onChooseScreenshotDirectory: { nil },
             onResetScreenshotDirectory: {},

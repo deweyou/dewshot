@@ -18,6 +18,8 @@ final class SelectionOverlayWindow {
         ocrActionText: String,
         strings: AppStrings = AppStrings(language: .en),
         delayCountdownNanoseconds: UInt64 = 5_000_000_000,
+        hasKeyboardHintsPermission: @escaping @MainActor () -> Bool = { InputMonitoringPermission.hasAccess },
+        showKeyboardHintsPermissionHelp: @escaping @MainActor (AppStrings, NSWindow?) -> Bool = InputMonitoringPermission.confirmOpeningSettings,
         onInteraction: @escaping () -> Void,
         onWindowSelectionRequested: @escaping (CGPoint, Int?) -> WindowCandidate?,
         onStartRecording: @escaping (SelectionCapture, RecordingOptions) -> Void = { _, _ in },
@@ -34,6 +36,8 @@ final class SelectionOverlayWindow {
             ocrActionText: ocrActionText,
             strings: strings,
             delayCountdownNanoseconds: delayCountdownNanoseconds,
+            hasKeyboardHintsPermission: hasKeyboardHintsPermission,
+            showKeyboardHintsPermissionHelp: showKeyboardHintsPermissionHelp,
             onInteraction: onInteraction,
             onWindowSelectionRequested: onWindowSelectionRequested,
             onStartRecording: onStartRecording,
@@ -329,6 +333,8 @@ private final class SelectionOverlayView: NSView {
     private let scrollingActionText: String
     private let ocrActionText: String
     private let delayCountdownNanoseconds: UInt64
+    private let hasKeyboardHintsPermission: @MainActor () -> Bool
+    private let showKeyboardHintsPermissionHelp: @MainActor (AppStrings, NSWindow?) -> Bool
     private let countdownView = CountdownView()
     private let tooltipView = HUDTooltipView()
     private var pendingTooltipTask: Task<Void, Never>?
@@ -371,6 +377,8 @@ private final class SelectionOverlayView: NSView {
         ocrActionText: String,
         strings: AppStrings,
         delayCountdownNanoseconds: UInt64,
+        hasKeyboardHintsPermission: @escaping @MainActor () -> Bool,
+        showKeyboardHintsPermissionHelp: @escaping @MainActor (AppStrings, NSWindow?) -> Bool,
         onInteraction: @escaping () -> Void,
         onWindowSelectionRequested: @escaping (CGPoint, Int?) -> WindowCandidate?,
         onStartRecording: @escaping (SelectionCapture, RecordingOptions) -> Void,
@@ -386,9 +394,18 @@ private final class SelectionOverlayView: NSView {
         self.scrollingActionText = scrollingActionText
         self.ocrActionText = ocrActionText
         self.delayCountdownNanoseconds = delayCountdownNanoseconds
+        self.hasKeyboardHintsPermission = hasKeyboardHintsPermission
+        self.showKeyboardHintsPermissionHelp = showKeyboardHintsPermissionHelp
         self.placeholderLabel = NSTextField(labelWithString: placeholderText)
 
         super.init(frame: CGRect(origin: .zero, size: screen.frame.size))
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(refreshRecordingSetup),
+            name: NSApplication.didBecomeActiveNotification,
+            object: nil
+        )
 
         wantsLayer = true
         windowCandidate = initialWindowCandidate
@@ -1035,16 +1052,22 @@ private final class SelectionOverlayView: NSView {
     }
 
     private func makeShowKeyboardHintsButton() -> HUDIconButton {
+        let hasPermission = hasKeyboardHintsPermission()
         let button = HUDIconButton(
             symbolName: "keyboard.badge.eye",
             accessibilityDescription: "显示键盘提示",
             iconPointSize: 14.5,
-            showsSlashOverlay: !currentRecordingOptions.showsKeyboardHints
+            showsSlashOverlay: !hasPermission || !currentRecordingOptions.showsKeyboardHints
         )
         button.target = self
         button.action = #selector(showKeyboardHintsButtonClicked)
         button.onHoverChange = { [weak self, weak button] isHovering in
-            self?.setHUDTooltip(isHovering ? "显示键盘提示" : nil, anchorView: button)
+            guard let self else { return }
+            let help = hasPermission ? "显示键盘提示" : self.strings.keyboardHintsPermissionTitle
+            self.setHUDTooltip(isHovering ? help : nil, anchorView: button)
+        }
+        if !hasPermission {
+            button.setAccessibilityHelp(strings.keyboardHintsPermissionTitle)
         }
         button.contentTintColor = hudTheme.foregroundColor
         return button
@@ -1388,6 +1411,11 @@ private final class SelectionOverlayView: NSView {
         recordingHUDMode = .setup
         sizeControl.isHidden = false
         recordingElapsedLabel.isHidden = true
+        refreshRecordingSetup()
+    }
+
+    @objc private func refreshRecordingSetup() {
+        guard recordingHUDMode == .setup else { return }
         installModeButtons(makeRecordingSetupButtons())
         applyHUDTheme(hudTheme)
         positionHUD()
@@ -1407,7 +1435,10 @@ private final class SelectionOverlayView: NSView {
         cancelDelayCountdown()
         pendingTooltipTask?.cancel()
         tooltipView.isHidden = true
-        onStartRecording(activeSelection, currentRecordingOptions)
+        let options = hasKeyboardHintsPermission()
+            ? currentRecordingOptions
+            : recordingOptions(showsKeyboardHints: false)
+        onStartRecording(activeSelection, options)
     }
 
     @objc private func recordingFormatButtonClicked() {
@@ -1421,6 +1452,15 @@ private final class SelectionOverlayView: NSView {
     }
 
     @objc private func showKeyboardHintsButtonClicked() {
+        guard hasKeyboardHintsPermission() else {
+            pendingTooltipTask?.cancel()
+            tooltipView.isHidden = true
+            if showKeyboardHintsPermissionHelp(strings, window) {
+                completeSelection(with: nil)
+                InputMonitoringPermission.openSettings()
+            }
+            return
+        }
         updateRecordingOptions(showsKeyboardHints: !currentRecordingOptions.showsKeyboardHints)
     }
 
@@ -1448,19 +1488,30 @@ private final class SelectionOverlayView: NSView {
         showsMouseClickHighlights: Bool? = nil,
         showsKeyboardHints: Bool? = nil
     ) {
-        currentRecordingOptions = RecordingOptions(
+        currentRecordingOptions = recordingOptions(
+            format: format,
+            showsCursor: showsCursor,
+            showsMouseClickHighlights: showsMouseClickHighlights,
+            showsKeyboardHints: showsKeyboardHints
+        )
+        SettingsStore.setRecordingOptions(currentRecordingOptions)
+        refreshRecordingSetup()
+    }
+
+    private func recordingOptions(
+        format: RecordingFormat? = nil,
+        showsCursor: Bool? = nil,
+        showsMouseClickHighlights: Bool? = nil,
+        showsKeyboardHints: Bool? = nil
+    ) -> RecordingOptions {
+        RecordingOptions(
             format: format ?? currentRecordingOptions.format,
             showsCursor: showsCursor ?? currentRecordingOptions.showsCursor,
             showsMouseClickHighlights: showsMouseClickHighlights ?? currentRecordingOptions.showsMouseClickHighlights,
             showsKeyboardHints: showsKeyboardHints ?? currentRecordingOptions.showsKeyboardHints,
-            audioSource: currentRecordingOptions.audioSource
+            audioSource: currentRecordingOptions.audioSource,
+            mouseHintColor: currentRecordingOptions.mouseHintColor
         )
-        SettingsStore.setRecordingOptions(currentRecordingOptions)
-        sizeControl.isHidden = false
-        recordingElapsedLabel.isHidden = true
-        installModeButtons(makeRecordingSetupButtons())
-        applyHUDTheme(hudTheme)
-        positionHUD()
     }
 
     func enterActiveRecordingMode(elapsed: TimeInterval = 0, isPaused: Bool = false) {

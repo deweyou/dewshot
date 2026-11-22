@@ -31,8 +31,10 @@ system tool, not a branded dashboard.
 - Use inline shortcut recorders. Validate the shortcut locally and reject
   duplicates within Frame before saving.
 - Keep separate Screen Recording, Accessibility, and Input Monitoring rows.
-  Show current status and the actions for checking, requesting, or opening
-  System Settings. Refresh status when Frame becomes active.
+  Explain each permission's purpose and show granted status or a single link to
+  the corresponding System Settings pane. Recheck when the pane appears or
+  Frame becomes active. Explain optional permissions when the user selects
+  automatic scrolling or keystroke hints.
 - In Capture, show the selected OCR language count and open the language
   chooser as a sheet from the entire row.
 

@@ -780,6 +780,39 @@ final class SelectionOverlayCompletionTests: XCTestCase {
     }
 
     @MainActor
+    func testMissingInputMonitoringOffersSettingsAndRecordingStillStarts() throws {
+        let previousOptions = SettingsStore.recordingOptions()
+        SettingsStore.setRecordingOptions(.defaults)
+        defer { SettingsStore.setRecordingOptions(previousOptions) }
+
+        var hasPermission = false
+        var didShowPermissionHelp = false
+        var startedOptions: RecordingOptions?
+        let screen = try XCTUnwrap(NSScreen.screens.first)
+        let window = try makeOverlayWindowForTesting(
+            initialGlobalRect: CGRect(x: screen.frame.minX + 20, y: screen.frame.minY + 20, width: 240, height: 160),
+            initialMode: .recordingSetup,
+            onStartRecording: { _, options in startedOptions = options },
+            hasKeyboardHintsPermission: { hasPermission },
+            showKeyboardHintsPermissionHelp: { _, _ in
+                didShowPermissionHelp = true
+                return false
+            }
+        )
+
+        XCTAssertEqual(window.hudButtonSlashStatesForTesting()["显示键盘提示"], true)
+        XCTAssertTrue(window.performHUDActionForTesting(accessibilityLabel: "显示键盘提示"))
+        XCTAssertTrue(didShowPermissionHelp)
+        XCTAssertTrue(window.performHUDActionForTesting(accessibilityLabel: "开始录制"))
+        XCTAssertEqual(startedOptions?.showsKeyboardHints, false)
+        XCTAssertTrue(SettingsStore.recordingOptions().showsKeyboardHints)
+
+        hasPermission = true
+        NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: nil)
+        XCTAssertEqual(window.hudButtonSlashStatesForTesting()["显示键盘提示"], false)
+    }
+
+    @MainActor
     private func makeOverlayWindowForTesting(
         initialGlobalRect: CGRect? = nil,
         initialWindowCandidate: WindowCandidate? = nil,
@@ -787,7 +820,9 @@ final class SelectionOverlayCompletionTests: XCTestCase {
         delayCountdownNanoseconds: UInt64 = 5_000_000_000,
         onComplete: @escaping (SelectionOverlayCompletion?) -> Void = { _ in },
         onStartRecording: @escaping (SelectionCapture, RecordingOptions) -> Void = { _, _ in },
-        onWindowSelectionRequested: @escaping (CGPoint, Int?) -> WindowCandidate? = { _, _ in nil }
+        onWindowSelectionRequested: @escaping (CGPoint, Int?) -> WindowCandidate? = { _, _ in nil },
+        hasKeyboardHintsPermission: @escaping @MainActor () -> Bool = { true },
+        showKeyboardHintsPermissionHelp: @escaping @MainActor (AppStrings, NSWindow?) -> Bool = { _, _ in false }
     ) throws -> SelectionOverlayWindow {
         _ = NSApplication.shared
         let screen = try XCTUnwrap(NSScreen.screens.first)
@@ -800,6 +835,8 @@ final class SelectionOverlayCompletionTests: XCTestCase {
             placeholderText: "Drag to select an area",
             ocrActionText: "Recognize Text",
             delayCountdownNanoseconds: delayCountdownNanoseconds,
+            hasKeyboardHintsPermission: hasKeyboardHintsPermission,
+            showKeyboardHintsPermissionHelp: showKeyboardHintsPermissionHelp,
             onInteraction: {},
             onWindowSelectionRequested: onWindowSelectionRequested,
             onStartRecording: onStartRecording,

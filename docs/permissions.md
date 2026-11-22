@@ -9,7 +9,17 @@ Frame's Settings permission section also reports two feature-specific permission
 - Accessibility allows Frame to post automatic scroll events for scrolling screenshots.
 - Input Monitoring allows live keyboard hints during recordings.
 
-Screenshot and recording capture only require Screen Recording. The other two permissions are optional until their related feature is used. Each row provides a request action and a direct System Settings action, and the displayed state refreshes when Frame becomes active again.
+Screenshot and recording capture only require Screen Recording. In Frame's
+Permissions pane, granted access shows a checkmark. Missing access shows a link
+to the corresponding macOS settings pane. Frame checks again when the
+Permissions pane appears or the app becomes active.
+
+When Accessibility access is missing, the automatic scrolling control in the
+capture HUD explains how to open Settings and leaves manual scrolling available.
+If Input Monitoring is missing, the recording setup marks keystroke hints as
+unavailable. Selecting that control offers a link to System Settings. The
+recording can still start with keystroke hints off. Opening System Settings
+closes the full-screen selection so that System Settings can receive input.
 
 ## Development Signing
 

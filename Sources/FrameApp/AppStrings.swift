@@ -293,10 +293,24 @@ struct AppStrings {
         }
     }
 
-    var settingsRequestPermission: String {
+    var settingsScreenRecordingPurpose: String {
         switch language {
-        case .zhHans: "请求权限"
-        case .en: "Request Permission"
+        case .zhHans: "用于截图和录屏"
+        case .en: "Used to take screenshots and record your screen"
+        }
+    }
+
+    var settingsAccessibilityPurpose: String {
+        switch language {
+        case .zhHans: "用于自动滚动截图"
+        case .en: "Used for automatic scrolling during capture"
+        }
+    }
+
+    var settingsInputMonitoringPurpose: String {
+        switch language {
+        case .zhHans: "用于录屏时显示按键"
+        case .en: "Used to show keystrokes in recordings"
         }
     }
 
@@ -307,24 +321,31 @@ struct AppStrings {
         }
     }
 
-    var settingsPermissionMissing: String {
-        switch language {
-        case .zhHans: "未开启"
-        case .en: "Missing"
-        }
-    }
-
-    var settingsCheckPermission: String {
-        switch language {
-        case .zhHans: "检查权限"
-        case .en: "Check Permission"
-        }
-    }
-
     var settingsOpenSystemSettings: String {
         switch language {
-        case .zhHans: "打开系统设置"
-        case .en: "Open System Settings"
+        case .zhHans: "前往设置"
+        case .en: "Open Settings"
+        }
+    }
+
+    var autoScrollPermissionMessage: String {
+        switch language {
+        case .zhHans: "自动滚动需要辅助功能权限。也可以手动继续。"
+        case .en: "Auto-scroll needs Accessibility permission. You can still scroll manually."
+        }
+    }
+
+    var keyboardHintsPermissionTitle: String {
+        switch language {
+        case .zhHans: "按键提示需要输入监控权限"
+        case .en: "Keystroke hints need Input Monitoring permission"
+        }
+    }
+
+    var keyboardHintsPermissionMessage: String {
+        switch language {
+        case .zhHans: "在系统设置中允许 Frame 在录屏时显示按键。你也可以直接开始录制。"
+        case .en: "Allow Frame in System Settings to show keystrokes in recordings. You can still start recording."
         }
     }
 
@@ -1299,13 +1320,6 @@ struct AppStrings {
         }
     }
 
-    var permissionReadyTitle: String {
-        switch language {
-        case .zhHans: "Frame 屏幕录制权限已开启"
-        case .en: "Frame Screen Recording permission is enabled"
-        }
-    }
-
     var screenRecordingPermissionRequiredTitle: String {
         switch language {
         case .zhHans: "Frame 需要屏幕录制权限"
@@ -1340,15 +1354,6 @@ struct AppStrings {
         switch language {
         case .zhHans: "请重新打开 Frame 后再使用截图或录屏。"
         case .en: "Reopen Frame before taking a screenshot or recording the screen."
-        }
-    }
-
-    func permissionReadyMessage(shortcut: String) -> String {
-        switch language {
-        case .zhHans:
-            "你可以使用 \(shortcut) 或菜单栏截图入口开始区域截图。"
-        case .en:
-            "Use \(shortcut) or the menu bar capture item to start a region screenshot."
         }
     }
 

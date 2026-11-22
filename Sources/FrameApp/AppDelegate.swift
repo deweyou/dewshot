@@ -129,14 +129,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startCaptureFlow()
     }
 
-    @objc func onCheckPermission() {
-        if ScreenRecordingPermission.hasAccess {
-            showPermissionReadyAlert()
-        } else {
-            ScreenRecordingPermission.showMissingPermissionAlert(strings: strings)
-        }
-    }
-
     @objc func onSettings() {
         settingsWindowController.show(
             strings: strings,
@@ -148,9 +140,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onShortcutRecordingChange: { [weak self] isRecording in
                 self?.setScreenshotShortcutRecorderActive(isRecording)
-            },
-            onCheckPermission: { [weak self] in
-                self?.onCheckPermission()
             },
             onLanguageChange: { [weak self] language in
                 self?.changeLanguage(to: language)
@@ -1627,15 +1616,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             alert.informativeText = error.localizedDescription
         }
-        alert.addButton(withTitle: strings.ok)
-        alert.runModal()
-    }
-
-    private func showPermissionReadyAlert() {
-        let alert = NSAlert()
-        alert.messageText = strings.permissionReadyTitle
-        let shortcut = SettingsStore.screenshotShortcut().keyboardShortcut.displayName
-        alert.informativeText = strings.permissionReadyMessage(shortcut: shortcut)
         alert.addButton(withTitle: strings.ok)
         alert.runModal()
     }
