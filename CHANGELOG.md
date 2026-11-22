@@ -3,9 +3,9 @@
 ## Unreleased
 
 - Add a right inspector to the image editor, open by default, with contextual
-  shape, text, and redaction controls. Group image commands at the top and
-  keep zoom fixed at the bottom. Restore compact controls when the inspector
-  is collapsed. Support italic
+  shape, text, and redaction controls. Group image commands and zoom
+  together. Use a shared editor background and inset the expanded canvas.
+  Restore compact controls when the inspector is collapsed. Support italic
   annotation text and changing a selected redaction's mode.
 
 - Center frequently used markup tools in the image editor toolbar and give

@@ -161,9 +161,10 @@ system tool, not a branded dashboard.
   no pointer cursor, no hover fill, and disabled tint.
 - Use a circular or capsule-shaped highlight with an accent tint and a light
   glyph for selected tools. Use the same shape for pointer feedback.
-- The window action row extends behind the native traffic lights. The
-  appearance-aware titlebar surface spans both rows when the compact editing
-  row is visible. Keep a small gap between the toolbar and the image.
+- The window action row extends behind the native traffic lights. Give the
+  editor toolbar, inspector, and canvas surround a shared neutral background.
+  In the expanded workspace, leave the same gap above and beside the canvas.
+  Give secondary output actions a quiet resting appearance.
 - Workspace windows should open with the image area matching the screenshot
   aspect ratio so the initial preview does not show letterbox/pillarbox edges.
 - Workspace resize keeps the image area at the screenshot aspect ratio while the
@@ -228,8 +229,8 @@ system tool, not a branded dashboard.
   inspector's controls. Give shapes a color, width, and line or fill controls.
   Give text a font, size, bold and italic, alignment, and color. Show all four
   redaction modes in a two-column grid with a visible selection. Group the
-  current tool’s controls on one quiet surface. Keep image commands together
-  at the top and keep zoom in one fixed strip at the bottom.
+  current tool’s controls on one quiet surface. Keep compact image commands
+  and zoom together at the top of the inspector.
 - Put Crop, Resize, Transform, and zoom controls in the inspector when it is
   expanded. Crop replaces the tool controls with aspect ratio, pixel dimensions,
   Cancel, and Apply. When the inspector is collapsed, restore a compact editing

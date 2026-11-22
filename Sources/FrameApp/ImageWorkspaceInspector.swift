@@ -191,25 +191,11 @@ final class ImageWorkspaceInspector: NSView {
         document.addSubview(body)
         scroll.documentView = document
         addSubview(scroll)
-        let zoomBar = makeZoomSection()
-        let zoomRule = NSBox()
-        zoomRule.boxType = .separator
-        zoomRule.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(zoomBar)
-        addSubview(zoomRule)
         NSLayoutConstraint.activate([
             scroll.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 1),
             scroll.trailingAnchor.constraint(equalTo: trailingAnchor),
             scroll.topAnchor.constraint(equalTo: topAnchor),
-            scroll.bottomAnchor.constraint(equalTo: zoomRule.topAnchor),
-            zoomRule.heightAnchor.constraint(equalToConstant: 1),
-            zoomRule.leadingAnchor.constraint(equalTo: zoomBar.leadingAnchor),
-            zoomRule.trailingAnchor.constraint(equalTo: zoomBar.trailingAnchor),
-            zoomRule.bottomAnchor.constraint(equalTo: zoomBar.topAnchor, constant: -10),
-            zoomBar.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-            zoomBar.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
-            zoomBar.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12),
-            zoomBar.heightAnchor.constraint(equalToConstant: 30),
+            scroll.bottomAnchor.constraint(equalTo: bottomAnchor),
             body.leadingAnchor.constraint(equalTo: document.leadingAnchor, constant: 14),
             body.trailingAnchor.constraint(equalTo: document.trailingAnchor, constant: -14),
             body.topAnchor.constraint(equalTo: document.topAnchor, constant: 16),
@@ -224,7 +210,12 @@ final class ImageWorkspaceInspector: NSView {
         if let card = (sectionHost as? NSStackView)?.arrangedSubviews.last {
             card.widthAnchor.constraint(equalTo: sectionHost.widthAnchor).isActive = true
         }
-        for view in [imageSection!, sectionHost!, cropSection!] {
+        let imageControls = [imageSection!, cropSection!, makeZoomSection()]
+        let imageTools = stack(imageControls, spacing: 9)
+        for control in imageControls {
+            control.widthAnchor.constraint(equalTo: imageTools.widthAnchor).isActive = true
+        }
+        for view in [imageTools, sectionHost!] {
             body.addArrangedSubview(view)
             view.widthAnchor.constraint(equalTo: body.widthAnchor).isActive = true
         }
@@ -244,25 +235,22 @@ final class ImageWorkspaceInspector: NSView {
     private func makeImageSection() -> NSView {
         let crop = button(label("裁剪", "Crop"), action: .crop)
         let resize = button(label("调整大小", "Resize"), action: .resize)
-        let transform = InspectorButton(title: label("变换", "Transform")) { [weak self] sender in
+        let transform = InspectorButton(title: label("变换…", "Transform…")) { [weak self] sender in
             self?.perform(.transform(sender))
         }
         transform.setAccessibilityLabel(transform.title)
         let commands = row([crop, resize, transform])
         commands.spacing = 6
         commands.distribution = .fillEqually
-        for (button, symbol) in [(crop, "crop"), (resize, "arrow.up.left.and.arrow.down.right"), (transform, "rotate.right")] {
-            button.isBordered = false
-            button.font = .systemFont(ofSize: 11, weight: .medium)
-            button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-            button.symbolConfiguration = .init(pointSize: 15, weight: .medium)
-            button.imagePosition = .imageAbove
-            button.contentTintColor = .labelColor
-            button.heightAnchor.constraint(equalToConstant: 42).isActive = true
+        for command in [crop, resize, transform] {
+            command.controlSize = .small
+            command.bezelStyle = .accessoryBarAction
+            command.font = .systemFont(ofSize: 12, weight: .medium)
+            command.heightAnchor.constraint(equalToConstant: 28).isActive = true
         }
-        let panel = InspectorSurface(content: commands, inset: 5)
-        let image = stack([heading(label("图片", "Image")), panel], spacing: 8)
-        panel.widthAnchor.constraint(equalTo: image.widthAnchor).isActive = true
+
+        let image = stack([heading(label("图片", "Image")), commands], spacing: 9)
+        commands.widthAnchor.constraint(equalTo: image.widthAnchor).isActive = true
         return image
     }
 
@@ -294,13 +282,15 @@ final class ImageWorkspaceInspector: NSView {
         out.setAccessibilityLabel(label("缩小画布", "Zoom Out"))
         more.setAccessibilityLabel(label("放大画布", "Zoom In"))
         for control in [out, more] {
-            control.bezelStyle = .accessoryBarAction
+            control.isBordered = false
             control.widthAnchor.constraint(equalToConstant: 24).isActive = true
         }
+        fit.bezelStyle = .accessoryBarAction
         let cluster = InspectorSurface(content: row([out, actual, more]), inset: 2)
-        let footer = row([cluster, NSView(), fit])
-        footer.translatesAutoresizingMaskIntoConstraints = false
-        return footer
+        let zoom = row([cluster, NSView(), fit])
+        zoom.translatesAutoresizingMaskIntoConstraints = false
+        zoom.heightAnchor.constraint(equalToConstant: 28).isActive = true
+        return zoom
     }
 
     private func configureStyleSection() {

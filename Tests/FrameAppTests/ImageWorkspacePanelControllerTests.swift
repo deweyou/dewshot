@@ -2610,6 +2610,11 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         XCTAssertFalse(inspector.isHidden)
         XCTAssertNil(findButton(in: content, accessibilityLabel: "Mosaic Options"))
         XCTAssertNotNil(findButton(in: inspector, accessibilityLabel: "Crop"))
+        let toolbar = try XCTUnwrap(findView(in: content, accessibilityLabel: "Image Workspace Toolbar"))
+        let imageContainer = try XCTUnwrap(findView(in: content, accessibilityLabel: "Image Preview Container"))
+        XCTAssertEqual(imageContainer.frame.minX, 14, accuracy: 0.5)
+        XCTAssertEqual(inspector.frame.minX - imageContainer.frame.maxX, 14, accuracy: 0.5)
+        XCTAssertEqual(toolbar.frame.minY - imageContainer.frame.maxY, 14, accuracy: 0.5)
         let expandedWidth = canvas.bounds.width
         let windowSize = panel.frame.size
 
@@ -2653,6 +2658,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         let crop = try XCTUnwrap(findButton(in: inspector, accessibilityLabel: "Crop"))
         XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(crop.action), to: crop.target, from: crop))
         XCTAssertNotNil(findButton(in: inspector, accessibilityLabel: "Apply Crop"))
+        XCTAssertNotNil(findButton(in: inspector, accessibilityLabel: "Zoom Out"))
         canvas.cancelCrop()
 
         let toggle = try XCTUnwrap(findButton(in: content, accessibilityLabel: "Hide Inspector"))

@@ -241,8 +241,7 @@ final class ImageWorkspacePanelController: NSObject {
 
         let contentView = ImageWorkspaceContextMenuView()
         contentView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.wantsLayer = true
-        contentView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        contentView.drawsEditorBackground = true
         contentView.menuProvider = contextMenuProvider
 
         let imageContainer = ImageWorkspaceContextMenuView()
@@ -254,6 +253,7 @@ final class ImageWorkspacePanelController: NSObject {
         imageContainer.layer?.backgroundColor = NSColor.black.cgColor
         imageContainer.menuProvider = contextMenuProvider
         imageContainer.setAccessibilityLabel("Image Preview Container")
+        item.canvasContainer = imageContainer
 
         let imageZoom = ImageWorkspaceImageZoom()
         item.imageZoom = imageZoom
@@ -317,12 +317,6 @@ final class ImageWorkspacePanelController: NSObject {
             if let item { self?.updateCanvasStatus(item) }
         }
         item.textSelectionOverlay = textSelectionOverlay
-
-        let toolbarBackdrop = NSVisualEffectView()
-        toolbarBackdrop.material = .titlebar
-        toolbarBackdrop.blendingMode = .withinWindow
-        toolbarBackdrop.state = .followsWindowActiveState
-        toolbarBackdrop.translatesAutoresizingMaskIntoConstraints = false
 
         let toolbar = NSView()
         toolbar.translatesAutoresizingMaskIntoConstraints = false
@@ -501,8 +495,8 @@ final class ImageWorkspacePanelController: NSObject {
             guard let item else { return NSMenu() }
             return self?.makeSaveCurrentMenu(for: item) ?? NSMenu()
         }
-        configureCapsuleCommand(copyButton)
-        configureCapsuleCommand(downloadButton)
+        configureCapsuleCommand(copyButton, capsule: .quiet)
+        configureCapsuleCommand(downloadButton, capsule: .quiet)
         configureCapsuleCommand(saveOptionsButton, symbol: "chevron.down", capsule: .quiet)
         saveOptionsButton.widthAnchor.constraint(equalToConstant: 28).isActive = true
         saveOptionsButton.setAccessibilityLabel(item.strings.editorLabel("保存选项", "Save Options"))
@@ -524,7 +518,6 @@ final class ImageWorkspacePanelController: NSObject {
         rowDivider.translatesAutoresizingMaskIntoConstraints = false
 
         contentView.addSubview(imageContainer)
-        contentView.addSubview(toolbarBackdrop)
         contentView.addSubview(toolbar)
         contentView.addSubview(rowDivider)
         contentView.addSubview(parameters)
@@ -541,15 +534,23 @@ final class ImageWorkspacePanelController: NSObject {
 
         item.parametersHeight = parameters.heightAnchor.constraint(equalToConstant: ImageWorkspaceLayout.parameterHeight)
         item.fullCanvasWidth = imageContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor)
-        item.splitCanvasWidth = imageContainer.trailingAnchor.constraint(equalTo: inspector.leadingAnchor)
+        item.splitCanvasWidth = imageContainer.trailingAnchor.constraint(
+            equalTo: inspector.leadingAnchor, constant: -ImageWorkspaceLayout.canvasInset
+        )
+        let leading = imageContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor)
+        let top = imageContainer.topAnchor.constraint(equalTo: parameters.bottomAnchor)
+        let bottom = imageContainer.bottomAnchor.constraint(equalTo: status.topAnchor)
+        item.canvasLeadingInset = leading
+        item.canvasTopInset = top
+        item.canvasBottomInset = bottom
         NSLayoutConstraint.activate([
-            imageContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: ImageWorkspaceLayout.toolbarLeading),
+            leading,
+            top,
+            bottom,
             inspector.topAnchor.constraint(equalTo: toolbar.bottomAnchor, constant: 1),
             inspector.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             inspector.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
             inspector.widthAnchor.constraint(equalToConstant: ImageWorkspaceLayout.inspectorWidth),
-            imageContainer.topAnchor.constraint(equalTo: parameters.bottomAnchor, constant: ImageWorkspaceLayout.imageTopSpacing),
-            imageContainer.bottomAnchor.constraint(equalTo: status.topAnchor, constant: -ImageWorkspaceLayout.imageBottomInset),
             parameters.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 14),
             parameters.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -14),
             parameters.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
@@ -569,10 +570,6 @@ final class ImageWorkspacePanelController: NSObject {
             textSelectionOverlay.topAnchor.constraint(equalTo: imageContainer.topAnchor),
             textSelectionOverlay.bottomAnchor.constraint(equalTo: imageContainer.bottomAnchor),
 
-            toolbarBackdrop.leadingAnchor.constraint(equalTo: toolbar.leadingAnchor),
-            toolbarBackdrop.trailingAnchor.constraint(equalTo: toolbar.trailingAnchor),
-            toolbarBackdrop.topAnchor.constraint(equalTo: toolbar.topAnchor),
-            toolbarBackdrop.bottomAnchor.constraint(equalTo: parameters.bottomAnchor),
             rowDivider.leadingAnchor.constraint(equalTo: toolbar.leadingAnchor, constant: 14),
             rowDivider.trailingAnchor.constraint(equalTo: toolbar.trailingAnchor, constant: -14),
             rowDivider.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
@@ -1636,6 +1633,7 @@ private final class ImageWorkspaceItem {
     weak var zoomLabel: NSTextField?
     var inspectorVisible = false
     weak var inspector: ImageWorkspaceInspector?
+    weak var canvasContainer: ImageWorkspaceContextMenuView?
     weak var inspectorToggle: NSButton?
     weak var parameters: NSView?
     weak var compactZoom: NSView?
@@ -1643,6 +1641,9 @@ private final class ImageWorkspaceItem {
     var parametersHeight: NSLayoutConstraint?
     var fullCanvasWidth: NSLayoutConstraint?
     var splitCanvasWidth: NSLayoutConstraint?
+    var canvasLeadingInset: NSLayoutConstraint?
+    var canvasTopInset: NSLayoutConstraint?
+    var canvasBottomInset: NSLayoutConstraint?
     weak var feedbackLabel: NSTextField?
     var feedbackTask: Task<Void, Never>?
     var lastSeparatelySaved: ImageWorkspaceSavedVersion?
@@ -2059,6 +2060,8 @@ private enum ImageWorkspaceLayout {
     static let imageBottomInset: CGFloat = 0
     static let parameterHeight: CGFloat = 42
     static let inspectorWidth: CGFloat = 248
+    static let canvasInset: CGFloat = 14
+    static let canvasFooterGap: CGFloat = 4
     static let statusHeight: CGFloat = 32
     static let editingToolSize: CGFloat = 36
     static let toolOptionsButtonWidth: CGFloat = 24
@@ -2084,8 +2087,9 @@ private enum ImageWorkspaceLayout {
         switch kind {
         case .temporaryPreview:
             ImageWorkspaceResizeMetrics(
-                fixedVerticalChromeHeight: toolbarHeight - toolbarTitlebarOverlap + imageTopSpacing + imageBottomInset + (inspectorVisible ? 0 : parameterHeight) + statusHeight,
-                horizontalChromeWidth: toolbarLeading + toolbarTrailing + (inspectorVisible ? inspectorWidth : 0),
+                fixedVerticalChromeHeight: toolbarHeight - toolbarTitlebarOverlap + statusHeight
+                    + (inspectorVisible ? canvasInset + canvasFooterGap : imageTopSpacing + imageBottomInset + parameterHeight),
+                horizontalChromeWidth: inspectorVisible ? inspectorWidth + 2 * canvasInset : 0,
                 minimumContentWidth: minimumContentWidth
             )
         case .pinned:
@@ -2308,7 +2312,34 @@ private final class ImageWorkspacePanel: NSPanel, NSWindowDelegate {
 }
 
 private class ImageWorkspaceContextMenuView: NSView {
+    var drawsEditorBackground = false
+    var drawsNeutralCanvas = false {
+        didSet { updateCanvasBackground() }
+    }
     var menuProvider: (() -> NSMenu)?
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard drawsEditorBackground else { return }
+        NSColor(white: usesDarkAppearance ? 0.13 : 0.955, alpha: 1).setFill()
+        dirtyRect.fill()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        if drawsEditorBackground { needsDisplay = true }
+        if drawsNeutralCanvas { updateCanvasBackground() }
+    }
+
+    private var usesDarkAppearance: Bool {
+        effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    }
+
+    private func updateCanvasBackground() {
+        layer?.backgroundColor = drawsNeutralCanvas
+            ? NSColor(white: usesDarkAppearance ? 0.10 : 0.91, alpha: 1).cgColor
+            : NSColor.black.cgColor
+    }
 
     override var mouseDownCanMoveWindow: Bool {
         true
@@ -2941,8 +2972,12 @@ private extension ImageWorkspacePanelController {
     func updateInspectorLayout(for item: ImageWorkspaceItem, updatingWindow: Bool) {
         let visible = item.inspectorVisible
         item.inspector?.isHidden = !visible
+        item.canvasContainer?.drawsNeutralCanvas = visible
         item.parameters?.isHidden = visible
         item.parametersHeight?.constant = visible ? 0 : ImageWorkspaceLayout.parameterHeight
+        item.canvasLeadingInset?.constant = visible ? ImageWorkspaceLayout.canvasInset : 0
+        item.canvasTopInset?.constant = visible ? ImageWorkspaceLayout.canvasInset : ImageWorkspaceLayout.imageTopSpacing
+        item.canvasBottomInset?.constant = visible ? -ImageWorkspaceLayout.canvasFooterGap : -ImageWorkspaceLayout.imageBottomInset
         item.compactZoom?.isHidden = visible
         item.fullCanvasWidth?.isActive = false
         item.splitCanvasWidth?.isActive = false
@@ -3466,11 +3501,12 @@ private final class ImageWorkspaceCommandButton: NSButton {
                 layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(pressed ? 0.75 : 1).cgColor
                 contentTintColor = .white
             } else {
-                let restingAlpha: CGFloat = capsule == .quiet && state != .on ? 0 : 0.09
-                let hoveredAlpha = isHoveringCapsule ? 0.13 : restingAlpha
-                let alpha = isEnabled ? (pressed ? 0.17 : hoveredAlpha) : 0.045
+                let restingAlpha: CGFloat = capsule == .quiet ? 0 : 0.09
+                let hoveredAlpha = isHoveringCapsule ? 0.10 : restingAlpha
+                let alpha = isEnabled ? (pressed ? 0.16 : hoveredAlpha) : (capsule == .quiet ? 0 : 0.045)
                 layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(alpha).cgColor
-                contentTintColor = isEnabled ? .labelColor : .disabledControlTextColor
+                let foreground: NSColor = capsule == .quiet && state == .on ? .controlAccentColor : .labelColor
+                contentTintColor = isEnabled ? foreground : .disabledControlTextColor
             }
         }
     }
