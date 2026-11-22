@@ -83,6 +83,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         strings = AppStrings.current()
         SettingsStore.appTheme().apply(to: NSApp)
+        let usesDefaultRecordingShortcut = !SettingsStore.hasSavedRecordingShortcut()
+        if usesDefaultRecordingShortcut,
+           SettingsStore.recordingShortcut() == nil || HotKeyController.systemShortcutIsInUse(.defaultRecording) {
+            SettingsStore.setRecordingShortcut(nil)
+        }
+
         statusItemController = StatusItemController(
             strings: strings,
             onCapture: { [weak self] in
@@ -116,7 +122,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         do {
-            try hotKeyController.register()
+            do {
+                try hotKeyController.register()
+            } catch HotKeyRegistrationError.shortcutInUse(let shortcut)
+                where usesDefaultRecordingShortcut && hotKeyController.recordingShortcut == shortcut {
+                try hotKeyController.register(recordingShortcut: .some(nil))
+                SettingsStore.setRecordingShortcut(nil)
+                statusItemController?.updateShortcuts(
+                    screenshotShortcut: hotKeyController.shortcut,
+                    recordingShortcut: nil
+                )
+            }
             self.hotKeyController = hotKeyController
         } catch {
             showHotKeyRegistrationFailedAlert(error)

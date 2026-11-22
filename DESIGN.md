@@ -59,7 +59,8 @@ system tool, not a branded dashboard.
 
 - The menu bar menu exposes Capture Screenshot and Record Screen as separate
   direct actions. Show configured shortcuts using native menu key equivalents;
-  keep Record Screen available even when its optional global shortcut is unset.
+  use Command+Shift+R as the default for Record Screen, and keep the menu
+  action available when the shortcut is unset.
 
 - Use untinted AppKit Regular Liquid Glass for both capture HUD capsules.
   The glass and tooltip follow the app appearance. Pair the native material

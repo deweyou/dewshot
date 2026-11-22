@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Use Command+Shift+R as the default shortcut for starting a recording.
 - Allow one modifier for capture shortcuts. Check for enabled macOS shortcuts
   and exclusive reservations, and warn about common app shortcuts before saving.
 - Match Settings dropdown arrows to the smaller disclosure arrows and use

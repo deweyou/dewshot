@@ -81,8 +81,16 @@ final class SettingsStoreTests: XCTestCase {
         )
     }
 
-    func testRecordingShortcutDefaultsToEmpty() {
+    func testRecordingShortcutDefaultsToCommandShiftR() {
+        XCTAssertFalse(SettingsStore.hasSavedRecordingShortcut(defaults: defaults))
+        XCTAssertEqual(SettingsStore.recordingShortcut(defaults: defaults), .defaultRecording)
+    }
+
+    func testDefaultRecordingShortcutDoesNotDuplicateExistingScreenshotShortcut() {
+        SettingsStore.setScreenshotShortcut(.defaultRecording, defaults: defaults)
+
         XCTAssertNil(SettingsStore.recordingShortcut(defaults: defaults))
+        XCTAssertEqual(SettingsStore.screenshotShortcut(defaults: defaults), .defaultRecording)
     }
 
     func testRecordingShortcutPersistsCustomStorageValue() {
@@ -102,7 +110,7 @@ final class SettingsStoreTests: XCTestCase {
 
         SettingsStore.setRecordingShortcut(nil, defaults: defaults)
 
-        XCTAssertNil(defaults.string(forKey: SettingsStore.recordingShortcutKey))
+        XCTAssertTrue(SettingsStore.hasSavedRecordingShortcut(defaults: defaults))
         XCTAssertNil(SettingsStore.recordingShortcut(defaults: defaults))
     }
 

@@ -26,6 +26,7 @@ enum SettingsStore {
     static let imageAnnotationStrokeColorKey = "imageAnnotationStrokeColor"
     static let imageAnnotationLineWidthKey = "imageAnnotationLineWidth"
     static let imageAnnotationFontSizeKey = "imageAnnotationFontSize"
+    private static let disabledRecordingShortcut = ""
 
     static func screenshotShortcut(defaults: UserDefaults = .standard) -> ScreenshotShortcut {
         ScreenshotShortcut.persistedValue(for: defaults.string(forKey: screenshotShortcutKey))
@@ -40,7 +41,7 @@ enum SettingsStore {
 
     static func recordingShortcut(defaults: UserDefaults = .standard) -> ScreenshotShortcut? {
         guard let rawValue = defaults.string(forKey: recordingShortcutKey) else {
-            return nil
+            return screenshotShortcut(defaults: defaults) == .defaultRecording ? nil : .defaultRecording
         }
 
         return ScreenshotShortcut.shortcut(storageValue: rawValue, reservedShortcuts: [])
@@ -50,12 +51,11 @@ enum SettingsStore {
         _ shortcut: ScreenshotShortcut?,
         defaults: UserDefaults = .standard
     ) {
-        guard let shortcut else {
-            defaults.removeObject(forKey: recordingShortcutKey)
-            return
-        }
+        defaults.set(shortcut?.storageValue ?? disabledRecordingShortcut, forKey: recordingShortcutKey)
+    }
 
-        defaults.set(shortcut.storageValue, forKey: recordingShortcutKey)
+    static func hasSavedRecordingShortcut(defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: recordingShortcutKey) != nil
     }
 
     static func appLanguage(defaults: UserDefaults = .standard) -> AppLanguage {

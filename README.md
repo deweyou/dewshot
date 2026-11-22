@@ -29,6 +29,7 @@ By default, Frame also copies the finished screenshot or recording to the clipbo
 You can turn this off in Settings → Capture.
 The menu keeps Capture Screenshot and Record Screen as separate direct actions
 and shows each configured shortcut beside its action.
+Record Screen defaults to `Command+Shift+R`.
 Customize these shortcuts in General settings with Command, Option, or Control
 and a letter or number. Frame checks for known conflicts before saving.
 
