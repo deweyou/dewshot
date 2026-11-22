@@ -15,7 +15,8 @@ system tool, not a branded dashboard.
 ## Settings
 
 - Use a compact sidebar with General, Capture, History, and Permissions.
-  Capture groups screenshots, recording, and text recognition. Use an AppKit
+  Use small symbols and give each label vertical space. Capture groups
+  screenshots, recording, and text recognition. Use an AppKit
   split-view sidebar that extends into the window chrome. Let macOS render its
   material and row selection. Place the page heading and controls on a solid
   detail surface, with safe-area insets around the window controls and sidebar.

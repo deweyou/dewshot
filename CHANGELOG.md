@@ -15,6 +15,7 @@
   Use the native macOS split-view sidebar and a unified window header.
 - Refine Settings spacing and control styling, with compact appearance previews,
   quieter shortcut fields, and save paths and permission status under their labels.
+- Give Settings sidebar items more breathing room and use smaller navigation icons.
 
 - Choose Follow System, Light, or Dark in Settings. Both screenshot HUD capsules
   use untinted Regular Liquid Glass and follow the selected appearance. The desktop

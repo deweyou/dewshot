@@ -286,12 +286,20 @@ private struct SettingsSidebar: View {
     var body: some View {
         List(selection: $presentation.section) {
             ForEach(SettingsSection.allCases) { section in
-                Label(section.title(strings: presentation.strings), systemImage: section.symbol)
-                    .tag(section)
-                    .accessibilityIdentifier("settings.section.\(section.rawValue)")
+                Label {
+                    Text(section.title(strings: presentation.strings))
+                } icon: {
+                    Image(systemName: section.symbol)
+                        .font(.system(size: 13, weight: .medium))
+                        .frame(width: 18)
+                }
+                .padding(.vertical, 7)
+                .tag(section)
+                .accessibilityIdentifier("settings.section.\(section.rawValue)")
             }
         }
         .listStyle(.sidebar)
+        .contentMargins(.top, 10, for: .scrollContent)
         .scrollContentBackground(.hidden)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             SettingsAboutFooterView()
