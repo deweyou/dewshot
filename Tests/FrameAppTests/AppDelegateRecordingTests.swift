@@ -262,9 +262,11 @@ final class AppDelegateRecordingTests: XCTestCase {
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("FrameTests.\(UUID())"))
         let clipboardWriter = ClipboardWriter(pasteboard: pasteboard)
         try clipboardWriter.write(text: "previous value")
+        let quickAccess = QuickAccessPanelController(dismissalDelay: { 10 })
         let delegate = AppDelegate(
             selectionOverlayController: selectionOverlay,
             scrollingScreenshotSessionController: scrollingController,
+            quickAccessPanelController: quickAccess,
             captureHistoryStore: CaptureHistoryStore(rootDirectory: makeTemporaryDirectory()),
             clipboardWriter: clipboardWriter,
             automaticallyCopiesCaptures: { true },
@@ -301,6 +303,9 @@ final class AppDelegateRecordingTests: XCTestCase {
                 && delegate.quickAccessScreenshotIsPendingForTesting(id: screenshotID)
         }
 
+        let outside = CGPoint(x: 100_000, y: 100_000)
+        quickAccess.updatePreviewExpiry(at: ProcessInfo.processInfo.systemUptime + 31, mouseLocation: outside, isPointerDown: false)
+        XCTAssertEqual(delegate.quickAccessScreenshotCountForTesting(), 1)
         XCTAssertEqual(pasteboard.string(forType: .string), "previous value")
         scrollingController.complete(with: completed)
 
@@ -311,6 +316,8 @@ final class AppDelegateRecordingTests: XCTestCase {
         XCTAssertEqual(delegate.quickAccessScreenshotCountForTesting(), 1)
         XCTAssertEqual(NSImage(pasteboard: pasteboard)?.size, completed.image.size)
         XCTAssertNil(pasteboard.string(forType: .string))
+        quickAccess.updatePreviewExpiry(at: ProcessInfo.processInfo.systemUptime + 11, mouseLocation: outside, isPointerDown: false)
+        XCTAssertEqual(delegate.quickAccessScreenshotCountForTesting(), 0)
     }
 
     func testRecordingStartDoesNotShowStaticKeyboardHintOverlay() async throws {

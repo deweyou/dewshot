@@ -196,6 +196,24 @@ struct AppStrings {
         }
     }
 
+    var settingsQuickAccessDismissal: String {
+        switch language {
+        case .zhHans: "角落预览自动关闭"
+        case .en: "Close corner previews"
+        }
+    }
+
+    func settingsQuickAccessDismissalOption(_ dismissal: QuickAccessDismissal) -> String {
+        switch (language, dismissal) {
+        case (.zhHans, .never): "永不"
+        case (.en, .never): "Never"
+        case (.zhHans, .oneMinute): "1 分钟后"
+        case (.en, .oneMinute): "After 1 minute"
+        case (.zhHans, _): "\(dismissal.rawValue) 秒后"
+        case (.en, _): "After \(dismissal.rawValue) seconds"
+        }
+    }
+
     var settingsPermissions: String {
         switch language {
         case .zhHans: "权限"

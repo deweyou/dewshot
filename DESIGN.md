@@ -199,6 +199,11 @@ system tool, not a branded dashboard.
   as images and recordings as files after capture completes, and keep their
   previews available. Copy only the active display's image during a multi-display
   full-screen capture. A scrolling capture copies its final stitched image.
+- Each preview auto-dismisses after 30 seconds by default once its result has
+  been copied or stored in history. Capture settings offer 10 seconds,
+  30 seconds, 1 minute, and Never for subsequent previews. Start the timer
+  after final stitching and pause it during hover, pointer interaction, OCR,
+  or temporary hiding.
 - Keep captured image and video pixels visually true. Apply stable deep glass
   only to hover action overlays, close/status/duration accessories, fallback
   placeholders, and the larger hover preview shell so arbitrary media or

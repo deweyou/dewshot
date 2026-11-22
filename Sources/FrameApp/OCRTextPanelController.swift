@@ -55,6 +55,10 @@ final class OCRTextPanelController: NSObject, NSTextViewDelegate {
         activatePanel(panel)
     }
 
+    func hasPanel(for screenshot: CapturedScreenshot) -> Bool {
+        panelItem(for: screenshot) != nil
+    }
+
     func closePanel(for screenshot: CapturedScreenshot) -> Bool {
         guard let item = panelItem(for: screenshot) else {
             return false

@@ -13,8 +13,11 @@ final class QuickAccessPanelController: NSObject {
 
     private let thumbnailProvider: RecordingThumbnailProvider
     private let hoverPreviewDelay: TimeInterval
+    private let dismissalDelay: () -> TimeInterval?
     private let hoverPreviewController = QuickAccessHoverPreviewController()
+    private weak var hoverPreviewOwner: QuickAccessPreviewItem?
     private var previewItems: [QuickAccessPreviewItem] = []
+    private var dismissalTimer: Timer?
     private var deliveryFeedbackPanel: NSPanel?
     private var deliveryFeedbackTimer: Timer?
     private var activeScreenObserver: NSObjectProtocol?
@@ -24,10 +27,12 @@ final class QuickAccessPanelController: NSObject {
 
     init(
         thumbnailProvider: RecordingThumbnailProvider = RecordingThumbnailProvider(),
-        hoverPreviewDelay: TimeInterval = QuickAccessPanelController.defaultHoverPreviewDelayForTesting
+        hoverPreviewDelay: TimeInterval = QuickAccessPanelController.defaultHoverPreviewDelayForTesting,
+        dismissalDelay: @escaping () -> TimeInterval? = { SettingsStore.quickAccessDismissal().delay }
     ) {
         self.thumbnailProvider = thumbnailProvider
         self.hoverPreviewDelay = hoverPreviewDelay
+        self.dismissalDelay = dismissalDelay
     }
 
     func show(
@@ -35,6 +40,8 @@ final class QuickAccessPanelController: NSObject {
         preferredAnchor: CGRect?,
         strings: AppStrings = AppStrings.current(),
         isPending: Bool = false,
+        canAutoDismiss: Bool = false,
+        isInUse: @escaping () -> Bool = { false },
         copy: @escaping () -> Bool,
         save: @escaping () -> Bool,
         recognizeText: @escaping () -> Bool,
@@ -45,31 +52,34 @@ final class QuickAccessPanelController: NSObject {
         let panel = makePanel(for: captured.image)
         let content = makeContentView(for: captured, strings: strings, isPending: isPending)
         panel.contentView = content.view
-        previewItems.append(
-            QuickAccessPreviewItem(
-                screenshotID: captured.id,
-                recordingID: nil,
-                panel: panel,
-                ocrButton: content.ocrButton,
-                ocrProgressIndicator: content.ocrProgressIndicator,
-                statusLabel: content.statusLabel,
-                screenshotImageView: content.imageView,
-                screenshotContentView: content.view,
-                pendingProgressIndicator: content.pendingProgressIndicator,
-                recordingContentView: nil,
-                copy: copy,
-                save: save,
-                recognizeText: recognizeText,
-                openWorkspace: openWorkspace,
-                pin: pin,
-                downloadRecording: nil,
-                copyRecording: nil,
-                previewRecording: nil,
-                editRecording: nil,
-                hoverPreviewMedia: .image(captured.image),
-                close: close
-            )
+        let item = QuickAccessPreviewItem(
+            screenshotID: captured.id,
+            recordingID: nil,
+            panel: panel,
+            ocrButton: content.ocrButton,
+            ocrProgressIndicator: content.ocrProgressIndicator,
+            statusLabel: content.statusLabel,
+            screenshotImageView: content.imageView,
+            screenshotContentView: content.view,
+            pendingProgressIndicator: content.pendingProgressIndicator,
+            recordingContentView: nil,
+            copy: copy,
+            save: save,
+            recognizeText: recognizeText,
+            openWorkspace: openWorkspace,
+            pin: pin,
+            downloadRecording: nil,
+            copyRecording: nil,
+            previewRecording: nil,
+            editRecording: nil,
+            hoverPreviewMedia: .image(captured.image),
+            isInUse: isInUse,
+            close: close
         )
+        previewItems.append(item)
+        if canAutoDismiss && !isPending {
+            startCountdown(for: item)
+        }
         repositionPreviewStack(preferredAnchor: preferredAnchor, force: true)
         startFollowingActiveScreen()
 
@@ -80,6 +90,7 @@ final class QuickAccessPanelController: NSObject {
         for recording: CapturedRecording,
         preferredAnchor: CGRect?,
         strings: AppStrings = AppStrings.current(),
+        canAutoDismiss: Bool = false,
         download: @escaping () -> Bool,
         copy: @escaping () -> Bool,
         preview: @escaping () -> Bool,
@@ -104,31 +115,33 @@ final class QuickAccessPanelController: NSObject {
         content.frame = CGRect(origin: .zero, size: previewSize)
         content.autoresizingMask = [.width, .height]
         panel.contentView = content
-        previewItems.append(
-            QuickAccessPreviewItem(
-                screenshotID: nil,
-                recordingID: recording.id,
-                panel: panel,
-                ocrButton: nil,
-                ocrProgressIndicator: nil,
-                statusLabel: nil,
-                screenshotImageView: nil,
-                screenshotContentView: nil,
-                pendingProgressIndicator: nil,
-                recordingContentView: content,
-                copy: nil,
-                save: nil,
-                recognizeText: nil,
-                openWorkspace: nil,
-                pin: nil,
-                downloadRecording: download,
-                copyRecording: copy,
-                previewRecording: preview,
-                editRecording: edit,
-                hoverPreviewMedia: .recording(recording),
-                close: close
-            )
+        let item = QuickAccessPreviewItem(
+            screenshotID: nil,
+            recordingID: recording.id,
+            panel: panel,
+            ocrButton: nil,
+            ocrProgressIndicator: nil,
+            statusLabel: nil,
+            screenshotImageView: nil,
+            screenshotContentView: nil,
+            pendingProgressIndicator: nil,
+            recordingContentView: content,
+            copy: nil,
+            save: nil,
+            recognizeText: nil,
+            openWorkspace: nil,
+            pin: nil,
+            downloadRecording: download,
+            copyRecording: copy,
+            previewRecording: preview,
+            editRecording: edit,
+            hoverPreviewMedia: .recording(recording),
+            close: close
         )
+        previewItems.append(item)
+        if canAutoDismiss {
+            startCountdown(for: item)
+        }
         repositionPreviewStack(preferredAnchor: preferredAnchor, force: true)
         startFollowingActiveScreen()
 
@@ -213,25 +226,91 @@ final class QuickAccessPanelController: NSObject {
         item.hoverPreviewMedia = .image(screenshot.image)
         item.hoverPreviewWorkItem?.cancel()
         item.hoverPreviewWorkItem = nil
-        hoverPreviewController.close()
+        if hoverPreviewOwner === item {
+            closeHoverPreview()
+        }
         return true
     }
 
     @discardableResult
-    func setScreenshotPending(_ isPending: Bool, for screenshot: CapturedScreenshot) -> Bool {
+    func setScreenshotPending(
+        _ isPending: Bool,
+        for screenshot: CapturedScreenshot,
+        canAutoDismiss: Bool = false
+    ) -> Bool {
         guard let item = previewItems.first(where: { $0.screenshotID == screenshot.id }) else {
             return false
         }
 
         item.screenshotContentView?.setActionsEnabled(!isPending)
         if isPending {
+            item.dismissalRemaining = nil
+            stopDismissalTimerIfNeeded()
             item.pendingProgressIndicator?.isHidden = false
             item.pendingProgressIndicator?.startAnimation(nil)
         } else {
             item.pendingProgressIndicator?.stopAnimation(nil)
             item.pendingProgressIndicator?.isHidden = true
+            if canAutoDismiss {
+                startCountdown(for: item)
+            }
         }
         return true
+    }
+
+    private func startCountdown(for item: QuickAccessPreviewItem) {
+        guard let delay = dismissalDelay() else { return }
+        item.dismissalRemaining = delay
+        item.dismissalUpdatedAt = ProcessInfo.processInfo.systemUptime
+
+        guard dismissalTimer == nil else { return }
+        let timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] timer in
+            guard let self else {
+                timer.invalidate()
+                return
+            }
+            MainActor.assumeIsolated {
+                self.updatePreviewExpiry(
+                    at: ProcessInfo.processInfo.systemUptime,
+                    mouseLocation: NSEvent.mouseLocation,
+                    isPointerDown: NSEvent.pressedMouseButtons & 1 != 0
+                )
+            }
+        }
+        timer.tolerance = 0.02
+        dismissalTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    func updatePreviewExpiry(at now: TimeInterval, mouseLocation: CGPoint, isPointerDown: Bool) {
+        var expired: [QuickAccessPreviewItem] = []
+        for item in previewItems {
+            guard let remaining = item.dismissalRemaining else { continue }
+            let elapsed = max(0, now - item.dismissalUpdatedAt)
+            item.dismissalUpdatedAt = now
+
+            let isOverCard = item.panel.frame.contains(mouseLocation)
+            item.isHoldingPointer = isPointerDown && (isOverCard || item.isHoldingPointer)
+            if item.isTemporarilyHidden || isOverCard || item.isHoldingPointer
+                || hoverPreviewOwner === item || item.isInUse() {
+                continue
+            }
+
+            item.dismissalRemaining = remaining - elapsed
+            if elapsed >= remaining {
+                expired.append(item)
+            }
+        }
+
+        for item in expired {
+            closePreview(item, notify: true)
+        }
+    }
+
+    private func stopDismissalTimerIfNeeded() {
+        guard !previewItems.contains(where: { $0.dismissalRemaining != nil }) else { return }
+        dismissalTimer?.invalidate()
+        dismissalTimer = nil
     }
 
     @discardableResult
@@ -244,7 +323,9 @@ final class QuickAccessPanelController: NSObject {
         item.recordingContentView?.updateDuration(recording.duration)
         item.hoverPreviewWorkItem?.cancel()
         item.hoverPreviewWorkItem = nil
-        hoverPreviewController.close()
+        if hoverPreviewOwner === item {
+            closeHoverPreview()
+        }
         return true
     }
 
@@ -318,8 +399,11 @@ final class QuickAccessPanelController: NSObject {
         closeDeliveryFeedback()
         for item in previewItems {
             item.isTemporarilyHidden = true
+            item.hoverPreviewWorkItem?.cancel()
+            item.hoverPreviewWorkItem = nil
             hideTemporarily(item.panel)
         }
+        closeHoverPreview()
     }
 
     func closePreviewsForRecordingStart() {
@@ -346,8 +430,10 @@ final class QuickAccessPanelController: NSObject {
         }
 
         repositionPreviewStack(preferredAnchor: ActiveScreenResolver.preferredQuickAccessFollowAnchor(), force: true)
+        let now = ProcessInfo.processInfo.systemUptime
         for item in hiddenItems {
             item.isTemporarilyHidden = false
+            item.dismissalUpdatedAt = now
             restoreTemporarilyHiddenPanel(item.panel)
             item.panel.orderFrontRegardless()
         }
@@ -403,6 +489,9 @@ final class QuickAccessPanelController: NSObject {
         let contentView = ScreenshotPreviewView()
         contentView.setActionsEnabled(!isPending)
         contentView.wantsLayer = true
+        contentView.onPointerDown = { [weak self, weak contentView] in
+            self?.previewItem(for: contentView?.window)?.isHoldingPointer = true
+        }
         contentView.onHoverChanged = { [weak self, weak contentView] isHovered in
             contentView?.setActionsVisible(isHovered)
             if isHovered {
@@ -766,7 +855,7 @@ final class QuickAccessPanelController: NSObject {
     }
 
     func closeHoverPreviewForTesting() {
-        hoverPreviewController.close()
+        closeHoverPreview()
     }
 
     func hoverPreviewFrameForTesting() -> CGRect? {
@@ -818,11 +907,13 @@ final class QuickAccessPanelController: NSObject {
         let workItem = DispatchWorkItem { [weak self, weak item] in
             guard let self,
                   let item,
+                  !item.isTemporarilyHidden,
                   self.previewItems.contains(where: { $0 === item }) else {
                 return
             }
 
             self.hoverPreviewController.show(media: item.hoverPreviewMedia, near: item.panel.frame)
+            self.hoverPreviewOwner = item
         }
         item.hoverPreviewWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + hoverPreviewDelay, execute: workItem)
@@ -830,12 +921,19 @@ final class QuickAccessPanelController: NSObject {
 
     private func cancelHoverPreview(for window: NSWindow?) {
         guard let item = previewItem(for: window) else {
-            hoverPreviewController.close()
+            closeHoverPreview()
             return
         }
 
         item.hoverPreviewWorkItem?.cancel()
         item.hoverPreviewWorkItem = nil
+        if hoverPreviewOwner === item {
+            closeHoverPreview()
+        }
+    }
+
+    private func closeHoverPreview() {
+        hoverPreviewOwner = nil
         hoverPreviewController.close()
     }
 
@@ -1032,9 +1130,12 @@ final class QuickAccessPanelController: NSObject {
     private func closePreview(_ item: QuickAccessPreviewItem, notify: Bool) {
         item.statusResetWorkItem?.cancel()
         item.hoverPreviewWorkItem?.cancel()
-        hoverPreviewController.close()
+        if hoverPreviewOwner === item {
+            closeHoverPreview()
+        }
         item.panel.close()
         previewItems.removeAll { $0 === item }
+        stopDismissalTimerIfNeeded()
         repositionPreviewStack(preferredAnchor: ActiveScreenResolver.preferredQuickAccessFollowAnchor(), force: true)
         stopFollowingActiveScreenIfNeeded()
         if notify {
@@ -1053,7 +1154,8 @@ final class QuickAccessPanelController: NSObject {
             }
         }
         previewItems.removeAll()
-        hoverPreviewController.close()
+        stopDismissalTimerIfNeeded()
+        closeHoverPreview()
         stopFollowingActiveScreenIfNeeded()
     }
 
@@ -1116,6 +1218,10 @@ private final class QuickAccessPreviewItem {
     let editRecording: (() -> Bool)?
     var hoverPreviewMedia: QuickAccessHoverPreviewMedia
     let close: () -> Void
+    let isInUse: () -> Bool
+    var dismissalRemaining: TimeInterval?
+    var dismissalUpdatedAt: TimeInterval = 0
+    var isHoldingPointer = false
     var isTemporarilyHidden = false
     var statusResetWorkItem: DispatchWorkItem?
     var hoverPreviewWorkItem: DispatchWorkItem?
@@ -1141,6 +1247,7 @@ private final class QuickAccessPreviewItem {
         previewRecording: (() -> Bool)?,
         editRecording: (() -> Bool)?,
         hoverPreviewMedia: QuickAccessHoverPreviewMedia,
+        isInUse: @escaping () -> Bool = { false },
         close: @escaping () -> Void
     ) {
         self.screenshotID = screenshotID
@@ -1163,6 +1270,7 @@ private final class QuickAccessPreviewItem {
         self.previewRecording = previewRecording
         self.editRecording = editRecording
         self.hoverPreviewMedia = hoverPreviewMedia
+        self.isInUse = isInUse
         self.close = close
     }
 }
@@ -1339,6 +1447,7 @@ private final class QuickAccessHoverPreviewController {
 private class ScreenshotPreviewView: NSView {
     var actionsViews: [NSView] = []
     var onHoverChanged: ((Bool) -> Void)?
+    var onPointerDown: (() -> Void)?
 
     private var trackingArea: NSTrackingArea?
     private var pendingHideActionsWorkItem: DispatchWorkItem?
@@ -1389,6 +1498,11 @@ private class ScreenshotPreviewView: NSView {
             return
         }
         scheduleActionsHide()
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        onPointerDown?()
+        super.mouseDown(with: event)
     }
 
     override func mouseMoved(with event: NSEvent) {

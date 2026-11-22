@@ -260,12 +260,13 @@ final class CaptureHistoryStore {
         )
     }
 
+    @discardableResult
     func saveEditedScreenshot(
         _ screenshot: CapturedScreenshot,
         configuration: CaptureHistoryConfiguration = .current()
-    ) throws {
+    ) throws -> Bool {
         guard configuration.isEnabled else {
-            return
+            return false
         }
         guard screenshot.pngData.count <= configuration.sizeLimit.bytes else {
             throw CocoaError(.fileWriteOutOfSpace)
@@ -273,8 +274,7 @@ final class CaptureHistoryStore {
 
         var records = try readRecords()
         guard let index = records.firstIndex(where: { $0.id == screenshot.id && $0.kind == .screenshot }) else {
-            _ = try addScreenshot(screenshot, configuration: configuration)
-            return
+            return try addScreenshot(screenshot, configuration: configuration) != nil
         }
 
         let original = records[index]
@@ -297,6 +297,7 @@ final class CaptureHistoryStore {
             throw error
         }
         try? fileManager.removeItem(at: captureURL(for: original))
+        return true
     }
 
     func addRecording(

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Automatically dismiss corner previews after 30 seconds by default. Choose
+  10 seconds, 30 seconds, 1 minute, or Never in Capture settings.
 - Use Command+Shift+R as the default shortcut for starting a recording.
 - Allow one modifier for capture shortcuts. Check for enabled macOS shortcuts
   and exclusive reservations, and warn about common app shortcuts before saving.

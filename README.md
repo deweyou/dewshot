@@ -27,6 +27,8 @@ screenshot or recording, a small preview appears in the corner of your screen.
 From there you can copy it, save it, edit it, keep it visible, or close it.
 By default, Frame also copies the finished screenshot or recording to the clipboard.
 You can turn this off in Settings → Capture.
+Corner previews close after 30 seconds by default once the capture has been
+copied or saved in history. Change the delay in the same settings pane.
 The menu keeps Capture Screenshot and Record Screen as separate direct actions
 and shows each configured shortcut beside its action.
 Record Screen defaults to `Command+Shift+R`.

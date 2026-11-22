@@ -1,6 +1,19 @@
 import Foundation
 import FrameCore
 
+enum QuickAccessDismissal: Int, CaseIterable, Identifiable {
+    case tenSeconds = 10
+    case thirtySeconds = 30
+    case oneMinute = 60
+    case never = 0
+
+    var id: Int { rawValue }
+
+    var delay: TimeInterval? {
+        self == .never ? nil : TimeInterval(rawValue)
+    }
+}
+
 enum SettingsStore {
     static let screenshotShortcutKey = "screenshotShortcut"
     static let recordingShortcutKey = "recordingShortcut"
@@ -11,6 +24,7 @@ enum SettingsStore {
     static let rememberedSelectionKey = "rememberedWindowSelection"
     static let imageWorkspaceSaveCurrentBehaviorKey = "imageWorkspaceSaveCurrentBehavior"
     static let automaticallyCopiesCapturesKey = "automaticallyCopiesCaptures"
+    static let quickAccessDismissalKey = "quickAccessDismissal"
     static let ocrRecognitionLanguagesKey = "ocrRecognitionLanguages"
     static let captureHistoryEnabledKey = "captureHistoryEnabled"
     static let captureHistoryRetentionKey = "captureHistoryRetention"
@@ -195,6 +209,15 @@ enum SettingsStore {
 
     static func setAutomaticallyCopiesCaptures(_ isEnabled: Bool, defaults: UserDefaults = .standard) {
         defaults.set(isEnabled, forKey: automaticallyCopiesCapturesKey)
+    }
+
+    static func quickAccessDismissal(defaults: UserDefaults = .standard) -> QuickAccessDismissal {
+        (defaults.object(forKey: quickAccessDismissalKey) as? Int)
+            .flatMap(QuickAccessDismissal.init(rawValue:)) ?? .thirtySeconds
+    }
+
+    static func setQuickAccessDismissal(_ dismissal: QuickAccessDismissal, defaults: UserDefaults = .standard) {
+        defaults.set(dismissal.rawValue, forKey: quickAccessDismissalKey)
     }
 
     static func isCaptureHistoryEnabled(defaults: UserDefaults = .standard) -> Bool {

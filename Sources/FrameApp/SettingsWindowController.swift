@@ -226,6 +226,7 @@ private struct SettingsDetailView: View {
 
     private var strings: AppStrings { presentation.strings }
     @State private var automaticallyCopiesCaptures = SettingsStore.automaticallyCopiesCaptures()
+    @State private var quickAccessDismissal = SettingsStore.quickAccessDismissal()
 
     var body: some View {
         ScrollView {
@@ -276,6 +277,23 @@ private struct SettingsDetailView: View {
                             .onChange(of: automaticallyCopiesCaptures) { _, isEnabled in
                                 SettingsStore.setAutomaticallyCopiesCaptures(isEnabled)
                             }
+                    }
+
+                    SettingsControlDivider()
+
+                    SettingsControlRow(strings.settingsQuickAccessDismissal) {
+                        SettingsMenuPicker(
+                            strings.settingsQuickAccessDismissal,
+                            value: strings.settingsQuickAccessDismissalOption(quickAccessDismissal),
+                            selection: $quickAccessDismissal
+                        ) {
+                            ForEach(QuickAccessDismissal.allCases) { dismissal in
+                                Text(strings.settingsQuickAccessDismissalOption(dismissal)).tag(dismissal)
+                            }
+                        }
+                        .onChange(of: quickAccessDismissal) { _, dismissal in
+                            SettingsStore.setQuickAccessDismissal(dismissal)
+                        }
                     }
                 }
                 ScreenshotSettingsView(strings: strings)

@@ -829,6 +829,63 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         XCTAssertTrue(panels.allSatisfy { !$0.ignoresMouseEvents })
     }
 
+    func testTimedPreviewsExpireIndependentlyAndPauseDuringPointerInteraction() throws {
+        _ = NSApplication.shared
+        let existingWindows = Set(NSApp.windows.map(ObjectIdentifier.init))
+        let controller = QuickAccessPanelController(dismissalDelay: { 5 })
+        var closedIDs: [Int] = []
+        let first = CapturedScreenshot(pngData: try makePNGData(), image: NSImage(size: CGSize(width: 80, height: 60)), rect: .zero)
+        let second = CapturedRecording(
+            id: UUID(), fileURL: URL(fileURLWithPath: "/tmp/test.mp4"), format: .mp4,
+            rect: CGRect(x: 0, y: 0, width: 80, height: 60), pixelSize: CGSize(width: 80, height: 60),
+            byteSize: 1, duration: 1
+        )
+        controller.show(
+            for: first, preferredAnchor: nil, canAutoDismiss: true,
+            copy: { true }, save: { true }, recognizeText: { true },
+            openWorkspace: { true }, pin: { true }, close: { closedIDs.append(1) }
+        )
+        let firstPanel = try XCTUnwrap(newPreviewPanels(excluding: existingWindows).first)
+        defer { _ = controller.closePreview(for: first, notify: false) }
+
+        controller.show(
+            for: second, preferredAnchor: nil, canAutoDismiss: true,
+            download: { true }, copy: { true }, preview: { true }, edit: { true }, close: { closedIDs.append(2) }
+        )
+        let start = ProcessInfo.processInfo.systemUptime
+        let outside = CGPoint(x: 100_000, y: 100_000)
+        let inside = CGPoint(x: firstPanel.frame.midX, y: firstPanel.frame.midY)
+
+        controller.updatePreviewExpiry(at: start + 6, mouseLocation: inside, isPointerDown: true)
+        XCTAssertEqual(closedIDs, [2])
+        controller.updatePreviewExpiry(at: start + 12, mouseLocation: outside, isPointerDown: true)
+        XCTAssertEqual(closedIDs, [2])
+        controller.updatePreviewExpiry(at: start + 12.1, mouseLocation: outside, isPointerDown: false)
+        controller.updatePreviewExpiry(at: start + 18, mouseLocation: outside, isPointerDown: false)
+        XCTAssertEqual(closedIDs, [2, 1])
+    }
+
+    func testPreviewWithoutDeliveryAndNeverSettingDoNotExpire() throws {
+        _ = NSApplication.shared
+        let screenshot = CapturedScreenshot(
+            pngData: try makePNGData(), image: NSImage(size: CGSize(width: 80, height: 60)), rect: .zero
+        )
+        for (delay, canAutoDismiss) in [(TimeInterval(5), false), (nil, true)] {
+            let controller = QuickAccessPanelController(dismissalDelay: { delay })
+            controller.show(
+                for: screenshot, preferredAnchor: nil, canAutoDismiss: canAutoDismiss,
+                copy: { true }, save: { true }, recognizeText: { true }, openWorkspace: { true }, pin: { true },
+                close: { XCTFail("This card should stay open") }
+            )
+            controller.updatePreviewExpiry(
+                at: ProcessInfo.processInfo.systemUptime + 120,
+                mouseLocation: CGPoint(x: 100_000, y: 100_000),
+                isPointerDown: false
+            )
+            XCTAssertTrue(controller.closePreview(for: screenshot, notify: false))
+        }
+    }
+
     private func makeOneFrameGIF(at url: URL) throws {
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         let pixels: [UInt8] = [

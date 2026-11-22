@@ -53,6 +53,16 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertTrue(SettingsStore.automaticallyCopiesCaptures(defaults: defaults))
     }
 
+    func testQuickAccessDismissalDefaultsToThirtySecondsAndPersistsChoices() {
+        XCTAssertEqual(SettingsStore.quickAccessDismissal(defaults: defaults), .thirtySeconds)
+        XCTAssertEqual(QuickAccessDismissal.allCases.map(\.delay), [10, 30, 60, nil])
+
+        for dismissal in QuickAccessDismissal.allCases {
+            SettingsStore.setQuickAccessDismissal(dismissal, defaults: defaults)
+            XCTAssertEqual(SettingsStore.quickAccessDismissal(defaults: defaults), dismissal)
+        }
+    }
+
     func testScreenshotShortcutPersistsCustomStorageValue() {
         let shortcut = ScreenshotShortcut(key: .number("7"), modifiers: [.command, .option])
 
