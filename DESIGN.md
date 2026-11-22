@@ -258,8 +258,9 @@ system tool, not a branded dashboard.
   keep the editor open. The Copy and Export actions leave history as it is.
   Save Current follows the configured default. Replace Current updates the
   history entry and any active originating preview. Save As New creates a
-  separate history entry and a preview. Both respect history settings, and
-  the current session keeps editable objects and undo after a save.
+  separate history entry and a preview. If history cannot store the result,
+  offer to export it. Keep the editor dirty until the file is written.
+  The current session keeps editable objects and undo after a save.
 - A local `.frameimage` project stores the current raster and objects so a user
   can continue editing later. An image exported from the same session contains
   the flattened result. Importing a local image opens a new session, so replacing

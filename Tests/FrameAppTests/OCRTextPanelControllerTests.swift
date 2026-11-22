@@ -260,6 +260,15 @@ final class OCRTextPanelControllerTests: XCTestCase {
         XCTAssertTrue(scrollView.hasVerticalScroller)
         XCTAssertFalse(scrollView.hasHorizontalScroller)
         XCTAssertEqual(documentView.frame.width, scrollView.contentView.bounds.width, accuracy: 1)
+        for style: NSScroller.Style in [.legacy, .overlay] {
+            scrollView.scrollerStyle = style
+            scrollView.autohidesScrollers = false
+            scrollView.tile()
+            XCTAssertEqual(documentView.frame.width, scrollView.contentView.bounds.width, accuracy: 1)
+            scrollView.autohidesScrollers = true
+            scrollView.tile()
+            XCTAssertEqual(documentView.frame.width, scrollView.contentView.bounds.width, accuracy: 1)
+        }
         XCTAssertGreaterThan(Set(cutButtons.map { round($0.frame.minY) }).count, 1)
     }
 

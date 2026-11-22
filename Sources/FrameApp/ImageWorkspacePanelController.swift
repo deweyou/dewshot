@@ -1306,7 +1306,7 @@ final class ImageWorkspacePanelController: NSObject {
         }
 
         item.annotationCanvas?.markCurrentRenditionSaved()
-        showFeedback(item.strings.editorLabel("已替换当前图", "Current image replaced"), for: item)
+        showFeedback(item.strings.editorLabel("已保存当前稿", "Current edit saved"), for: item)
         item.saveCurrentButton?.isEnabled = false
         updateDocumentControls(for: item, document: item.annotationCanvas?.documentForTesting ?? ImageAnnotationDocument())
         return true

@@ -788,14 +788,32 @@ private final class OCRCutButton: NSButton {
 }
 
 private final class OCRCutScrollView: NSScrollView {
+    private var isLayingOutCuts = false
+
     override func layout() {
         super.layout()
+        layoutCuts()
+    }
 
-        guard let container = documentView as? OCRCutContainerView else {
-            return
+    override func tile() {
+        super.tile()
+        layoutCuts()
+    }
+
+    private func layoutCuts() {
+        guard !isLayingOutCuts, let container = documentView as? OCRCutContainerView else { return }
+
+        // Updating the document height can show or hide a legacy vertical scroller.
+        isLayingOutCuts = true
+        defer { isLayingOutCuts = false }
+        var width = max(1, contentView.bounds.width)
+        if container.frame.width != width {
+            container.updateLayout(for: width)
         }
-
-        container.updateLayout(for: max(1, contentView.bounds.width))
+        width = max(1, contentView.bounds.width)
+        if container.frame.width != width {
+            container.updateLayout(for: width)
+        }
     }
 }
 

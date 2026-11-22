@@ -288,15 +288,19 @@ final class CaptureHistoryStore {
             pixelHeight: Int(screenshot.image.size.height.rounded()),
             rect: screenshot.rect
         )
-        try screenshot.pngData.write(to: captureURL(for: replacement), options: .atomic)
         records[index] = replacement
+        let retained = retainedRecords(records, now: Date(), configuration: configuration, preserving: replacement.id)
+        guard retained.contains(where: { $0.id == replacement.id }) else { return false }
+
+        try screenshot.pngData.write(to: captureURL(for: replacement), options: .atomic)
         do {
-            try writeRecords(records)
+            try writeRecords(retained)
         } catch {
             try? fileManager.removeItem(at: captureURL(for: replacement))
             throw error
         }
         try? fileManager.removeItem(at: captureURL(for: original))
+        removeUnretainedFiles(records, keeping: retained)
         return true
     }
 
@@ -363,25 +367,33 @@ final class CaptureHistoryStore {
         now: Date = Date(),
         configuration: CaptureHistoryConfiguration = .current()
     ) throws {
-        var records = try readRecords()
+        let records = try readRecords()
+        let retained = retainedRecords(records, now: now, configuration: configuration)
+        try writeRecords(retained)
+        removeUnretainedFiles(records, keeping: retained)
+    }
 
-        if let retentionDuration = configuration.retention.duration {
-            let cutoff = now.addingTimeInterval(-retentionDuration)
-            for record in records where record.createdAt < cutoff {
-                try? fileManager.removeItem(at: captureURL(for: record))
-            }
-            records.removeAll { $0.createdAt < cutoff }
+    private func retainedRecords(
+        _ records: [CaptureHistoryRecord],
+        now: Date,
+        configuration: CaptureHistoryConfiguration,
+        preserving recordID: UUID? = nil
+    ) -> [CaptureHistoryRecord] {
+        let cutoff = configuration.retention.duration.map { now.addingTimeInterval(-$0) } ?? .distantPast
+        var retained = records.filter { $0.createdAt >= cutoff }.sorted { $0.createdAt < $1.createdAt }
+        var totalBytes = retained.reduce(0) { $0 + $1.byteSize }
+        while totalBytes > configuration.sizeLimit.bytes, retained.count > 1,
+              let index = retained.firstIndex(where: { $0.id != recordID }) {
+            totalBytes -= retained.remove(at: index).byteSize
         }
+        return retained
+    }
 
-        records.sort { $0.createdAt < $1.createdAt }
-        var totalBytes = records.reduce(0) { $0 + $1.byteSize }
-        while totalBytes > configuration.sizeLimit.bytes, records.count > 1 {
-            let removed = records.removeFirst()
-            totalBytes -= removed.byteSize
-            try? fileManager.removeItem(at: captureURL(for: removed))
+    private func removeUnretainedFiles(_ records: [CaptureHistoryRecord], keeping retained: [CaptureHistoryRecord]) {
+        let keptIDs = Set(retained.map(\.id))
+        for record in records where !keptIDs.contains(record.id) {
+            try? fileManager.removeItem(at: captureURL(for: record))
         }
-
-        try writeRecords(records)
     }
 
     private var indexURL: URL {

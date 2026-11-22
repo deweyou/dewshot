@@ -70,6 +70,26 @@ final class CaptureHistoryStoreTests: XCTestCase {
         XCTAssertEqual(try reopened.data(for: XCTUnwrap(records.first { $0.id == copy.id })), copy.pngData)
     }
 
+    func testReplacingEditedImageEnforcesAggregateHistoryLimit() throws {
+        let size = CGSize(width: 40, height: 20)
+        let rect = CGRect(origin: .zero, size: size)
+        let configuration = CaptureHistoryConfiguration(isEnabled: true, retention: .forever, sizeLimit: .custom(bytes: 10))
+        let original = CapturedScreenshot(pngData: Data([1]), image: NSImage(size: size), rect: rect)
+        let date = Date(timeIntervalSince1970: 100)
+        let originalRecord = try XCTUnwrap(store.addScreenshot(original, date: date, configuration: configuration))
+        let otherImage = CapturedScreenshot(pngData: Data(repeating: 2, count: 8), image: original.image, rect: rect)
+        let evicted = try XCTUnwrap(store.addScreenshot(otherImage, date: date.addingTimeInterval(1), configuration: configuration))
+
+        let edited = CapturedScreenshot(id: original.id, pngData: Data(repeating: 3, count: 6), image: original.image, rect: rect)
+        XCTAssertTrue(try store.saveEditedScreenshot(edited, configuration: configuration))
+
+        let records = try store.records()
+        XCTAssertEqual(records.map(\.id), [original.id])
+        XCTAssertEqual(records.first?.createdAt, originalRecord.createdAt)
+        XCTAssertEqual(try store.data(for: XCTUnwrap(records.first)), edited.pngData)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.fileURL(for: evicted).path))
+    }
+
     func testDisabledHistoryDoesNotStoreScreenshot() throws {
         let record = try store.addScreenshot(
             pngData: Data([1, 2, 3]),

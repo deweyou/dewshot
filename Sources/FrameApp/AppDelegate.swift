@@ -1294,7 +1294,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     throw CocoaError(.userCancelled)
                 }
 
-                try self.persistEditedScreenshot(editedScreenshot)
+                let stored = try self.persistEditedScreenshot(editedScreenshot)
+                guard stored || ImageWorkspaceFileDialogs.export(editedScreenshot, strings: self.strings) else {
+                    throw CocoaError(.userCancelled)
+                }
                 self.recognizedTextLayouts.removeValue(forKey: editedScreenshot.id)
                 if self.activeQuickAccessScreenshotIDs.contains(editedScreenshot.id) {
                     self.activeQuickAccessScreenshots[editedScreenshot.id] = editedScreenshot
@@ -1308,8 +1311,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
                 do {
                     let stored = try self.persistEditedScreenshot(editedScreenshot)
-                    self.showQuickAccess(for: editedScreenshot, anchor: editedScreenshot.rect, canAutoDismiss: stored)
-                    return true
+                    if stored {
+                        self.showQuickAccess(for: editedScreenshot, anchor: editedScreenshot.rect, canAutoDismiss: true)
+                        return true
+                    }
+                    return ImageWorkspaceFileDialogs.export(editedScreenshot, strings: self.strings)
                 } catch {
                     return false
                 }
@@ -1318,7 +1324,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
-    @discardableResult
     private func persistEditedScreenshot(_ screenshot: CapturedScreenshot) throws -> Bool {
         do {
             let stored = try captureHistoryStore.saveEditedScreenshot(screenshot)

@@ -1847,6 +1847,33 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         XCTAssertTrue(canvas.documentForTesting.hasUncommittedEdits)
     }
 
+    func testCancelledSaveKeepsTheEditorOpenAndDirty() throws {
+        var attempts = 0
+        let panel = try showWorkspace(
+            copy: { _ in true }, save: { _ in true },
+            replaceCurrent: { _ in
+                attempts += 1
+                throw CocoaError(.userCancelled)
+            },
+            closeSaveChoice: { .save }
+        )
+        defer { closePanel(panel) }
+        let content = try XCTUnwrap(panel.contentView)
+        let canvas = try XCTUnwrap(findAnnotationCanvas(in: content))
+        var document = canvas.documentForTesting
+        document.add(ImageAnnotationElement(kind: .shape(.rectangle),
+                                            bounds: CGRect(x: 20, y: 20, width: 80, height: 40), style: .default))
+        canvas.setDocument(document)
+        let save = try XCTUnwrap(findButton(in: content, accessibilityLabel: "Save Current"))
+        save.performClick(nil)
+        XCTAssertEqual(attempts, 1)
+        XCTAssertTrue(canvas.documentForTesting.hasUncommittedEdits)
+        panel.close()
+        XCTAssertEqual(attempts, 2)
+        XCTAssertTrue(panel.isVisible)
+        XCTAssertTrue(save.isEnabled)
+    }
+
     func testWorkspaceSaveCurrentPrimaryClickReplacesCurrentWhenConfigured() throws {
         var replacedScreenshot: CapturedScreenshot?
         var newPreviewScreenshot: CapturedScreenshot?
@@ -3324,7 +3351,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         presentSaveCurrentMenu: @escaping (NSMenu, NSButton) -> Void = { _, _ in },
         copy: @escaping (CapturedScreenshot) -> Bool,
         save: @escaping (CapturedScreenshot) -> Bool,
-        replaceCurrent: ((CapturedScreenshot) -> Void)? = nil,
+        replaceCurrent: ((CapturedScreenshot) throws -> Void)? = nil,
         saveAsNew: ((CapturedScreenshot) -> Bool)? = nil,
         closeSaveChoice: (() -> ImageWorkspaceCloseSaveChoice)? = nil
     ) throws -> NSPanel {
