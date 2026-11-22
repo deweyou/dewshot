@@ -16,7 +16,7 @@ final class ImageWorkspaceInspector: NSView {
     private let perform: (Action) -> Void
     private let section = NSStackView()
     private let contextTitle = NSTextField(labelWithString: "")
-    private let zoomValue = NSTextField(labelWithString: "")
+    private weak var zoomDisplay: NSButton?
     private let cropSize = NSTextField(labelWithString: "")
     private let colorRow = NSStackView()
     private var swatches: [(ImageAnnotationColor, NSButton)] = []
@@ -42,7 +42,7 @@ final class ImageWorkspaceInspector: NSView {
     private var font: InspectorPopup!
     private var size: InspectorPopup!
     private var traits: NSSegmentedControl!
-    private var alignment: InspectorPopup!
+    private var alignment: NSSegmentedControl!
     private var textPreset: InspectorPopup!
     private var linePattern: InspectorPopup!
     private var arrowStyle: InspectorPopup!
@@ -124,8 +124,16 @@ final class ImageWorkspaceInspector: NSView {
         ].compactMap { $0 }
         for row in styleRows.values { row.isHidden = !activeRows.contains { $0 === row } }
         typeChoices.isHidden = mosaic == nil
-        for (button, mode) in zip(mosaicButtons, ImageAnnotationMosaicMode.allCases) {
-            button.state = mode == mosaic ? .on : .off
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            for (button, mode) in zip(mosaicButtons, ImageAnnotationMosaicMode.allCases) {
+                let selected = mode == mosaic
+                button.state = selected ? .on : .off
+                button.layer?.backgroundColor = selected
+                    ? NSColor.controlAccentColor.withAlphaComponent(0.26).cgColor
+                    : NSColor.labelColor.withAlphaComponent(0.045).cgColor
+                button.layer?.borderColor = selected ? NSColor.controlAccentColor.withAlphaComponent(0.65).cgColor : nil
+                button.layer?.borderWidth = selected ? 1 : 0
+            }
         }
         objectActions.isHidden = selected == nil
         automaticWidth.isHidden = !text || style.textBoxWidth == nil
@@ -135,7 +143,7 @@ final class ImageWorkspaceInspector: NSView {
         size.selectNearest(style.fontSize, in: fontSizes)
         traits.setSelected(style.fontWeight == .bold, forSegment: 0)
         traits.setSelected(style.textItalic == true, forSegment: 1)
-        alignment.selectItem(at: [ImageAnnotationTextAlignment.left, .center, .right].firstIndex(of: style.textAlignment) ?? 0)
+        alignment.selectedSegment = [ImageAnnotationTextAlignment.left, .center, .right].firstIndex(of: style.textAlignment) ?? 0
         textPreset.selectItem(at: style.textOutline != nil ? 2 : style.fillColor == .black ? 1 : 0)
         linePattern.selectItem(at: ImageAnnotationLinePattern.allCases.firstIndex(of: style.linePattern ?? .solid) ?? 0)
         arrowStyle.selectItem(at: [ImageAnnotationArrowStyle.wedge, .open, .doubleHeaded].firstIndex(of: style.arrowStyle ?? .wedge) ?? 0)
@@ -166,7 +174,7 @@ final class ImageWorkspaceInspector: NSView {
     }
 
     func updateZoom(_ zoom: Int) {
-        zoomValue.stringValue = "\(zoom)%"
+        zoomDisplay?.title = "\(zoom)%"
     }
 
     private func configure() {
@@ -179,18 +187,32 @@ final class ImageWorkspaceInspector: NSView {
         let document = InspectorDocumentView()
         scrollDocument = document
         document.autoresizingMask = [.width]
-        let body = stack([], spacing: 16)
+        let body = stack([], spacing: 20)
         document.addSubview(body)
         scroll.documentView = document
         addSubview(scroll)
+        let zoomBar = makeZoomSection()
+        let zoomRule = NSBox()
+        zoomRule.boxType = .separator
+        zoomRule.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(zoomBar)
+        addSubview(zoomRule)
         NSLayoutConstraint.activate([
             scroll.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 1),
             scroll.trailingAnchor.constraint(equalTo: trailingAnchor),
             scroll.topAnchor.constraint(equalTo: topAnchor),
-            scroll.bottomAnchor.constraint(equalTo: bottomAnchor),
+            scroll.bottomAnchor.constraint(equalTo: zoomRule.topAnchor),
+            zoomRule.heightAnchor.constraint(equalToConstant: 1),
+            zoomRule.leadingAnchor.constraint(equalTo: zoomBar.leadingAnchor),
+            zoomRule.trailingAnchor.constraint(equalTo: zoomBar.trailingAnchor),
+            zoomRule.bottomAnchor.constraint(equalTo: zoomBar.topAnchor, constant: -10),
+            zoomBar.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            zoomBar.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+            zoomBar.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12),
+            zoomBar.heightAnchor.constraint(equalToConstant: 30),
             body.leadingAnchor.constraint(equalTo: document.leadingAnchor, constant: 14),
             body.trailingAnchor.constraint(equalTo: document.trailingAnchor, constant: -14),
-            body.topAnchor.constraint(equalTo: document.topAnchor, constant: 14),
+            body.topAnchor.constraint(equalTo: document.topAnchor, constant: 16),
         ])
         document.content = body
 
@@ -198,8 +220,11 @@ final class ImageWorkspaceInspector: NSView {
         cropSection = makeCropSection()
         cropSection.isHidden = true
         configureStyleSection()
-        sectionHost = stack([section])
-        for view in [sectionHost!, imageSection!, cropSection!, makeZoomSection()] {
+        sectionHost = stack([contextTitle, InspectorSurface(content: section)], spacing: 10)
+        if let card = (sectionHost as? NSStackView)?.arrangedSubviews.last {
+            card.widthAnchor.constraint(equalTo: sectionHost.widthAnchor).isActive = true
+        }
+        for view in [imageSection!, sectionHost!, cropSection!] {
             body.addArrangedSubview(view)
             view.widthAnchor.constraint(equalTo: body.widthAnchor).isActive = true
         }
@@ -217,16 +242,28 @@ final class ImageWorkspaceInspector: NSView {
     }
 
     private func makeImageSection() -> NSView {
-        let first = row([
-            button(label("裁剪", "Crop"), action: .crop),
-            button(label("调整大小", "Resize"), action: .resize),
-        ])
-        let transform = InspectorButton(title: label("变换…", "Transform…")) { [weak self] sender in
+        let crop = button(label("裁剪", "Crop"), action: .crop)
+        let resize = button(label("调整大小", "Resize"), action: .resize)
+        let transform = InspectorButton(title: label("变换", "Transform")) { [weak self] sender in
             self?.perform(.transform(sender))
         }
-        transform.controlSize = .small
         transform.setAccessibilityLabel(transform.title)
-        return stack([heading(label("图片", "Image")), first, transform])
+        let commands = row([crop, resize, transform])
+        commands.spacing = 6
+        commands.distribution = .fillEqually
+        for (button, symbol) in [(crop, "crop"), (resize, "arrow.up.left.and.arrow.down.right"), (transform, "rotate.right")] {
+            button.isBordered = false
+            button.font = .systemFont(ofSize: 11, weight: .medium)
+            button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+            button.symbolConfiguration = .init(pointSize: 15, weight: .medium)
+            button.imagePosition = .imageAbove
+            button.contentTintColor = .labelColor
+            button.heightAnchor.constraint(equalToConstant: 42).isActive = true
+        }
+        let panel = InspectorSurface(content: commands, inset: 5)
+        let image = stack([heading(label("图片", "Image")), panel], spacing: 8)
+        panel.widthAnchor.constraint(equalTo: image.widthAnchor).isActive = true
+        return image
     }
 
     private func makeCropSection() -> NSView {
@@ -244,17 +281,26 @@ final class ImageWorkspaceInspector: NSView {
     }
 
     private func makeZoomSection() -> NSView {
-        zoomValue.alignment = .center
-        zoomValue.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
-        zoomValue.widthAnchor.constraint(greaterThanOrEqualToConstant: 45).isActive = true
         let out = button("−", action: .zoom(-0.20))
         let more = button("+", action: .zoom(0.25))
+        let fit = button(label("适合窗口", "Fit"), action: .fit)
+        let actual = InspectorButton(title: "100%") { [weak self] _ in self?.perform(.actualSize) }
+        actual.setAccessibilityLabel(label("实际像素", "Actual Pixels"))
+        actual.toolTip = label("点按恢复到 100%", "Click to return to 100%")
+        actual.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        actual.isBordered = false
+        actual.widthAnchor.constraint(equalToConstant: 52).isActive = true
+        zoomDisplay = actual
         out.setAccessibilityLabel(label("缩小画布", "Zoom Out"))
         more.setAccessibilityLabel(label("放大画布", "Zoom In"))
-        return stack([
-            heading(label("查看", "View")), row([out, zoomValue, more]),
-            row([button(label("适合窗口", "Fit"), action: .fit), button("100%", action: .actualSize)]),
-        ])
+        for control in [out, more] {
+            control.bezelStyle = .accessoryBarAction
+            control.widthAnchor.constraint(equalToConstant: 24).isActive = true
+        }
+        let cluster = InspectorSurface(content: row([out, actual, more]), inset: 2)
+        let footer = row([cluster, NSView(), fit])
+        footer.translatesAutoresizingMaskIntoConstraints = false
+        return footer
     }
 
     private func configureStyleSection() {
@@ -264,7 +310,7 @@ final class ImageWorkspaceInspector: NSView {
         contextTitle.font = .systemFont(ofSize: 14, weight: .semibold)
         colorRow.orientation = .horizontal
         colorRow.alignment = .centerY
-        colorRow.spacing = 7
+        colorRow.spacing = 5
         for color: ImageAnnotationColor in [.red, .yellow, .blue, .green, .white, .black] {
             let swatch = button(strings.workspaceColorTitle(color), action: .style { $0.strokeColor = color })
             swatch.setButtonType(.toggle)
@@ -290,9 +336,15 @@ final class ImageWorkspaceInspector: NSView {
         traits.controlSize = .small
         traits.setAccessibilityLabel(label("字形", "Typeface style"))
         styleRows[ObjectIdentifier(traits)] = labeledRow(label("字形", "Typeface"), traits)
-        alignment = stylePopup(label("对齐", "Align"), [label("左对齐", "Left"), label("居中", "Center"), label("右对齐", "Right")]) {
-            $0.textAlignment = [ImageAnnotationTextAlignment.left, .center, .right][$1]
+        let alignments = [label("左对齐", "Align Left"), label("居中", "Center"), label("右对齐", "Align Right")]
+        let alignIcons = zip(["text.alignleft", "text.aligncenter", "text.alignright"], alignments).map {
+            NSImage(systemSymbolName: $0, accessibilityDescription: $1) ?? NSImage()
         }
+        alignment = NSSegmentedControl(images: alignIcons, trackingMode: .selectOne, target: self, action: #selector(changeAlignment))
+        alignment.controlSize = .small
+        alignment.setAccessibilityLabel(label("对齐", "Align"))
+        for (index, name) in alignments.enumerated() { alignment.setToolTip(name, forSegment: index) }
+        styleRows[ObjectIdentifier(alignment)] = labeledRow(label("对齐", "Align"), alignment)
         textPreset = stylePopup(label("样式", "Style"), [label("纯文字", "Plain"), label("深色底标签", "Dark Label"), label("反差描边", "Outline")]) {
             $0.fillColor = $1 == 1 ? .black : nil
             $0.textOutline = $1 == 2 ? .black : nil
@@ -322,12 +374,26 @@ final class ImageWorkspaceInspector: NSView {
             let control = InspectorButton(title: strings.workspaceMosaicModeTitle(mode)) { [weak self] _ in
                 self?.perform(.mosaic(mode))
             }
-            control.setButtonType(.radio)
+            control.setButtonType(.toggle)
             control.controlSize = .small
+            control.isBordered = false
+            control.wantsLayer = true
+            control.layer?.cornerCurve = .continuous
+            control.layer?.cornerRadius = 13
+            control.heightAnchor.constraint(equalToConstant: 26).isActive = true
             control.setAccessibilityLabel(strings.workspaceMosaicModeTitle(mode))
             return control
         }
-        typeChoices = stack(mosaicButtons, spacing: 5)
+        let topModes = row(Array(mosaicButtons.prefix(2)))
+        let bottomModes = row(Array(mosaicButtons.suffix(2)))
+        for modes in [topModes, bottomModes] {
+            modes.distribution = .fillEqually
+        }
+        let modeGrid = stack([topModes, bottomModes], spacing: 5)
+        for modes in [topModes, bottomModes] {
+            modes.widthAnchor.constraint(equalTo: modeGrid.widthAnchor).isActive = true
+        }
+        typeChoices = modeGrid
         automaticWidth = button(label("恢复自动宽度", "Restore Automatic Width"), action: .style { $0.textBoxWidth = nil })
         objectActions = row([
             button(label("复制对象", "Duplicate"), action: .duplicate),
@@ -335,9 +401,18 @@ final class ImageWorkspaceInspector: NSView {
             button("↓", action: .reorder(forward: false), help: label("移到最后", "Send to Back")),
         ])
         let orderedControls: [NSView] = [width, font, size, traits, alignment, textPreset, linePattern, arrowStyle, fill, intensity, brushWidth]
-        for view in [contextTitle, colorRow, typeChoices!] + orderedControls.compactMap({ styleRows[ObjectIdentifier($0)] }) + [automaticWidth!, objectActions!] {
+        for view in [colorRow, typeChoices!] + orderedControls.compactMap({ styleRows[ObjectIdentifier($0)] }) + [automaticWidth!, objectActions!] {
             section.addArrangedSubview(view)
         }
+        for view in styleRows.values { view.widthAnchor.constraint(equalTo: section.widthAnchor).isActive = true }
+        typeChoices.widthAnchor.constraint(equalTo: section.widthAnchor).isActive = true
+    }
+
+    @objc private func changeAlignment() {
+        let choices: [ImageAnnotationTextAlignment] = [.left, .center, .right]
+        let index = alignment.selectedSegment
+        guard choices.indices.contains(index) else { return }
+        perform(.style { $0.textAlignment = choices[index] })
     }
 
     @objc private func changeTraits() {
@@ -367,9 +442,10 @@ final class ImageWorkspaceInspector: NSView {
         let text = NSTextField(labelWithString: title)
         text.font = .systemFont(ofSize: 12)
         text.textColor = .secondaryLabelColor
-        let view = row([text, control])
-        text.widthAnchor.constraint(equalToConstant: 75).isActive = true
-        control.widthAnchor.constraint(equalToConstant: 128).isActive = true
+        let view = row([text, NSView(), control])
+        view.heightAnchor.constraint(greaterThanOrEqualToConstant: 27).isActive = true
+        text.widthAnchor.constraint(equalToConstant: 70).isActive = true
+        control.widthAnchor.constraint(equalToConstant: 114).isActive = true
         if let control = control as? InspectorPopup {
             control.rowTitle = text
         }
@@ -426,6 +502,39 @@ final class ImageWorkspaceInspector: NSView {
 }
 
 @MainActor
+private final class InspectorSurface: NSView {
+    init(content: NSView, inset: CGFloat = 10) {
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        wantsLayer = true
+        layer?.cornerRadius = 12
+        layer?.cornerCurve = .continuous
+        content.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(content)
+        NSLayoutConstraint.activate([
+            content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
+            content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
+            content.topAnchor.constraint(equalTo: topAnchor, constant: inset),
+            content.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -inset),
+        ])
+        updateSurface()
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateSurface()
+    }
+
+    private func updateSurface() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.045).cgColor
+        }
+    }
+}
+
+@MainActor
 private final class InspectorDocumentView: NSView {
     weak var content: NSView?
     override var isFlipped: Bool { true }
@@ -466,6 +575,7 @@ private final class InspectorPopup: NSPopUpButton {
         super.init(frame: .zero, pullsDown: false)
         addItems(withTitles: titles)
         controlSize = .small
+        bezelStyle = .accessoryBarAction
         target = self
         action = #selector(invoke)
     }

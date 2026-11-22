@@ -227,7 +227,9 @@ system tool, not a branded dashboard.
   returns the width to the canvas. Selecting a tool or object changes the
   inspector's controls. Give shapes a color, width, and line or fill controls.
   Give text a font, size, bold and italic, alignment, and color. Show all four
-  redaction modes and the settings for the selected mode.
+  redaction modes in a two-column grid with a visible selection. Group the
+  current tool’s controls on one quiet surface. Keep image commands together
+  at the top and keep zoom in one fixed strip at the bottom.
 - Put Crop, Resize, Transform, and zoom controls in the inspector when it is
   expanded. Crop replaces the tool controls with aspect ratio, pixel dimensions,
   Cancel, and Apply. When the inspector is collapsed, restore a compact editing
