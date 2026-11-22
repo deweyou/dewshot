@@ -15,36 +15,10 @@ Screenshot and recording capture only require Screen Recording. The other two pe
 
 TCC authorization is tied to app identity, path, and code signature. Ad-hoc signing is useful for CI and first-time setup, but it can make macOS treat rebuilt bundles as new apps.
 
-For repeat local testing, use a stable local Code Signing certificate and a stable app path:
-
-```sh
-export FRAME_CODESIGN_IDENTITY="Frame Local Dev CLI"
-FRAME_APP_VARIANT=development scripts/package-app.sh
-mkdir -p ~/Applications
-rm -rf ~/Applications/Frame\ Dev.app
-ditto ".build/app/Frame Dev.app" ~/Applications/Frame\ Dev.app
-open ~/Applications/Frame\ Dev.app
-```
-
-The certificate can be a local self-signed Keychain certificate. It does not require an Apple Developer account. It only makes the local app identity stable enough for development.
-
-This should remain the default local development path even after real Apple certificates are available. Real Apple certificates are reserved for explicit Apple Development, Developer ID, notarization, or release distribution testing. Mixing release identities into normal local rebuilds makes it harder to reason about TCC state and can cause avoidable permission churn.
-
-## Recommended Local Test Flow
-
-Use a stable signing identity and app path:
-
-```sh
-FRAME_APP_VARIANT=development \
-FRAME_CODESIGN_IDENTITY="Frame Local Dev CLI" \
-scripts/package-app.sh
-mkdir -p ~/Applications
-rm -rf ~/Applications/Frame\ Dev.app
-ditto ".build/app/Frame Dev.app" ~/Applications/Frame\ Dev.app
-open ~/Applications/Frame\ Dev.app
-```
-
-Authorize `Frame Dev`, quit it, reopen the same `~/Applications/Frame Dev.app`, then test screenshot capture. Avoid switching between `.build/app/Frame Dev.app` and `~/Applications/Frame Dev.app` during permission testing.
+For repeat local testing, sign the `development` variant with Apple
+Development and keep one installed path, `~/Applications/Frame Dev.app`.
+Follow the [local installation flow](development.md#manual-smoke-test).
+Authorize that installed copy, then quit and reopen it before testing capture.
 
 ## Reset Permission
 
@@ -58,13 +32,8 @@ Then reopen the current app bundle and request permission again.
 
 ## Distribution Note
 
-Local self-signing is only for development. Public ZIP or DMG distribution must use Developer ID Application signing and Apple notarization before it is presented as production-ready.
-
-When distribution signing is introduced, keep separate commands or environment presets for:
-
-- local development: `FRAME_APP_VARIANT=development FRAME_CODESIGN_IDENTITY="Frame Local Dev CLI"`
-- Apple development testing: `FRAME_APP_VARIANT=development` plus an Apple Development identity
-- public distribution: Developer ID identity plus notarization
+For public ZIP or DMG distribution, sign the production variant with
+Developer ID Application and submit it for Apple notarization.
 
 The production and development bundle identifiers have separate TCC records:
 

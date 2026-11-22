@@ -22,8 +22,7 @@ The two variants have separate `UserDefaults`, TCC permission records, and captu
 | Lane | Variant | Signing identity | Stable app path | Purpose |
 | --- | --- | --- | --- | --- |
 | CI package check | `production` | Ad hoc | CI workspace only | Compile and validate bundle structure |
-| Daily local GUI work | `development` | `Frame Local Dev CLI` | `~/Applications/Frame Dev.app` | Stable local TCC permissions without using account credentials |
-| Apple integration check | `development` | Apple Development | `~/Applications/Frame Dev.app` | Validate Team ID, Launch at Login, and Apple-backed signing behavior |
+| Daily local GUI work | `development` | Apple Development | `~/Applications/Frame Dev.app` | Stable development identity for TCC and Launch at Login |
 | Public release | `production` | Developer ID Application | `/Applications/Frame.app` | Hardened, notarized distribution outside the Mac App Store |
 
 Developer ID must never be used for ordinary local iteration. Public artifacts must never fall back to ad-hoc or Apple Development signing.
@@ -35,35 +34,12 @@ Developer ID must never be used for ordinary local iteration. Public artifacts m
 3. Open `Manage Certificates`, create an `Apple Development` identity for this Mac, and wait for it to appear in the login keychain with a private key.
 4. Run `security find-identity -v -p codesigning`. The output must list `Apple Development: ...` and at least one valid identity.
 5. If Keychain Access reports that the Apple Development certificate is not trusted, inspect its issuer. Frame's current development identity uses `Apple Worldwide Developer Relations Certification Authority`, organizational unit `G3`. Download and import [Worldwide Developer Relations - G3](https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer), then verify again. Keep Apple certificates on system-default trust settings; do not mark the leaf certificate as Always Trust.
-6. Create a machine-local `Frame Local Dev CLI` identity by following [Local Signing Identity Setup](development.md#local-signing-identity-setup). Each Mac may create its own; it is not a distribution credential.
-7. Clone Frame, run the normal verification commands, and inspect both package identities:
-
-   ```sh
-   swift test
-   swift build
-   scripts/package-app.sh --print-configuration
-   FRAME_APP_VARIANT=development scripts/package-app.sh --print-configuration
-   ```
-
-8. Package the daily development app:
-
-   ```sh
-   FRAME_APP_VARIANT=development \
-   FRAME_CODESIGN_IDENTITY="Frame Local Dev CLI" \
-   scripts/package-app.sh
-   ```
-
-9. Install `Frame Dev.app` at one stable path, grant Screen Recording and any optional Accessibility or Input Monitoring permissions, and keep using that exact path and signing identity.
-10. Run one Apple-backed integration package before relying on Launch at Login or other Team-sensitive behavior:
-
-    ```sh
-    FRAME_APP_VARIANT=development \
-    FRAME_CODESIGN_IDENTITY="Apple Development: Your Name (IDENTIFIER)" \
-    scripts/package-app.sh
-    codesign -dv --verbose=4 ".build/app/Frame Dev.app"
-    ```
-
-    Confirm the output contains the Apple Development authority and a non-empty `TeamIdentifier`. Install that exact bundle at `~/Applications/Frame Dev.app`, enable Launch at Login in Frame Settings, and confirm macOS lists Frame Dev under Login Items & Extensions.
+6. Clone Frame and run `swift test` and `swift build`. Follow the
+   [local installation flow](development.md#manual-smoke-test) using the
+   Apple Development identity from the previous steps.
+7. Grant Screen Recording and any feature-specific permissions to the
+   installed Frame Dev. If you use Launch at Login, enable it in Frame and
+   confirm the entry in System Settings → General → Login Items & Extensions.
 
 ## What Moves to a Replacement Mac
 
@@ -71,7 +47,6 @@ Developer ID must never be used for ordinary local iteration. Public artifacts m
 | --- | --- |
 | Explicit App IDs | Nothing to copy. They remain in the Apple Developer account. |
 | Apple Development identity | Prefer creating a new identity from Xcode on the new Mac. Keep the old identity until the new one signs successfully. |
-| `Frame Local Dev CLI` | Recreate locally. Re-grant TCC permissions because the machine and signature changed. |
 | WWDR G3 intermediate | Let Xcode install it or download it again from Apple PKI if the trust chain is incomplete. |
 | Developer ID Application identity | Export the certificate together with its private key as a password-protected `.p12`, keep it in approved secure storage, and import it only on an authorized release machine. |
 | Notarization keychain profile | Recreate it on the new release machine. Do not copy credentials into the repository or shell scripts. |

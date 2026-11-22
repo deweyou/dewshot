@@ -27,7 +27,7 @@ Building or packaging inside the workspace does not authorize replacing or launc
 
 Before running the stable-sign-and-replace flow from `AGENTS.md`, confirm that the current user request or Harness Commitment explicitly authorizes all of the following actions:
 
-- replacing `~/Applications/Frame.app`;
+- replacing `~/Applications/Frame Dev.app`;
 - launching that app;
 - interacting with the macOS desktop for the requested verification.
 
@@ -37,12 +37,12 @@ Treat `tccutil reset`, permission changes, Keychain identity creation, Apple sig
 
 ## Prepare The Live Test App
 
-Use the exact stable-signing and replacement flow currently recorded in `AGENTS.md`; do not substitute an ad-hoc build for repeat GUI testing.
+Follow the Apple Development signing and replacement flow linked from `AGENTS.md`.
 
 After replacement:
 
 1. Verify the installed bundle's code signature and require the expected local signing authority.
-2. Confirm the running executable belongs to the stable installed app path, not `.build/app/Frame.app` or another checkout.
+2. Confirm the running executable belongs to the stable installed app path, not `.build/app/Frame Dev.app` or another checkout.
 3. Keep Screen Recording authorization bound to that exact path and identity. If permission state is ambiguous, diagnose identity, path, and current TCC behavior before proposing a reset.
 
 Do not claim the app is ready when signature, path, or process evidence points to a different bundle.
