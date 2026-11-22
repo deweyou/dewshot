@@ -149,14 +149,17 @@ system tool, not a branded dashboard.
 
 - HUD-like controls share one visual language across capture, Image Workspace,
   video preview/editing, and Quick Access surfaces.
-- Compact floating controls can use capsule geometry. Keep the workspace and
-  video window headers flat and aligned with the native window controls.
+- Use capsule geometry to group related controls in the capture launcher and
+  image editor. Center the editor's markup tools in one quiet capsule. Give
+  standalone actions pill backgrounds and keep the window header aligned
+  with the native window controls.
 - Use short visible labels for starting and finishing scrolling capture, starting
   recording, and the recording format. Keep secondary actions compact and give
   icon-only buttons a tooltip and accessibility label.
 - Actions that are visible before their behavior is implemented stay disabled:
   no pointer cursor, no hover fill, and disabled tint.
-- Selected tools use a compact accent tint and a light glyph. The image editor uses rounded square targets.
+- Use a circular or capsule-shaped highlight with an accent tint and a light
+  glyph for selected tools. Use the same shape for pointer feedback.
 - The window action row extends behind the native traffic lights. The editing
   row uses the width below it. Both rows share the same appearance-aware
   titlebar surface. Keep a small gap between the toolbar and the image.

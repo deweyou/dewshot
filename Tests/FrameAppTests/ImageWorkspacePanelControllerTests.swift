@@ -2644,6 +2644,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         let mosaicButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Mosaic"))
         let mosaicOptionsButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Mosaic Options"))
         let mosaicSplitControl = try XCTUnwrap(findView(in: contentView, identifier: "ImageWorkspaceToolbarMosaicSplitControl"))
+        let markupCapsule = try XCTUnwrap(findView(in: contentView, identifier: "ImageWorkspaceMarkupCapsule"))
         let copyButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Copy"))
         let saveButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Save Current"))
         let downloadButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Export…"))
@@ -2675,9 +2676,14 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         XCTAssertEqual(mosaicSplitFrame.minX, mosaicFrame.minX, accuracy: 0.5)
         XCTAssertEqual(mosaicSplitFrame.maxX, mosaicOptionsFrame.maxX, accuracy: 0.5)
         XCTAssertEqual(mosaicOptionsFrame.minX, mosaicFrame.maxX, accuracy: 0.5)
-        XCTAssertGreaterThan(saveFrame.width, 28)
-        XCTAssertGreaterThan(copyFrame.width, 28)
-        XCTAssertGreaterThan(downloadFrame.width, 28)
+        let markupBackground = try XCTUnwrap(markupCapsule.layer?.sublayers?.first)
+        XCTAssertEqual(markupBackground.cornerRadius, markupBackground.bounds.height / 2, accuracy: 0.5)
+        XCTAssertGreaterThan(markupBackground.frame.minY, 0)
+        XCTAssertTrue(selectButton.isDescendant(of: markupCapsule))
+        for button in [saveButton, copyButton, downloadButton] {
+            XCTAssertGreaterThan(button.bounds.width, 28)
+            XCTAssertEqual(button.layer?.cornerRadius ?? 0, button.bounds.height / 2, accuracy: 0.5)
+        }
         XCTAssertLessThanOrEqual(copyFrame.maxX, downloadFrame.minX)
         XCTAssertLessThanOrEqual(downloadFrame.maxX, saveFrame.minX)
         XCTAssertEqual(toolbar.layer?.cornerRadius ?? 0, 0, accuracy: 0.5)
@@ -2720,6 +2726,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
 
         let mosaicSplitBackground = try XCTUnwrap(mosaicSplitControl.layer?.sublayers?.first)
         XCTAssertEqual(mosaicSplitBackground.opacity, 0, accuracy: 0.01)
+        XCTAssertEqual(mosaicSplitBackground.cornerRadius, mosaicSplitBackground.bounds.height / 2, accuracy: 0.5)
         let hoverEvent = try makeMouseMoveEvent(point: mosaicSplitControl.convert(mosaicSplitControl.bounds.center, to: nil), panel: panel)
         mosaicSplitControl.mouseEntered(with: hoverEvent)
         XCTAssertEqual(mosaicSplitBackground.opacity, 1, accuracy: 0.01)
@@ -3436,6 +3443,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         let hoverLayer = try XCTUnwrap(button.layer?.sublayers?.first)
         XCTAssertEqual(iconView.frame.midX, hoverLayer.position.x, accuracy: 0.5)
         XCTAssertEqual(iconView.frame.midY, hoverLayer.position.y, accuracy: 0.5)
+        XCTAssertEqual(hoverLayer.cornerRadius, hoverLayer.bounds.height / 2, accuracy: 0.5)
     }
 
     private func makeRightClickEvent(windowNumber: Int) throws -> NSEvent {

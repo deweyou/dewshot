@@ -414,11 +414,12 @@ final class ImageWorkspacePanelController: NSObject {
             return self?.makeMoreMarkupMenu(for: item) ?? NSMenu()
         }
         let moreTitle = item.strings.editorLabel("更多标注工具", "More Markup Tools")
-        configureHeaderCommand(moreMarkup, symbol: "ellipsis")
+        configureCapsuleCommand(moreMarkup, symbol: "ellipsis", capsule: .quiet)
         moreMarkup.setAccessibilityLabel(moreTitle)
         moreMarkup.toolTip = moreTitle
         moreMarkup.widthAnchor.constraint(equalToConstant: ImageWorkspaceLayout.editingToolSize).isActive = true
         toolStack.addArrangedSubview(moreMarkup)
+        let markupCapsule = ImageWorkspaceMarkupCapsule(contents: toolStack)
 
         let styleControl = makeHeaderStyleControl(for: item)
         item.styleControl = styleControl
@@ -434,9 +435,9 @@ final class ImageWorkspacePanelController: NSObject {
             guard let item else { return NSMenu() }
             return self?.makeTransformMenu(for: item) ?? NSMenu()
         }
-        configureHeaderCommand(cropButton)
-        configureHeaderCommand(resizeButton)
-        configureHeaderCommand(transformButton, symbol: "chevron.down")
+        configureCapsuleCommand(cropButton)
+        configureCapsuleCommand(resizeButton)
+        configureCapsuleCommand(transformButton, symbol: "chevron.down")
         let geometryStack = makeRow([cropButton, resizeButton, transformButton], spacing: 3)
         let parameters = makeParameterRow(for: item, imageCommands: geometryStack, styleControl: styleControl)
 
@@ -471,21 +472,20 @@ final class ImageWorkspacePanelController: NSObject {
             space.translatesAutoresizingMaskIntoConstraints = false
         }
 
-        let saveEditedButton = NSButton(title: item.strings.workspaceSaveCurrent, target: self, action: #selector(saveEditedButtonClicked))
-        let copyButton = NSButton(title: item.strings.workspaceCopy, target: self, action: #selector(copyButtonClicked))
-        let downloadButton = NSButton(title: item.strings.editorLabel("导出…", "Export…"), target: self, action: #selector(downloadButtonClicked))
+        let saveEditedButton = ImageWorkspaceCommandButton(title: item.strings.workspaceSaveCurrent, target: self, selector: #selector(saveEditedButtonClicked))
+        let copyButton = ImageWorkspaceCommandButton(title: item.strings.workspaceCopy, target: self, selector: #selector(copyButtonClicked))
+        let downloadButton = ImageWorkspaceCommandButton(title: item.strings.editorLabel("导出…", "Export…"), target: self, selector: #selector(downloadButtonClicked))
         let saveOptionsButton = makeMenuButton("") { [weak self, weak item] in
             guard let item else { return NSMenu() }
             return self?.makeSaveCurrentMenu(for: item) ?? NSMenu()
         }
-        configureHeaderCommand(copyButton)
-        configureHeaderCommand(downloadButton)
-        configureHeaderCommand(saveOptionsButton, symbol: "chevron.down")
+        configureCapsuleCommand(copyButton)
+        configureCapsuleCommand(downloadButton)
+        configureCapsuleCommand(saveOptionsButton, symbol: "chevron.down", capsule: .quiet)
         saveOptionsButton.widthAnchor.constraint(equalToConstant: 28).isActive = true
         saveOptionsButton.setAccessibilityLabel(item.strings.editorLabel("保存选项", "Save Options"))
-        configureHeaderCommand(saveEditedButton, emphasized: true)
+        configureCapsuleCommand(saveEditedButton, capsule: .primary)
         saveEditedButton.isEnabled = false
-        saveEditedButton.bezelColor = NSColor.controlAccentColor
         saveEditedButton.menu = makeSaveCurrentMenu(for: item)
         item.saveCurrentButton = saveEditedButton
         item.saveOptionsButton = saveOptionsButton
@@ -512,7 +512,7 @@ final class ImageWorkspacePanelController: NSObject {
         toolbar.addSubview(toolbarStack)
         toolbarStack.addArrangedSubview(historyStack)
         toolbarStack.addArrangedSubview(leadingToolSpace)
-        toolbarStack.addArrangedSubview(toolStack)
+        toolbarStack.addArrangedSubview(markupCapsule)
         toolbarStack.addArrangedSubview(trailingToolSpace)
         toolbarStack.addArrangedSubview(outputStack)
 
@@ -1231,9 +1231,6 @@ final class ImageWorkspacePanelController: NSObject {
         })
         item.saveCurrentButton?.isEnabled = document.hasUncommittedEdits
         item.saveOptionsButton?.isEnabled = document.hasUncommittedEdits
-        item.saveCurrentButton?.contentTintColor = document.hasUncommittedEdits
-            ? .labelColor
-            : .disabledControlTextColor
         updateHistoryButton(item.undoButton, isEnabled: document.canUndo)
         updateHistoryButton(item.redoButton, isEnabled: document.canRedo)
         updateHeaderStyleControl(for: item, document: document)
@@ -1283,7 +1280,6 @@ final class ImageWorkspacePanelController: NSObject {
         item.annotationCanvas?.markCurrentRenditionSaved()
         showFeedback(item.strings.editorLabel("已替换当前图", "Current image replaced"), for: item)
         item.saveCurrentButton?.isEnabled = false
-        item.saveCurrentButton?.contentTintColor = .disabledControlTextColor
         updateDocumentControls(for: item, document: item.annotationCanvas?.documentForTesting ?? ImageAnnotationDocument())
         return true
     }
@@ -1795,7 +1791,7 @@ private final class ImageWorkspaceHeaderStyleControlView: NSView {
         colorMenuButton.action = #selector(colorMenuButtonClicked)
         colorMenuButton.imagePosition = .imageOnly
         colorMenuButton.wantsLayer = true
-        colorMenuButton.layer?.cornerRadius = 7
+        colorMenuButton.layer?.cornerRadius = ImageWorkspaceLayout.headerStyleControlHeight / 2
         colorMenuButton.layer?.cornerCurve = .continuous
         colorMenuButton.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.08).cgColor
         colorMenuButton.menu = colorMenu
@@ -2345,7 +2341,8 @@ private final class ImageWorkspaceSplitToolControl: NSView {
     override func layout() {
         super.layout()
 
-        backgroundLayer.frame = bounds
+        backgroundLayer.frame = bounds.insetBy(dx: 1, dy: 2)
+        backgroundLayer.cornerRadius = backgroundLayer.bounds.height / 2
         dividerLayer.frame = CGRect(
             x: ImageWorkspaceLayout.editingToolSize - 0.5,
             y: 5,
@@ -2388,7 +2385,6 @@ private final class ImageWorkspaceSplitToolControl: NSView {
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
         layer?.masksToBounds = false
-        backgroundLayer.cornerRadius = 8
         backgroundLayer.cornerCurve = .continuous
         backgroundLayer.opacity = 0
         dividerLayer.backgroundColor = FrameHUDChrome.divider.cgColor
@@ -2535,7 +2531,7 @@ private final class ImageWorkspaceToolbarButton: NSButton {
         super.layout()
 
         let hoverDiameter = min(bounds.width, bounds.height, 32)
-        hoverLayer.cornerRadius = 8
+        hoverLayer.cornerRadius = hoverDiameter / 2
         hoverLayer.cornerCurve = .continuous
         hoverLayer.bounds = CGRect(x: 0, y: 0, width: hoverDiameter, height: hoverDiameter)
         hoverLayer.position = CGPoint(x: bounds.midX, y: bounds.midY)
@@ -2755,29 +2751,33 @@ private extension ImageWorkspacePanelController {
         button.setContentCompressionResistancePriority(.required, for: .horizontal)
     }
 
-    func configureHeaderCommand(_ button: NSButton, symbol: String? = nil, emphasized: Bool = false) {
+    func configureCapsuleCommand(
+        _ button: ImageWorkspaceCommandButton,
+        symbol: String? = nil,
+        capsule: ImageWorkspaceCommandButton.Capsule = .standard,
+        height: CGFloat = 32
+    ) {
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.heightAnchor.constraint(equalToConstant: 34).isActive = true
-        button.controlSize = .regular
-        button.font = .systemFont(ofSize: 13, weight: emphasized ? .semibold : .medium)
-        button.bezelStyle = emphasized ? .rounded : .accessoryBarAction
-        button.showsBorderOnlyWhileMouseInside = !emphasized
+        button.heightAnchor.constraint(equalToConstant: height).isActive = true
+        button.controlSize = height < 30 ? .small : .regular
+        button.font = .systemFont(ofSize: height < 30 ? 12 : 13, weight: capsule == .primary ? .semibold : .medium)
         button.setAccessibilityLabel(button.title)
         button.setContentCompressionResistancePriority(.required, for: .horizontal)
         if let symbol {
             button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
             button.symbolConfiguration = .init(pointSize: symbol == "ellipsis" ? 16 : 10, weight: .medium)
-            button.imagePosition = button.title.isEmpty ? .imageOnly : .imageTrailing
+            button.imagePosition = button.title.isEmpty ? .imageOnly : .imageRight
         }
+        button.capsule = capsule
     }
 
-    func makeCommandButton(_ title: String, action: @escaping () -> Void) -> NSButton {
+    func makeCommandButton(_ title: String, action: @escaping () -> Void) -> ImageWorkspaceCommandButton {
         let button = ImageWorkspaceCommandButton(title: title, action: action)
         configureCommandButton(button)
         return button
     }
 
-    func makeMenuButton(_ title: String, menu: @escaping () -> NSMenu) -> NSButton {
+    func makeMenuButton(_ title: String, menu: @escaping () -> NSMenu) -> ImageWorkspaceCommandButton {
         let button = ImageWorkspaceCommandButton(title: title)
         button.handler = { [weak button] in
             guard let button else { return }
@@ -2797,7 +2797,7 @@ private extension ImageWorkspacePanelController {
             guard let item else { return NSMenu() }
             return self?.makeStyleMenu(for: item) ?? NSMenu()
         }
-        configureHeaderCommand(options, symbol: "chevron.down")
+        configureCapsuleCommand(options, symbol: "chevron.down")
         let styleSeparator = makeToolbarDivider(identifier: "ImageWorkspaceToolbarStyleDivider")
         let styleRow = makeRow([imageCommands, NSView(), styleSeparator, styleControl, options], spacing: 7)
         item.styleOptionsButton = options
@@ -2823,9 +2823,8 @@ private extension ImageWorkspacePanelController {
         let apply = makeCommandButton(strings.editorLabel("应用裁剪", "Apply Crop")) { [weak item] in
             item?.annotationCanvas?.onCropCommit?()
         }
-        configureHeaderCommand(cancel)
-        configureHeaderCommand(apply, emphasized: true)
-        apply.bezelColor = .controlAccentColor
+        configureCapsuleCommand(cancel)
+        configureCapsuleCommand(apply, capsule: .primary)
         let cropTitle = NSTextField(labelWithString: strings.editorLabel("裁剪", "Crop"))
         cropTitle.font = .systemFont(ofSize: 13, weight: .semibold)
         let cropRow = makeRow([cropTitle, ratio, size, NSView(), cancel, apply], spacing: 12)
@@ -2889,6 +2888,7 @@ private extension ImageWorkspacePanelController {
             item?.annotationCanvas?.setZoom(actualPixels: false)
         }
         let actual = makeCommandButton("100%") { [weak item] in item?.annotationCanvas?.setZoom(actualPixels: true) }
+        for button in [zoomOut, zoomIn, fit, actual] { configureCapsuleCommand(button, height: 24) }
         zoomOut.setAccessibilityLabel(strings.editorLabel("缩小画布", "Zoom Out"))
         zoomIn.setAccessibilityLabel(strings.editorLabel("放大画布", "Zoom In"))
         item.dimensionsLabel = dimensions
@@ -3137,8 +3137,77 @@ private extension ImageWorkspacePanelController {
 }
 
 @MainActor
+private final class ImageWorkspaceMarkupCapsule: NSView {
+    private let fillLayer = CALayer()
+
+    init(contents: NSView) {
+        super.init(frame: .zero)
+        identifier = NSUserInterfaceItemIdentifier("ImageWorkspaceMarkupCapsule")
+        translatesAutoresizingMaskIntoConstraints = false
+        wantsLayer = true
+        fillLayer.cornerCurve = .continuous
+        layer?.insertSublayer(fillLayer, at: 0)
+        addSubview(contents)
+        NSLayoutConstraint.activate([
+            contents.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            contents.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            contents.topAnchor.constraint(equalTo: topAnchor),
+            contents.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func layout() {
+        super.layout()
+        fillLayer.frame = bounds.insetBy(dx: 0, dy: 2)
+        fillLayer.cornerRadius = fillLayer.bounds.height / 2
+        updateBackground()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateBackground()
+    }
+
+    private func updateBackground() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            fillLayer.backgroundColor = NSColor.labelColor.withAlphaComponent(0.07).cgColor
+        }
+    }
+}
+
+@MainActor
 private final class ImageWorkspaceCommandButton: NSButton {
+    enum Capsule {
+        case quiet
+        case standard
+        case primary
+    }
+
+    private var capsuleTrackingArea: NSTrackingArea?
+    private var isHoveringCapsule = false
+
     var handler: (() -> Void)?
+    var capsule: Capsule? {
+        didSet {
+            isBordered = capsule == nil
+            wantsLayer = capsule != nil
+            layer?.cornerCurve = .continuous
+            invalidateIntrinsicContentSize()
+            updateCapsule()
+        }
+    }
+
+    override var isEnabled: Bool {
+        didSet { updateCapsule() }
+    }
+
+    override var intrinsicContentSize: NSSize {
+        var size = super.intrinsicContentSize
+        if capsule != nil, !title.isEmpty { size.width += 18 }
+        return size
+    }
 
     init(title: String, action: (() -> Void)? = nil) {
         self.handler = action
@@ -3148,7 +3217,72 @@ private final class ImageWorkspaceCommandButton: NSButton {
         self.action = #selector(invoke)
     }
 
+    convenience init(title: String, target: AnyObject, selector: Selector) {
+        self.init(title: title)
+        self.target = target
+        action = selector
+    }
+
     required init?(coder: NSCoder) { nil }
+
+    override func layout() {
+        super.layout()
+        if capsule != nil { layer?.cornerRadius = min(bounds.width, bounds.height) / 2 }
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let capsuleTrackingArea { removeTrackingArea(capsuleTrackingArea) }
+        guard capsule != nil else {
+            capsuleTrackingArea = nil
+            return
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.activeInKeyWindow, .mouseEnteredAndExited, .inVisibleRect],
+            owner: self
+        )
+        addTrackingArea(area)
+        capsuleTrackingArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        super.mouseEntered(with: event)
+        isHoveringCapsule = true
+        updateCapsule()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        isHoveringCapsule = false
+        updateCapsule()
+    }
+
+    override func highlight(_ flag: Bool) {
+        super.highlight(flag)
+        updateCapsule(pressed: flag)
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateCapsule()
+    }
+
+    private func updateCapsule(pressed: Bool = false) {
+        guard let capsule else { return }
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            if capsule == .primary && isEnabled {
+                layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(pressed ? 0.75 : 1).cgColor
+                contentTintColor = .white
+            } else {
+                let restingAlpha: CGFloat = capsule == .quiet ? 0 : 0.09
+                let hoveredAlpha = isHoveringCapsule ? 0.13 : restingAlpha
+                let alpha = isEnabled ? (pressed ? 0.17 : hoveredAlpha) : 0.045
+                layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(alpha).cgColor
+                contentTintColor = isEnabled ? .labelColor : .disabledControlTextColor
+            }
+        }
+    }
 
     @objc private func invoke() { handler?() }
 }
