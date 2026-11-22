@@ -216,14 +216,15 @@ system tool, not a branded dashboard.
   pinned window.
 - Opening workspace again for the same captured screenshot activates the existing
   preview/edit window instead of creating duplicates.
-- Undo and Redo sit beside the traffic lights. Copy, Export, and Save Current
-  align to the right. Give Save Current the primary button treatment.
-- The 48 pt editing row groups Crop, Resize, and Transform before the markup
-  tools. Use 36 pt targets and 18 pt glyph boxes for markup. Show color,
-  numeric line width or font size, and the style menu on the trailing side
+- Undo and Redo sit beside the traffic lights. Center the markup group in the
+  remaining space before Copy, Export, and Save Current. Use 36 pt targets
+  and 18 pt glyph boxes for markup. Give Save Current the primary treatment.
+- The 42 pt editing row groups Crop, Resize, and Transform on the left. Show
+  color, numeric line width or font size, and the style menu on the right
   when the selected object or tool has adjustable settings. Keep the window
   size stable as these controls appear.
-- Crop uses the editing row to show the ratio, output dimensions, Cancel,
+- Crop keeps the markup group in place and uses the lower row to show the
+  ratio, output dimensions, Cancel,
   and Apply. Return applies the crop. Escape cancels it. The canvas status
   row shows actual pixel dimensions and zoom and provides Fit and 100%
   controls. The canvas has an opaque work area and a checkerboard where the

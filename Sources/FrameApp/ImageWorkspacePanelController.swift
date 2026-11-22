@@ -438,9 +438,7 @@ final class ImageWorkspacePanelController: NSObject {
         configureHeaderCommand(resizeButton)
         configureHeaderCommand(transformButton, symbol: "chevron.down")
         let geometryStack = makeRow([cropButton, resizeButton, transformButton], spacing: 3)
-        let geometryDivider = makeToolbarDivider(identifier: "ImageWorkspaceToolbarGeometryDivider")
-        let editingTools = makeRow([geometryStack, geometryDivider, toolStack], spacing: 12)
-        let parameters = makeParameterRow(for: item, editingTools: editingTools, styleControl: styleControl)
+        let parameters = makeParameterRow(for: item, imageCommands: geometryStack, styleControl: styleControl)
 
         annotationCanvas.onCanvasResize = { [weak self, weak item] in
             if let item { self?.updateCanvasStatus(item) }
@@ -467,8 +465,11 @@ final class ImageWorkspacePanelController: NSObject {
         }
         annotationCanvas.onDropImage = { [weak annotationCanvas] image in annotationCanvas?.addImage(image) }
 
-        let spacer = NSView()
-        spacer.translatesAutoresizingMaskIntoConstraints = false
+        let leadingToolSpace = NSView()
+        let trailingToolSpace = NSView()
+        for space in [leadingToolSpace, trailingToolSpace] {
+            space.translatesAutoresizingMaskIntoConstraints = false
+        }
 
         let saveEditedButton = NSButton(title: item.strings.workspaceSaveCurrent, target: self, action: #selector(saveEditedButtonClicked))
         let copyButton = NSButton(title: item.strings.workspaceCopy, target: self, action: #selector(copyButtonClicked))
@@ -510,7 +511,9 @@ final class ImageWorkspacePanelController: NSObject {
         imageContainer.addSubview(textSelectionOverlay)
         toolbar.addSubview(toolbarStack)
         toolbarStack.addArrangedSubview(historyStack)
-        toolbarStack.addArrangedSubview(spacer)
+        toolbarStack.addArrangedSubview(leadingToolSpace)
+        toolbarStack.addArrangedSubview(toolStack)
+        toolbarStack.addArrangedSubview(trailingToolSpace)
         toolbarStack.addArrangedSubview(outputStack)
 
         NSLayoutConstraint.activate([
@@ -559,7 +562,8 @@ final class ImageWorkspacePanelController: NSObject {
             toolbarStack.topAnchor.constraint(equalTo: toolbar.topAnchor, constant: 2),
             toolbarStack.bottomAnchor.constraint(equalTo: toolbar.bottomAnchor, constant: -2),
 
-            spacer.widthAnchor.constraint(greaterThanOrEqualToConstant: ImageWorkspaceLayout.minimumSpacerWidth),
+            leadingToolSpace.widthAnchor.constraint(greaterThanOrEqualToConstant: ImageWorkspaceLayout.minimumSpacerWidth),
+            trailingToolSpace.widthAnchor.constraint(equalTo: leadingToolSpace.widthAnchor),
         ])
 
         if let selectedTool = item.state.selectedTool {
@@ -2017,7 +2021,7 @@ private enum ImageWorkspaceLayout {
     static let toolbarHeight: CGFloat = 40
     static let imageTopSpacing: CGFloat = 6
     static let imageBottomInset: CGFloat = 0
-    static let parameterHeight: CGFloat = 48
+    static let parameterHeight: CGFloat = 42
     static let statusHeight: CGFloat = 32
     static let editingToolSize: CGFloat = 36
     static let toolOptionsButtonWidth: CGFloat = 24
@@ -2031,7 +2035,7 @@ private enum ImageWorkspaceLayout {
     static let initialWindowScreenMargin: CGFloat = 80
     static let minimumScrollableViewportHeight: CGFloat = 260
 
-    // The editing row accommodates the full tool set and the widest localized style controls.
+    // Leave room for the full markup group between history and localized output actions.
     static let minimumContentWidth: CGFloat = 930
 
     static func imageAspectRatio(for image: NSImage) -> CGFloat {
@@ -2787,7 +2791,7 @@ private extension ImageWorkspacePanelController {
         menu.addItem(ImageWorkspaceCommandMenuItem(title: title, action: action))
     }
 
-    func makeParameterRow(for item: ImageWorkspaceItem, editingTools: NSView, styleControl: NSView) -> NSView {
+    func makeParameterRow(for item: ImageWorkspaceItem, imageCommands: NSView, styleControl: NSView) -> NSView {
         let strings = item.strings
         let options = makeMenuButton(strings.editorLabel("样式", "Style")) { [weak self, weak item] in
             guard let item else { return NSMenu() }
@@ -2795,7 +2799,7 @@ private extension ImageWorkspacePanelController {
         }
         configureHeaderCommand(options, symbol: "chevron.down")
         let styleSeparator = makeToolbarDivider(identifier: "ImageWorkspaceToolbarStyleDivider")
-        let styleRow = makeRow([editingTools, NSView(), styleSeparator, styleControl, options], spacing: 7)
+        let styleRow = makeRow([imageCommands, NSView(), styleSeparator, styleControl, options], spacing: 7)
         item.styleOptionsButton = options
         item.styleSeparator = styleSeparator
         item.styleRow = styleRow

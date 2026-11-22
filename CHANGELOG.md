@@ -2,8 +2,9 @@
 
 ## Unreleased
 
-- Separate image editing tools from window actions and give markup larger targets.
-  Keep contextual style and crop controls in the editing row.
+- Center frequently used markup tools in the image editor toolbar and give
+  them larger targets. Use the lower row for image commands, styles, and
+  crop controls.
 
 - Open local images and clipboard images in the redesigned editor. Crop on
   the canvas, resize by pixels or percent, rotate, flip, and see zoom and
