@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- Match Settings dropdown arrows to the smaller disclosure arrows.
+- Match Settings dropdown arrows to the smaller disclosure arrows and use
+  standard-size menu items.
 - Automatically copy finished screenshots and screen recordings to the clipboard
   while keeping their corner previews. Turn this off in Capture settings.
 - Simplify the image editor and recording player headers, separate pinned-image

@@ -744,7 +744,7 @@ private struct SettingsMenuPicker<Selection: Hashable, Options: View>: View {
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
-        .controlSize(.small)
+        .controlSize(.regular)
         .fixedSize(horizontal: true, vertical: false)
         .accessibilityLabel(title)
         .accessibilityValue(value)
