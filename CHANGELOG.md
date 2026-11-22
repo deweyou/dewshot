@@ -5,7 +5,8 @@
 - Center frequently used markup tools in the image editor toolbar and give
   them larger targets. Use the lower row for image commands, styles, and
   crop controls. Match the capture launcher’s capsule shapes in the markup
-  group, selected tools, and editor commands.
+  group, selected tools, and editor commands. Center the label and arrow
+  together on toolbar menu buttons.
 
 - Open local images and clipboard images in the redesigned editor. Crop on
   the canvas, resize by pixels or percent, rotate, flip, and see zoom and

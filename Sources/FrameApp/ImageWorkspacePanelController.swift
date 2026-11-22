@@ -2763,7 +2763,9 @@ private extension ImageWorkspacePanelController {
         button.font = .systemFont(ofSize: height < 30 ? 12 : 13, weight: capsule == .primary ? .semibold : .medium)
         button.setAccessibilityLabel(button.title)
         button.setContentCompressionResistancePriority(.required, for: .horizontal)
-        if let symbol {
+        if symbol == "chevron.down", !button.title.isEmpty {
+            button.centerMenuLabel()
+        } else if let symbol {
             button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
             button.symbolConfiguration = .init(pointSize: symbol == "ellipsis" ? 16 : 10, weight: .medium)
             button.imagePosition = button.title.isEmpty ? .imageOnly : .imageRight
@@ -3178,6 +3180,50 @@ private final class ImageWorkspaceMarkupCapsule: NSView {
 }
 
 @MainActor
+private final class ImageWorkspaceMenuButtonLabel: NSStackView {
+    private let titleLabel: NSTextField
+    private let chevron = NSImageView()
+
+    init(title: String, font: NSFont) {
+        titleLabel = NSTextField(labelWithString: title)
+        super.init(frame: .zero)
+
+        identifier = NSUserInterfaceItemIdentifier("ImageWorkspaceMenuButtonLabel")
+        translatesAutoresizingMaskIntoConstraints = false
+        setAccessibilityElement(false)
+        orientation = .horizontal
+        alignment = .centerY
+        spacing = 6
+
+        titleLabel.font = font
+        titleLabel.setAccessibilityElement(false)
+        chevron.image = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: nil)
+        chevron.symbolConfiguration = .init(pointSize: 9, weight: .semibold)
+        chevron.imageScaling = .scaleProportionallyDown
+        chevron.setAccessibilityElement(false)
+
+        addArrangedSubview(titleLabel)
+        addArrangedSubview(chevron)
+        NSLayoutConstraint.activate([
+            chevron.widthAnchor.constraint(equalToConstant: 10),
+            chevron.heightAnchor.constraint(equalToConstant: 10),
+        ])
+        updateTint(enabled: true)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    var preferredWidth: CGFloat { ceil(titleLabel.intrinsicContentSize.width) + spacing + 10 }
+
+    func updateTint(enabled: Bool) {
+        titleLabel.textColor = enabled ? .labelColor : .disabledControlTextColor
+        chevron.contentTintColor = enabled ? .secondaryLabelColor : .disabledControlTextColor
+    }
+}
+
+@MainActor
 private final class ImageWorkspaceCommandButton: NSButton {
     enum Capsule {
         case quiet
@@ -3187,6 +3233,7 @@ private final class ImageWorkspaceCommandButton: NSButton {
 
     private var capsuleTrackingArea: NSTrackingArea?
     private var isHoveringCapsule = false
+    private var menuLabel: ImageWorkspaceMenuButtonLabel?
 
     var handler: (() -> Void)?
     var capsule: Capsule? {
@@ -3205,8 +3252,24 @@ private final class ImageWorkspaceCommandButton: NSButton {
 
     override var intrinsicContentSize: NSSize {
         var size = super.intrinsicContentSize
-        if capsule != nil, !title.isEmpty { size.width += 18 }
+        if let menuLabel {
+            size.width = menuLabel.preferredWidth + 24
+        } else if capsule != nil, !title.isEmpty {
+            size.width += 18
+        }
         return size
+    }
+
+    func centerMenuLabel() {
+        let label = ImageWorkspaceMenuButtonLabel(title: title, font: font ?? .systemFont(ofSize: 13))
+        title = ""
+        menuLabel = label
+        addSubview(label)
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+        invalidateIntrinsicContentSize()
     }
 
     init(title: String, action: (() -> Void)? = nil) {
@@ -3270,6 +3333,7 @@ private final class ImageWorkspaceCommandButton: NSButton {
 
     private func updateCapsule(pressed: Bool = false) {
         guard let capsule else { return }
+        menuLabel?.updateTint(enabled: isEnabled)
         effectiveAppearance.performAsCurrentDrawingAppearance {
             if capsule == .primary && isEnabled {
                 layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(pressed ? 0.75 : 1).cgColor

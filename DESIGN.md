@@ -152,7 +152,8 @@ system tool, not a branded dashboard.
 - Use capsule geometry to group related controls in the capture launcher and
   image editor. Center the editor's markup tools in one quiet capsule. Give
   standalone actions pill backgrounds and keep the window header aligned
-  with the native window controls.
+  with the native window controls. Center the text and chevron as one group
+  inside menu pills, with equal padding at both ends.
 - Use short visible labels for starting and finishing scrolling capture, starting
   recording, and the recording format. Keep secondary actions compact and give
   icon-only buttons a tooltip and accessibility label.

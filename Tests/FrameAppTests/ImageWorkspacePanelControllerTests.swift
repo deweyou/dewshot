@@ -2754,7 +2754,20 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         let minimumVerticalChromeHeight = contentView.bounds.height - minimumImageContainer.frame.height
         XCTAssertLessThanOrEqual(minimumDownloadFrame.maxX, minimumToolbar.frame.maxX - 5)
         let styleButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Style"))
+        let transformButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Transform"))
         XCTAssertLessThanOrEqual(styleButton.convert(styleButton.bounds, to: contentView).maxX, editingToolbar.frame.maxX + 0.5)
+        for button in [styleButton, transformButton] {
+            let label = try XCTUnwrap(findView(in: button, identifier: "ImageWorkspaceMenuButtonLabel") as? NSStackView)
+            let frame = label.convert(label.bounds, to: button)
+            XCTAssertEqual(frame.midX, button.bounds.midX, accuracy: 0.5)
+            XCTAssertGreaterThanOrEqual(frame.minX, 11.5)
+            XCTAssertLessThanOrEqual(frame.maxX, button.bounds.maxX - 11.5)
+            let title = try XCTUnwrap(label.arrangedSubviews.first as? NSTextField)
+            let chevron = try XCTUnwrap(label.arrangedSubviews.last as? NSImageView)
+            let titleAlignmentRect = title.alignmentRect(forFrame: title.frame)
+            XCTAssertEqual(chevron.frame.minX - titleAlignmentRect.maxX, 6, accuracy: 0.5)
+            XCTAssertNil(label.hitTest(frame.center))
+        }
         let beforeCrop = mosaicButton.convert(mosaicButton.bounds, to: contentView)
         cropButton.performClick(nil)
         contentView.layoutSubtreeIfNeeded()
