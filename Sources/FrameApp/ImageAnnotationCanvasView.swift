@@ -12,7 +12,26 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
     private var activeTextEditor: ImageAnnotationTextEditorView?
     private var activeTextElementID: UUID?
     private var activeTextOrigin: CGPoint?
+    private var activeTextSwapsAxes = false
+    private var newTextDragOrigin: CGPoint?
     private var activeTextDidBeginMutation = false
+    private var textEditBaseline: ImageAnnotationDocument?
+    private var displayedImagePNG: Data?
+    private var isCropping = false
+    private var cropStart: CGPoint?
+    private var cropMoveOffset: CGPoint?
+    private var cropRatio: CGFloat?
+    private var stamp: ImageWorkspaceStamp?
+    private var spacePanPoint: CGPoint?
+    private var isSpaceDown = false
+    private(set) var cropBounds: CGRect?
+    var onCropChanged: (() -> Void)?
+    var onCropCommit: (() -> Void)?
+    var onImageChanged: (() -> Void)?
+    var onCopyOutput: (() -> Void)?
+    var onCanvasResize: (() -> Void)?
+    var onDropImage: ((CapturedScreenshot) -> Void)?
+
     private var mosaicDrawingSource: ImageMosaicDrawingSource?
     var menuProvider: (() -> NSMenu)?
     var onToolContextRequest: ((ImageAnnotationCanvasToolContext) -> Void)?
@@ -31,6 +50,7 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
         super.init(frame: .zero)
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
+        registerForDraggedTypes([.fileURL, .png, .tiff])
     }
 
     @available(*, unavailable)
@@ -70,8 +90,46 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
         false
     }
 
+    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        isCropping ? [] : .copy
+    }
+
+    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        guard !isCropping, let onDropImage else { return false }
+        let pasteboard = sender.draggingPasteboard
+        if let url = NSURL(from: pasteboard) as URL?, url.isFileURL,
+           let data = try? Data(contentsOf: url),
+           let screenshot = try? ImageWorkspaceRaster.screenshot(data: data) {
+            onDropImage(screenshot)
+            return true
+        }
+        if let screenshot = try? ImageWorkspaceRaster.pasteboardImage(pasteboard) {
+            onDropImage(screenshot)
+            return true
+        }
+        return false
+    }
+
     override func menu(for event: NSEvent) -> NSMenu? {
         menuProvider?() ?? super.menu(for: event)
+    }
+
+    @objc func copy(_ sender: Any?) {
+        onCopyOutput?()
+    }
+
+    func hasEditableObject(at viewPoint: CGPoint) -> Bool {
+        let drawRect = imageDrawRect
+        guard drawRect.contains(viewPoint), drawRect.width > 0, drawRect.height > 0 else { return false }
+        let point = CGPoint(x: (viewPoint.x - drawRect.minX) * image.size.width / drawRect.width,
+                            y: (viewPoint.y - drawRect.minY) * image.size.height / drawRect.height)
+        if let selectedElement {
+            if isLine(selectedElement), selectedElement.points.contains(where: { handleRect(center: $0).contains(point) }) {
+                return true
+            }
+            if !isLine(selectedElement), selectedElement.bounds.contains(point) { return true }
+        }
+        return document.topmostElementID(at: point, tolerance: 6 / max(0.1, imageDisplayScale)) != nil
     }
 
     func setDocument(_ document: ImageAnnotationDocument) {
@@ -88,9 +146,163 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
     }
 
     func selectTool(_ tool: ImageAnnotationTool) {
+        stamp = nil
+        if isCropping { cancelCrop() }
+        finishTextEditing()
         document.selectTool(tool)
+        if tool != .select, let selectedElement,
+           !tool.acceptsEditing(kind: selectedElement.kind) {
+            document.selectElement(id: nil)
+        }
         needsDisplay = true
         notifyDocumentChanged()
+    }
+
+    func finishTextEditing() {
+        if let activeTextEditor { commitActiveText(activeTextEditor.string) }
+    }
+
+    var currentImage: NSImage { image }
+
+    var selectedStyle: ImageAnnotationStyle {
+        selectedElement?.style ?? document.editingOptions.style
+    }
+
+    var currentSnapshotImage: CapturedScreenshot {
+        if let baseScreenshot, let data = document.editedImagePNG {
+            return CapturedScreenshot(id: baseScreenshot.id, pngData: data, image: image,
+                                      rect: CGRect(origin: baseScreenshot.rect.origin, size: image.size))
+        }
+        return currentScreenshotForTesting
+    }
+
+    func applyRasterEdit(_ operation: ImageWorkspaceRasterOperation) throws {
+        finishTextEditing()
+        let result = try ImageWorkspaceRaster.apply(operation, to: currentSnapshotImage)
+        document.applyImageEdit(result.screenshot.pngData, size: result.screenshot.image.size, transform: result.annotationTransform, styleScale: result.styleScale)
+        image = result.screenshot.image
+        displayedImagePNG = result.screenshot.pngData
+        mosaicDrawingSource = nil
+        notifyDocumentChanged()
+        onImageChanged?()
+        needsDisplay = true
+    }
+
+    func addImage(_ screenshot: CapturedScreenshot) {
+        finishTextEditing()
+        let scale = min(1, image.size.width * 0.65 / screenshot.image.size.width,
+                        image.size.height * 0.65 / screenshot.image.size.height)
+        let width = screenshot.image.size.width * scale
+        let height = screenshot.image.size.height * scale
+        addElement(kind: .image(screenshot.pngData), bounds: CGRect(
+            x: (image.size.width - width) / 2, y: (image.size.height - height) / 2, width: width, height: height
+        ))
+        needsDisplay = true
+    }
+
+    func useStamp(_ stamp: ImageWorkspaceStamp) {
+        finishTextEditing()
+        self.stamp = stamp
+        document.selectElement(id: nil)
+        needsDisplay = true
+        notifyDocumentChanged()
+    }
+
+    func copyObject() { document.duplicateSelected(); needsDisplay = true; notifyDocumentChanged() }
+
+    func reorderObject(forward: Bool) {
+        document.reorderSelected(forward: forward)
+        needsDisplay = true
+        notifyDocumentChanged()
+    }
+
+    func startCrop() {
+        finishTextEditing()
+        isCropping = true
+        cropBounds = CGRect(origin: .zero, size: image.size)
+        cropRatio = nil
+        window?.makeFirstResponder(self)
+        onCropChanged?()
+        needsDisplay = true
+    }
+
+    func selectCropRatio(_ ratio: CGFloat?) {
+        cropRatio = ratio
+        if let ratio, let current = cropBounds {
+            let width = min(current.width, current.height * ratio)
+            let height = width / ratio
+            cropBounds = CGRect(x: current.midX - width / 2, y: current.midY - height / 2, width: width, height: height)
+        }
+        onCropChanged?()
+        needsDisplay = true
+    }
+
+    func cancelCrop() {
+        isCropping = false
+        cropBounds = nil
+        cropStart = nil
+        cropMoveOffset = nil
+        onCropChanged?()
+        needsDisplay = true
+    }
+
+    private func updateCrop(to point: CGPoint) {
+        if let offset = cropMoveOffset, let crop = cropBounds {
+            cropBounds = CGRect(
+                x: clamp(point.x - offset.x, min: 0, max: image.size.width - crop.width),
+                y: clamp(point.y - offset.y, min: 0, max: image.size.height - crop.height),
+                width: crop.width, height: crop.height
+            )
+        } else if let start = cropStart {
+            var width = point.x - start.x
+            var height = point.y - start.y
+            if let ratio = cropRatio {
+                let boundedWidth = min(abs(width), abs(height) * ratio)
+                width = width < 0 ? -boundedWidth : boundedWidth
+                height = (height < 0 ? -1 : 1) * boundedWidth / ratio
+            }
+            cropBounds = CGRect(x: start.x, y: start.y, width: width, height: height).standardized
+        }
+        onCropChanged?()
+        needsDisplay = true
+    }
+
+    func applyCrop() throws {
+        guard let cropBounds else { return }
+        let pixels = ImageWorkspaceRaster.pixelSize(image)
+        let pixelRect = ImageWorkspaceRaster.cropPixelRect(cropBounds, logicalSize: image.size, pixelSize: pixels)
+        guard pixelRect.width >= 1, pixelRect.height >= 1 else { return }
+        if pixelRect == CGRect(origin: .zero, size: pixels) {
+            cancelCrop()
+            return
+        }
+        try applyRasterEdit(.crop(cropBounds))
+        cancelCrop()
+    }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        onCanvasResize?()
+    }
+
+    func zoom(by magnification: CGFloat) {
+        _ = imageZoom.applyMagnification(magnification, imageSize: image.size, bounds: bounds, allowsBelowFit: true)
+    }
+
+    func setZoom(actualPixels: Bool) {
+        let size = image.size
+        guard size.width > 0, size.height > 0 else { return }
+        let backing = window?.backingScaleFactor ?? 1
+        let displayScale = actualPixels
+            ? ImageWorkspaceRaster.pixelSize(image).width / (backing * size.width)
+            : min(bounds.width / size.width, bounds.height / size.height)
+        imageZoom.setDisplayScale(displayScale, imageSize: size, bounds: bounds)
+    }
+
+    var zoomPercentage: Int {
+        let width = ImageWorkspaceRaster.pixelSize(image).width
+        guard width > 0 else { return 100 }
+        return Int((imageDrawRect.width * (window?.backingScaleFactor ?? 1) * 100 / width).rounded())
     }
 
     func setShapeKind(_ shapeKind: ImageAnnotationShapeKind) {
@@ -107,6 +319,7 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
         document.setStyle(style)
         updateSelectedElementStyleIfNeeded(style)
         notifyDocumentChanged()
+        onEditingOptionsChange?()
     }
 
     func undo() {
@@ -148,6 +361,7 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
         super.draw(dirtyRect)
 
         let drawRect = imageDrawRect
+        drawTransparencyGrid(in: drawRect)
         image.draw(in: drawRect, from: .zero, operation: .sourceOver, fraction: 1)
         let mosaicSource = mosaicSourceIfNeeded()
 
@@ -158,6 +372,8 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
         transform.translateX(by: drawRect.minX, yBy: drawRect.minY)
         transform.scaleX(by: scaleX, yBy: scaleY)
         transform.concat()
+        NSGraphicsContext.saveGraphicsState()
+        NSBezierPath(rect: CGRect(origin: .zero, size: image.size)).addClip()
         ImageAnnotationViewRenderer.draw(
             document: document,
             mosaicSource: mosaicSource,
@@ -165,7 +381,8 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
             excluding: activeTextEditor == nil ? nil : activeTextElementID
         )
         drawDraftIfNeeded(mosaicSource: mosaicSource)
-        drawSelectionHandleIfNeeded()
+        NSGraphicsContext.restoreGraphicsState()
+        if isCropping { drawCropOverlay() } else { drawSelectionHandleIfNeeded() }
         NSGraphicsContext.restoreGraphicsState()
     }
 
@@ -179,10 +396,30 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
             commitActiveText(activeTextEditor.string)
         }
 
-        guard let imagePoint = imagePoint(for: event) else {
+        if isSpaceDown {
+            spacePanPoint = event.locationInWindow
             return
         }
-
+        guard let imagePoint = imagePoint(for: event) else { return }
+        if isCropping {
+            beginCropDrag(at: imagePoint)
+            return
+        }
+        if let stamp {
+            switch stamp {
+            case .counter:
+                let numbers = document.elements.compactMap { element -> Int? in
+                    if case let .counter(number) = element.kind { return number }
+                    return nil
+                }
+                addElement(kind: .counter((numbers.max() ?? 0) + 1),
+                           bounds: CGRect(x: imagePoint.x - 16, y: imagePoint.y - 16, width: 32, height: 32))
+                needsDisplay = true
+            case .spotlight:
+                interaction = .creatingSpotlight(start: imagePoint, current: imagePoint)
+            }
+            return
+        }
         if event.clickCount >= 2,
            beginToolContextInteraction(at: imagePoint) {
             needsDisplay = true
@@ -195,13 +432,8 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
             return
         }
 
-        if shouldBeginSelectedElementInteraction(at: imagePoint) {
-            beginSelectionInteraction(at: imagePoint, clickCount: event.clickCount)
-            needsDisplay = true
-            return
-        }
-
-        if shouldBeginExistingElementInteraction(at: imagePoint) {
+        if !event.modifierFlags.contains(.option),
+           shouldBeginSelectedElementInteraction(at: imagePoint) || shouldBeginExistingElementInteraction(at: imagePoint) {
             beginSelectionInteraction(at: imagePoint, clickCount: event.clickCount)
             needsDisplay = true
             return
@@ -224,7 +456,7 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
             interaction = .drawingPoints(kind: .highlight, points: [imagePoint])
         case .mosaic:
             switch document.editingOptions.mosaicMode {
-            case .rectangle:
+            case .rectangle, .blur, .redact:
                 interaction = .creatingMosaic(start: imagePoint, current: imagePoint)
             case .brush:
                 interaction = .drawingPoints(kind: .mosaic(.brush), points: [imagePoint])
@@ -237,8 +469,25 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
     }
 
     override func mouseDragged(with event: NSEvent) {
-        guard let imagePoint = imagePoint(for: event),
-              let interaction else {
+        if let last = spacePanPoint {
+            let current = event.locationInWindow
+            _ = imageZoom.applyScroll(delta: CGSize(width: current.x - last.x, height: last.y - current.y),
+                                      imageSize: image.size, bounds: bounds)
+            spacePanPoint = current
+            return
+        }
+        guard let imagePoint = imagePoint(for: event, clamped: true) else { return }
+        if isCropping { updateCrop(to: imagePoint); return }
+        if let origin = newTextDragOrigin, let editor = activeTextEditor, abs(imagePoint.x - origin.x) > 6 {
+            let start = CGPoint(x: min(origin.x, imagePoint.x), y: origin.y)
+            activeTextOrigin = start
+            var style = selectedStyle
+            style.textBoxWidth = max(40, abs(imagePoint.x - origin.x))
+            document.updateSelectedStyle(style, recordingUndo: false)
+            updateActiveTextElement(editor.string)
+            return
+        }
+        guard let interaction else {
             return
         }
 
@@ -248,6 +497,12 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
                 start: start,
                 current: constrainedShapePoint(start: start, current: imagePoint, modifierFlags: event.modifierFlags)
             )
+        case let .creatingSpotlight(start, _):
+            self.interaction = .creatingSpotlight(start: start, current: imagePoint)
+        case let .editingEndpoint(index, hasStartedMutation):
+            document.moveSelectedEndpoint(index, to: imagePoint, recordingUndo: !hasStartedMutation)
+            self.interaction = .editingEndpoint(index, hasStartedMutation: true)
+            notifyDocumentChanged()
         case let .creatingMosaic(start, _):
             self.interaction = .creatingMosaic(start: start, current: imagePoint)
         case let .drawingPoints(kind, points):
@@ -272,7 +527,23 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
                 width: imagePoint.x - anchor.x,
                 height: imagePoint.y - anchor.y
             ).standardized
-            document.resizeSelected(to: minimumAnnotationBounds(bounds), recordingUndo: false)
+            if let selectedElement, case let .text(text) = selectedElement.kind {
+                var style = selectedElement.style
+                let swapsAxes = selectedElement.contentSwapsAxes
+                style.textBoxWidth = max(40, swapsAxes ? bounds.height : bounds.width)
+                let textBounds = ImageAnnotationTextStyle.bounds(for: text, origin: selectedElement.bounds.origin, style: style)
+                document.updateSelectedStyle(style, bounds: textBounds.swappingSizeAxes(if: swapsAxes), recordingUndo: false)
+            } else if let selectedElement, case .image = selectedElement.kind,
+                      selectedElement.bounds.height > 0 {
+                let aspect = selectedElement.bounds.width / selectedElement.bounds.height
+                let width = max(2, min(bounds.width, bounds.height * aspect))
+                let height = width / aspect
+                let x = imagePoint.x >= anchor.x ? anchor.x : anchor.x - width
+                let y = imagePoint.y >= anchor.y ? anchor.y : anchor.y - height
+                document.resizeSelected(to: CGRect(x: x, y: y, width: width, height: height), recordingUndo: false)
+            } else {
+                document.resizeSelected(to: minimumAnnotationBounds(bounds), recordingUndo: false)
+            }
             self.interaction = .resizing(anchor: anchor, hasStartedMutation: true)
             notifyDocumentChanged()
         case let .pendingCreation(start):
@@ -283,11 +554,15 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
     }
 
     override func mouseUp(with event: NSEvent) {
-        guard let interaction else {
-            return
-        }
+        newTextDragOrigin = nil
+        if spacePanPoint != nil { spacePanPoint = nil; return }
+        if isCropping { cropStart = nil; cropMoveOffset = nil; return }
+        guard let interaction else { return }
 
         switch interaction {
+        case let .creatingSpotlight(start, current):
+            addElement(kind: .spotlight, bounds: CGRect(x: start.x, y: start.y, width: current.x - start.x,
+                                                         height: current.y - start.y).standardized)
         case let .creatingShape(start, current):
             let shapeKind = document.editingOptions.shapeKind
             let finalPoint = constrainedShapePoint(start: start, current: current, modifierFlags: event.modifierFlags)
@@ -303,7 +578,7 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
             )
         case let .creatingMosaic(start, current):
             addElement(
-                kind: .mosaic(.rectangle),
+                kind: .mosaic(document.editingOptions.mosaicMode),
                 bounds: minimumAnnotationBounds(CGRect(
                     x: start.x,
                     y: start.y,
@@ -324,10 +599,10 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
                 style: document.editingOptions.style
             ))
             notifyDocumentChanged()
-        case .moving, .resizing:
+        case .moving, .resizing, .editingEndpoint:
             break
-        case .pendingCreation:
-            document.selectElement(id: nil)
+        case let .pendingCreation(start):
+            document.selectTopmostElement(at: start)
             notifyDocumentChanged()
             break
         }
@@ -356,6 +631,24 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
     }
 
     override func keyDown(with event: NSEvent) {
+        if isCropping && event.keyCode == 53 { cancelCrop(); return }
+        if isCropping && (event.keyCode == 36 || event.keyCode == 76) { onCropCommit?(); return }
+        if event.keyCode == 49 { isSpaceDown = true; return }
+        if selectedElement != nil, [123, 124, 125, 126].contains(event.keyCode),
+           event.modifierFlags.intersection([.command, .control, .option]).isEmpty {
+            let amount: CGFloat = event.modifierFlags.contains(.shift) ? 10 : 1
+            let delta: CGSize
+            switch event.keyCode {
+            case 123: delta = CGSize(width: -amount, height: 0)
+            case 124: delta = CGSize(width: amount, height: 0)
+            case 125: delta = CGSize(width: 0, height: -amount)
+            default: delta = CGSize(width: 0, height: amount)
+            }
+            document.moveSelected(by: delta)
+            needsDisplay = true
+            notifyDocumentChanged()
+            return
+        }
         if event.modifierFlags.contains(.command),
            event.charactersIgnoringModifiers?.lowercased() == "z" {
             if event.modifierFlags.contains(.shift) {
@@ -378,6 +671,17 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
         }
 
         super.keyDown(with: event)
+    }
+
+    override func keyUp(with event: NSEvent) {
+        if event.keyCode == 49 { isSpaceDown = false; spacePanPoint = nil; return }
+        super.keyUp(with: event)
+    }
+
+    override func resignFirstResponder() -> Bool {
+        isSpaceDown = false
+        spacePanPoint = nil
+        return super.resignFirstResponder()
     }
 
     private func handleKeyboardShortcut(_ event: NSEvent) -> Bool {
@@ -406,6 +710,10 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
             requestToolContext(.tool(.highlight))
         case "m":
             requestToolContext(.tool(.mosaic))
+        case "+", "=": zoom(by: 0.25)
+        case "-": zoom(by: -0.2)
+        case "0": setZoom(actualPixels: false)
+        case "1": setZoom(actualPixels: true)
         case "[":
             adjustSelectedStyleSize(direction: -1)
         case "]":
@@ -482,10 +790,10 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
         imageDrawRect.width / max(1, image.size.width)
     }
 
-    private func imagePoint(for event: NSEvent) -> CGPoint? {
+    private func imagePoint(for event: NSEvent, clamped: Bool = false) -> CGPoint? {
         let point = convert(event.locationInWindow, from: nil)
         let drawRect = imageDrawRect
-        guard drawRect.contains(point), drawRect.width > 0, drawRect.height > 0 else {
+        guard (clamped || drawRect.contains(point)), drawRect.width > 0, drawRect.height > 0 else {
             return nil
         }
 
@@ -497,8 +805,26 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
         )
     }
 
-    private func beginSelectionInteraction(at point: CGPoint, clickCount: Int) {
-        document.selectTopmostElement(at: point, tolerance: 6)
+    private func beginSelectionInteraction(at point: CGPoint, clickCount: Int, preferMoving: Bool = false) {
+        if preferMoving {
+            interaction = .moving(lastPoint: point, hasStartedMutation: false)
+            return
+        }
+        if let selectedElement, isLine(selectedElement),
+           let endpoint = selectedElement.points.firstIndex(where: { handleRect(center: $0).contains(point) }) {
+            interaction = .editingEndpoint(endpoint, hasStartedMutation: false)
+            return
+        }
+        if let selectedElement, !isLine(selectedElement),
+           let anchor = oppositeCorner(for: selectedElement.bounds, at: point) {
+            interaction = .resizing(anchor: anchor, hasStartedMutation: false)
+            return
+        }
+        let hitID = document.topmostElementID(at: point, tolerance: 6 / max(0.1, imageDisplayScale))
+        let selectedInterior = selectedElement.flatMap { element in
+            !isLine(element) && element.bounds.contains(point) ? element.id : nil
+        }
+        document.selectElement(id: hitID ?? selectedInterior)
         notifyDocumentChanged()
 
         if clickCount >= 2,
@@ -513,16 +839,21 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
             return
         }
 
-        if resizeHandleRect(for: selectedElement.bounds).contains(point) {
-            interaction = .resizing(anchor: selectedElement.bounds.origin, hasStartedMutation: false)
+        if let anchor = oppositeCorner(for: selectedElement.bounds, at: point), !isLine(selectedElement) {
+            interaction = .resizing(anchor: anchor, hasStartedMutation: false)
         } else {
             interaction = .moving(lastPoint: point, hasStartedMutation: false)
         }
     }
 
     private func beginToolContextInteraction(at point: CGPoint) -> Bool {
-        guard let elementID = document.topmostElementID(at: point, tolerance: 6),
-              let element = document.elements.first(where: { $0.id == elementID }) else {
+        let elementID = document.topmostElementID(at: point, tolerance: 6)
+            ?? document.elements.reversed().first(where: { element in
+                if case .shape(.rectangle) = element.kind { return element.bounds.contains(point) }
+                if case .shape(.ellipse) = element.kind { return element.bounds.contains(point) }
+                return false
+            })?.id
+        guard let elementID, let element = document.elements.first(where: { $0.id == elementID }) else {
             return false
         }
 
@@ -557,21 +888,14 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
             return false
         }
 
-        return resizeHandleRect(for: selectedElement.bounds).contains(point)
+        return oppositeCorner(for: selectedElement.bounds, at: point) != nil
+            || (isLine(selectedElement) && selectedElement.points.contains { handleRect(center: $0).contains(point) })
+            || (!isLine(selectedElement) && selectedElement.bounds.contains(point))
             || document.topmostElementID(at: point, tolerance: 6) == selectedElement.id
     }
 
     private func shouldBeginExistingElementInteraction(at point: CGPoint) -> Bool {
-        guard document.topmostElementID(at: point, tolerance: 6) != nil else {
-            return false
-        }
-
-        switch document.selectedTool {
-        case .select, .text:
-            return false
-        case .shape, .brush, .highlight, .mosaic:
-            return true
-        }
+        shouldBeginPendingCreation && document.topmostElementID(at: point, tolerance: 6) != nil
     }
 
     private var shouldBeginPendingCreation: Bool {
@@ -584,48 +908,17 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
     }
 
     private func handleTextToolMouseDown(at point: CGPoint, clickCount: Int) {
-        if topmostTextElementID(at: point) != nil {
-            beginSelectionInteraction(at: point, clickCount: clickCount)
+        if let selectedElement, case .text = selectedElement.kind, selectedElement.bounds.contains(point) {
+            beginSelectionInteraction(at: point, clickCount: clickCount, preferMoving: true)
             return
         }
-
         if document.topmostElementID(at: point, tolerance: 6) != nil {
             beginSelectionInteraction(at: point, clickCount: clickCount)
             return
         }
 
-        if selectedElementIsText {
-            document.selectElement(id: nil)
-            notifyDocumentChanged()
-            return
-        }
-
         beginTextEditing(elementID: nil, origin: point, initialText: "")
-    }
-
-    private var selectedElementIsText: Bool {
-        guard let selectedElement else {
-            return false
-        }
-
-        if case .text = selectedElement.kind {
-            return true
-        }
-
-        return false
-    }
-
-    private func topmostTextElementID(at point: CGPoint) -> UUID? {
-        guard let elementID = document.topmostElementID(at: point, tolerance: 6),
-              let element = document.elements.first(where: { $0.id == elementID }) else {
-            return nil
-        }
-
-        if case .text = element.kind {
-            return elementID
-        }
-
-        return nil
+        newTextDragOrigin = point
     }
 
     private func creationInteraction(start: CGPoint, current: CGPoint) -> AnnotationInteraction {
@@ -634,7 +927,7 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
             return .creatingShape(start: start, current: current)
         case .mosaic:
             switch document.editingOptions.mosaicMode {
-            case .rectangle:
+            case .rectangle, .blur, .redact:
                 return .creatingMosaic(start: start, current: current)
             case .brush:
                 return .drawingPoints(kind: .mosaic(.brush), points: [start, current])
@@ -650,9 +943,11 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
 
     private func beginTextEditing(elementID: UUID?, origin: CGPoint, initialText: String) {
         removeActiveTextEditor()
+        textEditBaseline = document
 
         let style: ImageAnnotationStyle
         let textBounds: CGRect
+        let swapsAxes: Bool
         let editingElementID: UUID
         if let elementID,
            let element = document.elements.first(where: { $0.id == elementID }) {
@@ -660,9 +955,11 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
             editingElementID = elementID
             style = element.style
             textBounds = element.bounds
+            swapsAxes = element.contentSwapsAxes
             activeTextDidBeginMutation = false
         } else {
             style = document.editingOptions.style
+            swapsAxes = false
             textBounds = ImageAnnotationTextStyle.bounds(for: initialText, origin: origin, style: style)
             let element = ImageAnnotationElement(
                 kind: .text(initialText),
@@ -677,6 +974,7 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
 
         activeTextElementID = editingElementID
         activeTextOrigin = textBounds.origin
+        activeTextSwapsAxes = swapsAxes
 
         let editor = ImageAnnotationTextEditorView()
         editor.string = initialText
@@ -689,6 +987,7 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
         editor.textContainer?.lineFragmentPadding = 0
         editor.textContainer?.widthTracksTextView = true
         editor.textContainer?.heightTracksTextView = true
+        editor.alignment = ImageAnnotationTextStyle.alignment(for: style)
         editor.isRichText = false
         editor.allowsUndo = true
         editor.delegate = self
@@ -699,12 +998,17 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
             self?.commitActiveText(editor.string)
         }
         editor.onCancel = { [weak self] in
-            self?.deleteActiveTextElement()
+            guard let self, let baseline = self.textEditBaseline else { return }
+            self.removeActiveTextEditor()
+            self.document = baseline
+            self.window?.makeFirstResponder(self)
+            self.needsDisplay = true
+            self.notifyDocumentChanged()
         }
         activeTextEditor = editor
         addSubview(editor)
 
-        let frame = viewRect(forImageRect: textBounds)
+        let frame = viewRect(forImageRect: textBounds.swappingSizeAxes(if: swapsAxes))
         editor.frame = frame
         editor.textContainer?.containerSize = frame.size
         window?.makeFirstResponder(editor)
@@ -738,7 +1042,7 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
                 for: text,
                 origin: selectedElement.bounds.origin,
                 style: style
-            )
+            ).swappingSizeAxes(if: selectedElement.contentSwapsAxes)
         } else {
             updatedBounds = nil
         }
@@ -750,7 +1054,8 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
            let updatedBounds {
             activeTextEditor.font = ImageAnnotationTextStyle.font(for: style, scale: imageDisplayScale)
             activeTextEditor.textColor = ImageAnnotationTextStyle.foregroundColor(for: style)
-            let frame = viewRect(forImageRect: updatedBounds)
+            activeTextEditor.alignment = ImageAnnotationTextStyle.alignment(for: style)
+            let frame = viewRect(forImageRect: updatedBounds.swappingSizeAxes(if: activeTextSwapsAxes))
             activeTextEditor.frame = frame
             activeTextEditor.textContainer?.containerSize = frame.size
             activeTextOrigin = updatedBounds.origin
@@ -772,13 +1077,22 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if trimmedText.isEmpty {
-            deleteActiveTextElement()
+            if let baseline = textEditBaseline, let id = activeTextElementID,
+               !baseline.elements.contains(where: { $0.id == id }) {
+                removeActiveTextEditor()
+                document = baseline
+                window?.makeFirstResponder(self)
+                needsDisplay = true
+                notifyDocumentChanged()
+            } else {
+                deleteActiveTextElement()
+            }
             return
         }
 
         if let textElementID = activeTextElementID {
             document.selectElement(id: textElementID)
-            updateActiveTextElement(trimmedText)
+            if selectedElement?.kind != .text(text) { updateActiveTextElement(text) }
             notifyDocumentChanged()
         }
 
@@ -801,7 +1115,7 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
 
         let style = textEditingStyle(for: textElementID)
         let bounds = ImageAnnotationTextStyle.bounds(for: text, origin: origin, style: style)
-        document.updateSelectedText(text, bounds: bounds, recordingUndo: false)
+        document.updateSelectedText(text, bounds: bounds.swappingSizeAxes(if: activeTextSwapsAxes), recordingUndo: false)
         if let activeTextEditor {
             let frame = viewRect(forImageRect: bounds)
             activeTextEditor.frame = frame
@@ -819,7 +1133,7 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
         }
 
         let style = textEditingStyle(for: activeTextElementID)
-        let frame = viewRect(forImageRect: element.bounds)
+        let frame = viewRect(forImageRect: element.bounds.swappingSizeAxes(if: activeTextSwapsAxes))
         activeTextEditor.font = ImageAnnotationTextStyle.font(for: style, scale: imageDisplayScale)
         activeTextEditor.frame = frame
         activeTextEditor.textContainer?.containerSize = frame.size
@@ -845,6 +1159,9 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
         activeTextEditor = nil
         activeTextElementID = nil
         activeTextOrigin = nil
+        activeTextSwapsAxes = false
+        newTextDragOrigin = nil
+        textEditBaseline = nil
         activeTextDidBeginMutation = false
     }
 
@@ -883,12 +1200,16 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
             )
             ImageAnnotationViewRenderer.draw(element, mosaicSource: mosaicSource, imageSize: image.size)
         case let .creatingMosaic(start, current):
-            drawMosaicSelectionDraft(in: minimumAnnotationBounds(CGRect(
-                x: start.x,
-                y: start.y,
-                width: current.x - start.x,
-                height: current.y - start.y
-            ).standardized))
+            let bounds = minimumAnnotationBounds(CGRect(x: start.x, y: start.y, width: current.x - start.x,
+                                                         height: current.y - start.y).standardized)
+            let element = ImageAnnotationElement(kind: .mosaic(document.editingOptions.mosaicMode),
+                                                 bounds: bounds, style: document.editingOptions.style)
+            ImageAnnotationViewRenderer.draw(element, mosaicSource: mosaicSource, imageSize: image.size)
+            drawMosaicSelectionDraft(in: bounds)
+        case let .creatingSpotlight(start, current):
+            let bounds = CGRect(x: start.x, y: start.y, width: current.x - start.x, height: current.y - start.y).standardized
+            ImageAnnotationViewRenderer.draw(ImageAnnotationElement(kind: .spotlight, bounds: bounds,
+                style: document.editingOptions.style), imageSize: image.size)
         case let .drawingPoints(kind, points):
             let element = ImageAnnotationElement(
                 kind: kind,
@@ -897,7 +1218,7 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
                 style: document.editingOptions.style
             )
             ImageAnnotationViewRenderer.draw(element, mosaicSource: mosaicSource, imageSize: image.size)
-        case .moving, .resizing, .pendingCreation:
+        case .moving, .resizing, .editingEndpoint, .pendingCreation:
             break
         }
     }
@@ -908,10 +1229,81 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
         }
 
         let bounds = selectedElement.bounds
-        NSColor.controlAccentColor.setStroke()
-        let path = NSBezierPath(rect: bounds)
-        path.lineWidth = 1
-        path.stroke()
+        if isLine(selectedElement) {
+            drawHandles(selectedElement.points)
+        } else {
+            NSColor.controlAccentColor.setStroke()
+            let outline = NSBezierPath(rect: bounds)
+            outline.lineWidth = 1 / max(0.1, imageDisplayScale)
+            outline.stroke()
+            drawHandles(corners(of: bounds))
+        }
+    }
+
+    private func drawHandles(_ handles: [CGPoint]) {
+        let size = 7 / max(0.1, imageDisplayScale)
+        for point in handles {
+            let handle = NSBezierPath(roundedRect: CGRect(x: point.x - size / 2, y: point.y - size / 2,
+                                                          width: size, height: size), xRadius: 1, yRadius: 1)
+            NSColor.white.setFill()
+            handle.fill()
+            NSColor.controlAccentColor.setStroke()
+            handle.lineWidth = 1 / max(0.1, imageDisplayScale)
+            handle.stroke()
+        }
+    }
+
+    private func drawCropOverlay() {
+        guard let cropBounds else { return }
+        let shade = NSBezierPath(rect: CGRect(origin: .zero, size: image.size))
+        shade.appendRect(cropBounds)
+        shade.windingRule = .evenOdd
+        NSColor.black.withAlphaComponent(0.56).setFill()
+        shade.fill()
+        NSColor.white.withAlphaComponent(0.55).setStroke()
+        let guides = NSBezierPath()
+        for fraction in [CGFloat(1.0 / 3), CGFloat(2.0 / 3)] {
+            let x = cropBounds.minX + cropBounds.width * fraction
+            let y = cropBounds.minY + cropBounds.height * fraction
+            guides.move(to: CGPoint(x: x, y: cropBounds.minY))
+            guides.line(to: CGPoint(x: x, y: cropBounds.maxY))
+            guides.move(to: CGPoint(x: cropBounds.minX, y: y))
+            guides.line(to: CGPoint(x: cropBounds.maxX, y: y))
+        }
+        guides.lineWidth = 0.5 / max(0.1, imageDisplayScale)
+        guides.stroke()
+        NSColor.white.setStroke()
+        let border = NSBezierPath(rect: cropBounds)
+        border.lineWidth = 1 / max(0.1, imageDisplayScale)
+        border.stroke()
+        drawHandles(corners(of: cropBounds))
+    }
+
+    private func drawTransparencyGrid(in rect: CGRect) {
+        let visible = bounds.intersection(rect)
+        guard !visible.isNull, let context = NSGraphicsContext.current?.cgContext else { return }
+        context.saveGState()
+        context.clip(to: rect)
+        context.setFillColor(NSColor(white: 0.24, alpha: 1).cgColor)
+        context.fill(visible)
+        context.setFillColor(NSColor(white: 0.31, alpha: 1).cgColor)
+        let tile: CGFloat = 10
+        for row in Int(floor(visible.minY / tile))..<Int(ceil(visible.maxY / tile)) {
+            for column in Int(floor(visible.minX / tile))..<Int(ceil(visible.maxX / tile)) where (row + column) % 2 == 0 {
+                context.fill(CGRect(x: CGFloat(column) * tile, y: CGFloat(row) * tile, width: tile, height: tile))
+            }
+        }
+        context.restoreGState()
+    }
+
+    private func beginCropDrag(at point: CGPoint) {
+        if let cropBounds, let anchor = oppositeCorner(for: cropBounds, at: point) {
+            cropStart = anchor
+        } else if let cropBounds, cropBounds != CGRect(origin: .zero, size: image.size), cropBounds.contains(point) {
+            cropMoveOffset = CGPoint(x: point.x - cropBounds.minX, y: point.y - cropBounds.minY)
+        } else {
+            cropStart = point
+        }
     }
 
     private func drawMosaicSelectionDraft(in bounds: CGRect) {
@@ -925,8 +1317,24 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
         NSBezierPath(rect: bounds.standardized).fill()
     }
 
-    private func resizeHandleRect(for bounds: CGRect) -> CGRect {
-        CGRect(x: bounds.maxX - 5, y: bounds.maxY - 5, width: 10, height: 10)
+    private func isLine(_ element: ImageAnnotationElement) -> Bool {
+        element.kind == .shape(.line) || element.kind == .shape(.arrow)
+    }
+
+    private func corners(of bounds: CGRect) -> [CGPoint] {
+        [CGPoint(x: bounds.minX, y: bounds.minY), CGPoint(x: bounds.maxX, y: bounds.minY),
+         CGPoint(x: bounds.maxX, y: bounds.maxY), CGPoint(x: bounds.minX, y: bounds.maxY)]
+    }
+
+    private func handleRect(center: CGPoint) -> CGRect {
+        let radius = 6 / max(0.1, imageDisplayScale)
+        return CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
+    }
+
+    private func oppositeCorner(for bounds: CGRect, at point: CGPoint) -> CGPoint? {
+        let anchors = corners(of: bounds)
+        guard let index = anchors.firstIndex(where: { handleRect(center: $0).contains(point) }) else { return nil }
+        return anchors[(index + 2) % anchors.count]
     }
 
     private func viewRect(forImageRect imageRect: CGRect) -> CGRect {
@@ -1018,6 +1426,17 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
     }
 
     private func notifyDocumentChanged() {
+        if displayedImagePNG != document.editedImagePNG {
+            if let data = document.editedImagePNG,
+               let edited = try? ImageWorkspaceRaster.screenshot(data: data, size: document.editedImageSize) {
+                image = edited.image
+            } else if let baseScreenshot {
+                image = baseScreenshot.image
+            }
+            displayedImagePNG = document.editedImagePNG
+            mosaicDrawingSource = nil
+            onImageChanged?()
+        }
         onDocumentChange(document)
     }
 
@@ -1060,11 +1479,19 @@ enum ImageAnnotationCanvasToolContext: Equatable {
             self = .mosaic(mosaicMode)
         case .highlight:
             self = .tool(.highlight)
+        case .counter, .spotlight, .image:
+            self = .tool(.select)
         }
     }
 }
 
+enum ImageWorkspaceStamp {
+    case counter, spotlight
+}
+
 private enum AnnotationInteraction {
+    case creatingSpotlight(start: CGPoint, current: CGPoint)
+    case editingEndpoint(Int, hasStartedMutation: Bool)
     case creatingShape(start: CGPoint, current: CGPoint)
     case creatingMosaic(start: CGPoint, current: CGPoint)
     case drawingPoints(kind: ImageAnnotationElementKind, points: [CGPoint])
@@ -1075,14 +1502,14 @@ private enum AnnotationInteraction {
     var requiresMosaicRendering: Bool {
         switch self {
         case .creatingMosaic:
-            return false
+            return true
         case let .drawingPoints(kind, _):
             if case .mosaic = kind {
                 return true
             }
 
             return false
-        case .creatingShape, .moving, .resizing, .pendingCreation:
+        case .creatingShape, .creatingSpotlight, .editingEndpoint, .moving, .resizing, .pendingCreation:
             return false
         }
     }
@@ -1115,9 +1542,12 @@ enum ImageAnnotationViewRenderer {
         excluding excludedElementID: UUID? = nil
     ) {
         for element in document.elements {
-            if element.id == excludedElementID {
+            if element.id == excludedElementID || element.kind == .mosaic(.redact) {
                 continue
             }
+            draw(element, mosaicSource: mosaicSource, imageSize: imageSize)
+        }
+        for element in document.elements where element.kind == .mosaic(.redact) {
             draw(element, mosaicSource: mosaicSource, imageSize: imageSize)
         }
     }
@@ -1133,7 +1563,31 @@ enum ImageAnnotationViewRenderer {
         case .brush:
             drawStroke(element.points, style: element.style, alpha: 1)
         case let .text(text):
-            drawText(text, in: element.bounds, style: element.style)
+            drawWithOrientation(of: element) { bounds in
+                ImageAnnotationTextStyle.draw(text, in: bounds, style: element.style)
+            }
+        case let .counter(number):
+            let shape = NSBezierPath(ovalIn: element.bounds)
+            element.style.strokeColor.nsColor.setFill()
+            shape.fill()
+            var labelStyle = element.style
+            labelStyle.strokeColor = .white
+            labelStyle.fillColor = nil
+            labelStyle.fontWeight = .bold
+            labelStyle.fontSize = max(8, element.bounds.height * 0.5)
+            labelStyle.textAlignment = .center
+            let rect = element.bounds.insetBy(dx: 0, dy: element.bounds.height * 0.17)
+            ImageAnnotationTextStyle.draw(String(number), in: rect, style: labelStyle)
+        case .spotlight:
+            let shade = NSBezierPath(rect: CGRect(origin: .zero, size: imageSize))
+            shade.appendRect(element.bounds)
+            shade.windingRule = .evenOdd
+            NSColor.black.withAlphaComponent(0.56).setFill()
+            shade.fill()
+        case let .image(data):
+            drawWithOrientation(of: element) { bounds in
+                NSImage(data: data)?.draw(in: bounds)
+            }
         case let .mosaic(mode):
             ImageMosaicDrawing.draw(
                 element,
@@ -1167,13 +1621,23 @@ enum ImageAnnotationViewRenderer {
         path.stroke()
     }
 
-    private static func drawText(_ text: String, in bounds: CGRect, style: ImageAnnotationStyle) {
-        text.draw(
-            in: bounds.standardized,
-            withAttributes: ImageAnnotationTextStyle.attributes(for: style)
-        )
+    private static func drawWithOrientation(of element: ImageAnnotationElement, draw: (CGRect) -> Void) {
+        guard let orientation = element.contentOrientation, orientation.count == 4 else {
+            draw(element.bounds)
+            return
+        }
+        let bounds = element.bounds
+        let swapsAxes = orientation[1] != 0
+        let width = swapsAxes ? bounds.height : bounds.width
+        let height = swapsAxes ? bounds.width : bounds.height
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current?.cgContext.concatenate(CGAffineTransform(
+            a: orientation[0], b: orientation[1], c: orientation[2], d: orientation[3],
+            tx: bounds.midX, ty: bounds.midY
+        ))
+        draw(CGRect(x: -width / 2, y: -height / 2, width: width, height: height))
+        NSGraphicsContext.restoreGraphicsState()
     }
-
 }
 
 extension ImageAnnotationColor {
@@ -1190,5 +1654,31 @@ private extension NSImage {
         }
 
         return bitmap.representation(using: .png, properties: [:])
+    }
+}
+
+
+private extension ImageAnnotationTool {
+    func acceptsEditing(kind: ImageAnnotationElementKind) -> Bool {
+        switch (self, kind) {
+        case (.select, _), (.shape, .shape), (.text, .text), (.brush, .brush), (.highlight, .highlight), (.mosaic, .mosaic):
+            true
+        default:
+            false
+        }
+    }
+}
+
+
+private extension ImageAnnotationElement {
+    var contentSwapsAxes: Bool {
+        guard let orientation = contentOrientation, orientation.count == 4 else { return false }
+        return orientation[1] != 0
+    }
+}
+
+private extension CGRect {
+    func swappingSizeAxes(if shouldSwap: Bool) -> CGRect {
+        shouldSwap ? CGRect(x: minX, y: minY, width: height, height: width) : self
     }
 }

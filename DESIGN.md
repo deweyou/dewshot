@@ -222,64 +222,42 @@ system tool, not a branded dashboard.
   pinned window.
 - Opening workspace again for the same captured screenshot activates the existing
   preview/edit window instead of creating duplicates.
-- Workspace Copy and Download are active output actions. On success they close
-  the workspace and the originating Quick Access preview. The checkmark Save
-  Current action follows the user's configured default: Ask Every Time opens the
-  Replace Current / Save As New choice menu. Replace Current updates the
-  existing history entry and any still-active Quick Access preview. Save As New
-  creates a separate history entry and Quick Access preview. Both respect the
-  history setting. Copy and Download deliver the rendered edit without changing
-  the history entry. Replace Current leaves external files alone.
-- Save Current, Copy, and Download form one compact, evenly sized output group
-  in the workspace toolbar. Copy and Download tooltips read Save and Copy and
-  Save and Download. The toolbar divides History, Tools, Contextual Style, and
-  Output with short quiet separators; the style separator hides with its control.
-  Every primary icon uses the shared visual-metrics catalog, a 28 pt control cell,
-  a 22 pt hover/selected circle, and a 14 pt visual glyph box. Normalize native
-  SF Symbol ink bounds through that catalog instead of adding point-size or
-  baseline overrides at individual button call sites.
-- Screenshot editing controls stay in the top workspace toolbar. Shape tools
-  are flat top-level buttons for rectangle, oval, line, and arrow. Only mosaic
-  uses a split button: the main icon activates the current mosaic mode, and the
-  attached chevron opens Region/Brush mosaic options through at least a 20 pt
-  target. The two sides share one compact visual container, inner divider, and
-  hover/selected state while retaining independent actions. The old separate
-  Color and Thickness/Font Size toolbar menus are
-  replaced by a compact contextual header style control. It appears in the
-  toolbar only when the selected object or active tool supports color and
-  contextual size edits. Color uses an icon-only swatch selector without a
-  visible chevron and a tiled dropdown palette, while contextual size uses an icon plus
-  slider without a visible numeric value. The control edits the selected
-  annotation when one is selected, or the current tool defaults when no
-  annotation is selected. It is a lightweight editing affordance, not a
-  persistent side inspector or layer/property panel.
-- The image canvas uses a fully opaque black backdrop behind aspect-fitted image
-  content; do not let desktop/window translucency show through the work area.
-- The editor opens with the pointer/select tool active, while remembering the
-  last selected color, thickness, font size, mosaic mode, and shape type.
-  Thickness options include 1, 2, 4, 8, 12, 16, and 24 px; text sizes include
-  12, 14, 16, 18, 22, 28, 36, 48, 64, 80, and 96 pt. Dropdown menus mark the
-  active option with the native menu selected state. The mosaic primary icon
-  follows its selected subtool.
-- Editing is object-based: annotations can be selected, moved, resized, deleted,
-  undone, and redone. Selected annotations use a thin high-contrast outline
-  without a visible resize anchor; their top-right corner remains a resize target.
-- Text annotations support re-entering text edit mode after creation. Double
-  clicking any annotation enters that object's editing context: text edits
-  inline, shape subtypes select their matching shape tool, and brush, highlight,
-  and mosaic select their matching tool context.
-- Canvas tool shortcuts are local to the Image Workspace responder chain. Use
-  `V`, `R`, `O`, `L`, `A`, `B`, `T`, `H`, and `M` for Select, Rectangle, Oval,
-  Line, Arrow, Brush, Text, Highlight, and Mosaic; `[` and `]` step contextual
-  size. Inline text editing keeps native text shortcuts and normal character
-  entry.
-- Shape annotations include rectangle, oval, line, and arrow. Arrows should be
-  straight-edged filled wedge arrows that grow from a fine tail into a wider
-  body and filled head instead of stroked line arrows. Holding Shift while
-  drawing constrains rectangles/ovals to squares/circles and line/arrow angles
-  to horizontal, vertical, or 45 degrees. Mosaic supports both
-  rectangular regions and brush strokes; rectangular mosaic should show a
-  lightweight selection frame while dragging and apply pixelation after release.
+- The editor groups undo and redo, image operations, annotation tools, and output
+  in its top row. Label Crop, Resize, Transform, Copy, Export, and Save Current.
+  Keep markup icons compact, with the shared 28 pt cells, 22 pt hover/selected
+  circles, and 14 pt glyph boxes. The canvas status row shows actual pixel
+  dimensions and zoom and provides Fit and 100% controls.
+- The row above the canvas holds tool-specific parameters. Show the selected
+  object's values, including a numeric line width or font size, and edit the
+  active tool's defaults when nothing is selected. Crop replaces these
+  controls with the aspect ratio, pixel dimensions, Cancel, and Apply.
+  Return applies the crop. Escape cancels it. The canvas has an opaque work
+  area and a checkerboard where the image has transparent pixels.
+- Crop, resize, rotate, flip, and raster adjustments share undo with annotation
+  edits. Guides and object handles are visible on canvas only. Shapes use
+  corner handles. Lines and arrows use their actual endpoints. Hold Shift
+  while drawing to constrain shapes and angles, and hold Option while
+  dragging with a drawing tool to draw over an existing annotation.
+- Inline text starts on a blank click. Drag for a fixed-width text box.
+  Double-click to re-edit text and press Escape to restore it as it was before
+  entering that edit. The text editor keeps native selection and clipboard
+  shortcuts. With the canvas focused, `V`, `R`, `O`, `L`, `A`, `B`, `T`, `H`,
+  and `M` switch tools, and `[` / `]` step through common sizes.
+- Mosaic has a compact split control for Region, Brush, Blur, and Solid
+  Redaction. Preview the effect during the drag. Block size and brush width
+  are independent. Draw solid redactions above the other objects and omit
+  text intersecting them from OCR selection. Share a flattened image when
+  redaction is used. Editable project files include the underlying image.
+- Copy and Export deliver the currently rendered image, show feedback, and
+  keep the editor open. The Copy and Export actions leave history as it is.
+  Save Current follows the configured default. Replace Current updates the
+  history entry and any active originating preview. Save As New creates a
+  separate history entry and a preview. Both respect history settings, and
+  the current session keeps editable objects and undo after a save.
+- A local `.frameimage` project stores the current raster and objects so a user
+  can continue editing later. An image exported from the same session contains
+  the flattened result. Importing a local image opens a new session, so replacing
+  the history version leaves the source file in place.
 - It should stay lightweight and dismissible, without blocking normal system
   usage.
 - Starting a recording temporarily hides existing Quick Access cards; it must

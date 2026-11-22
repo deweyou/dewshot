@@ -9,6 +9,20 @@ final class ImageWorkspaceImageZoom {
     private(set) var scale: CGFloat = 1
     private var contentOffset: CGPoint = .zero
 
+    func reset() {
+        scale = Self.minimumScale
+        contentOffset = .zero
+        onViewportChange?()
+    }
+
+    func setDisplayScale(_ displayScale: CGFloat, imageSize: CGSize, bounds: CGRect) {
+        let fittedScale = baseScale(imageSize: imageSize, bounds: bounds)
+        guard fittedScale > 0 else { return }
+        scale = Self.clamp(displayScale / fittedScale, min: 0.05, max: 50)
+        contentOffset = clampedOffset(contentOffset, imageSize: imageSize, bounds: bounds)
+        onViewportChange?()
+    }
+
     @discardableResult
     func fitWidth(imageSize: CGSize, bounds: CGRect) -> Bool {
         guard imageSize.width > 0,
@@ -39,10 +53,12 @@ final class ImageWorkspaceImageZoom {
     func applyMagnification(
         _ magnification: CGFloat,
         imageSize: CGSize,
-        bounds: CGRect
+        bounds: CGRect,
+        allowsBelowFit: Bool = false
     ) -> Bool {
         let factor = max(0.05, 1 + magnification)
-        let updatedScale = Self.clamp(scale * factor, min: Self.minimumScale, max: Self.maximumScale)
+        let minimumScale = allowsBelowFit ? 0.1 : min(Self.minimumScale, scale)
+        let updatedScale = Self.clamp(scale * factor, min: minimumScale, max: max(Self.maximumScale, scale))
         guard abs(updatedScale - scale) > 0.0001 else {
             return false
         }
@@ -59,10 +75,6 @@ final class ImageWorkspaceImageZoom {
         imageSize: CGSize,
         bounds: CGRect
     ) -> Bool {
-        guard scale > Self.minimumScale else {
-            return false
-        }
-
         let updatedOffset = clampedOffset(
             CGPoint(
                 x: contentOffset.x + delta.width,

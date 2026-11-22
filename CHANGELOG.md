@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Open local images and clipboard images in the redesigned editor. Crop on
+  the canvas, resize by pixels or percent, rotate, flip, and see zoom and
+  pixel dimensions while editing.
+- Adjust exposure, contrast, and saturation, extend the canvas, remove the
+  background, and combine images. Save a local project with editable objects.
+- Drag shape handles and arrow endpoints directly. Edit and wrap text in place,
+  cancel text changes with Escape, and choose line, arrow, text, and fill styles.
+  Add numbered stamps, a spotlight, live mosaic, blur, and solid redaction.
+- Copy or export the rendered image as PNG, JPEG, HEIC, or TIFF while keeping
+  the editor open. Replacing the current history image preserves editable
+  objects and undo in the current session.
+
 - Automatically dismiss corner previews after 30 seconds by default. Choose
   10 seconds, 30 seconds, 1 minute, or Never in Capture settings.
 - Use Command+Shift+R as the default shortcut for starting a recording.

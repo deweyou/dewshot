@@ -61,13 +61,17 @@ The goal is simple: capture what you need, then get back to what you were doing.
 
 ### Edit
 
-- Add text, arrows, shapes, highlights, brush marks, or blur sensitive details.
-- Move things after adding them.
-- Resize or delete them.
-- Change color and size from a contextual header style control.
-- Use canvas shortcuts or double-click an object to return to its editing tool.
-- Undo and redo.
-- Save the edited result.
+- Open a screenshot, a local image, or an image from the clipboard.
+- Crop on the canvas, resize in pixels or percent, rotate, and flip. See the
+  current pixel dimensions and switch between Fit and 100% zoom.
+- Edit shapes, arrows, text, highlights, and brush marks. Add numbered stamps,
+  a spotlight, and other images. Use mosaic, blur, or solid redaction.
+- Adjust exposure, contrast, and saturation. Extend the canvas or remove the
+  background.
+- Undo image adjustments and annotations together. Save a local editable
+  project to reopen the current image and its annotations.
+- Copy or export PNG, JPEG, HEIC, or TIFF from the editor. Use Save Current
+  to replace the history image or keep the original and save a new one.
 
 ### Record
 

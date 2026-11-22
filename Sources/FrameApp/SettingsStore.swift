@@ -40,6 +40,7 @@ enum SettingsStore {
     static let imageAnnotationStrokeColorKey = "imageAnnotationStrokeColor"
     static let imageAnnotationLineWidthKey = "imageAnnotationLineWidth"
     static let imageAnnotationFontSizeKey = "imageAnnotationFontSize"
+    private static let imageAnnotationDetailedStyleKey = "imageAnnotationDetailedStyle"
     private static let disabledRecordingShortcut = ""
 
     static func screenshotShortcut(defaults: UserDefaults = .standard) -> ScreenshotShortcut {
@@ -307,6 +308,11 @@ enum SettingsStore {
         options.style.strokeColor = ImageAnnotationColor(storageValue: defaults.string(forKey: imageAnnotationStrokeColorKey))
             ?? options.style.strokeColor
 
+        if let data = defaults.data(forKey: imageAnnotationDetailedStyleKey),
+           let style = try? JSONDecoder().decode(ImageAnnotationStyle.self, from: data) {
+            options.style = style
+        }
+
         let lineWidth = CGFloat(defaults.double(forKey: imageAnnotationLineWidthKey))
         if Self.imageAnnotationLineWidths.contains(lineWidth) {
             options.style.lineWidth = lineWidth
@@ -329,6 +335,9 @@ enum SettingsStore {
         defaults.set(options.style.strokeColor.storageValue, forKey: imageAnnotationStrokeColorKey)
         defaults.set(Double(options.style.lineWidth), forKey: imageAnnotationLineWidthKey)
         defaults.set(Double(options.style.fontSize), forKey: imageAnnotationFontSizeKey)
+        if let style = try? JSONEncoder().encode(options.style) {
+            defaults.set(style, forKey: imageAnnotationDetailedStyleKey)
+        }
     }
 
     private static let imageAnnotationLineWidths: [CGFloat] = [1, 2, 4, 8, 12, 16, 24]
@@ -371,6 +380,10 @@ private extension ImageAnnotationMosaicMode {
             self = .rectangle
         case "brush":
             self = .brush
+        case "blur":
+            self = .blur
+        case "redact":
+            self = .redact
         default:
             return nil
         }
@@ -382,6 +395,10 @@ private extension ImageAnnotationMosaicMode {
             "rectangle"
         case .brush:
             "brush"
+        case .blur:
+            "blur"
+        case .redact:
+            "redact"
         }
     }
 }

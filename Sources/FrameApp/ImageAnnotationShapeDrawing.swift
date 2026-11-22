@@ -31,7 +31,7 @@ enum ImageAnnotationShapeDrawing {
             fillColor.nsColor.setFill()
             path.fill()
         }
-        path.lineWidth = max(1, element.style.lineWidth)
+        applyLineStyle(element.style, to: path)
         element.style.strokeColor.nsColor.setStroke()
         path.stroke()
     }
@@ -43,13 +43,19 @@ enum ImageAnnotationShapeDrawing {
         path.lineJoinStyle = .round
         path.move(to: endpoints.start)
         path.line(to: endpoints.end)
-        path.lineWidth = max(1, element.style.lineWidth)
+        applyLineStyle(element.style, to: path)
         element.style.strokeColor.nsColor.setStroke()
         path.stroke()
     }
 
     private static func drawArrow(_ element: ImageAnnotationElement) {
         let endpoints = lineEndpoints(for: element)
+        if let style = element.style.arrowStyle, style != .wedge {
+            drawLine(element)
+            drawOpenArrowHead(from: endpoints.start, to: endpoints.end, style: element.style)
+            if style == .doubleHeaded { drawOpenArrowHead(from: endpoints.end, to: endpoints.start, style: element.style) }
+            return
+        }
         guard let arrowPath = wedgeArrowPath(from: endpoints.start, to: endpoints.end, style: element.style) else {
             return
         }
@@ -57,6 +63,33 @@ enum ImageAnnotationShapeDrawing {
         element.style.strokeColor.nsColor.setStroke()
         element.style.strokeColor.nsColor.setFill()
         arrowPath.fill()
+    }
+
+    private static func applyLineStyle(_ style: ImageAnnotationStyle, to path: NSBezierPath) {
+        path.lineWidth = max(1, style.lineWidth)
+        if style.linePattern == .dashed {
+            path.setLineDash([path.lineWidth * 3, path.lineWidth * 2], count: 2, phase: 0)
+        } else if style.linePattern == .dotted {
+            path.lineCapStyle = .round
+            path.setLineDash([0, path.lineWidth * 2.5], count: 2, phase: 0)
+        }
+    }
+
+    private static func drawOpenArrowHead(from start: CGPoint, to end: CGPoint, style: ImageAnnotationStyle) {
+        let length = hypot(end.x - start.x, end.y - start.y)
+        guard length > 1 else { return }
+        let direction = CGVector(dx: (end.x - start.x) / length, dy: (end.y - start.y) / length)
+        let normal = CGVector(dx: -direction.dy, dy: direction.dx)
+        let depth = min(length * 0.4, max(7, style.lineWidth * 4))
+        let path = NSBezierPath()
+        path.move(to: offset(end, direction: direction, normal: normal, forward: -depth, side: depth * 0.55))
+        path.line(to: end)
+        path.line(to: offset(end, direction: direction, normal: normal, forward: -depth, side: -depth * 0.55))
+        path.lineWidth = max(1, style.lineWidth)
+        path.lineCapStyle = .round
+        path.lineJoinStyle = .round
+        style.strokeColor.nsColor.setStroke()
+        path.stroke()
     }
 
     private static func lineEndpoints(for element: ImageAnnotationElement) -> (start: CGPoint, end: CGPoint) {

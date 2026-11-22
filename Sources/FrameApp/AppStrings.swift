@@ -987,6 +987,10 @@ struct AppStrings {
         case (.en, .rectangle): "Region"
         case (.zhHans, .brush): "画笔"
         case (.en, .brush): "Brush"
+        case (.zhHans, .blur): "模糊"
+        case (.en, .blur): "Blur"
+        case (.zhHans, .redact): "纯色遮挡"
+        case (.en, .redact): "Solid redaction"
         }
     }
 
@@ -1475,5 +1479,11 @@ extension AppLanguage {
         case .en:
             "English"
         }
+    }
+}
+
+extension AppStrings {
+    func editorLabel(_ chinese: String, _ english: String) -> String {
+        language == .zhHans ? chinese : english
     }
 }

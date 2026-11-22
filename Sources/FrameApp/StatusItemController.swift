@@ -12,6 +12,8 @@ final class StatusItemController: NSObject {
     private let statusItem: NSStatusItem
     private let onCaptureAction: () -> Void
     private let onRecordAction: () -> Void
+    private let onOpenImageAction: (() -> Void)?
+    private let onOpenClipboardImageAction: (() -> Void)?
     private let onHistoryAction: () -> Void
     private let onSettingsAction: () -> Void
     private let onStopRecordingAction: () -> Void
@@ -29,7 +31,9 @@ final class StatusItemController: NSObject {
         onRecord: @escaping () -> Void = {},
         onHistory: @escaping () -> Void,
         onSettings: @escaping () -> Void,
-        onStopRecording: @escaping () -> Void = {}
+        onStopRecording: @escaping () -> Void = {},
+        onOpenImage: (() -> Void)? = nil,
+        onOpenClipboardImage: (() -> Void)? = nil
     ) {
         self.statusItem = statusItem
         self.strings = strings
@@ -40,6 +44,8 @@ final class StatusItemController: NSObject {
         self.onHistoryAction = onHistory
         self.onSettingsAction = onSettings
         self.onStopRecordingAction = onStopRecording
+        self.onOpenImageAction = onOpenImage
+        self.onOpenClipboardImageAction = onOpenClipboardImage
 
         super.init()
 
@@ -100,6 +106,12 @@ final class StatusItemController: NSObject {
             shortcut: recordingShortcut
         ))
         menu.addItem(.separator())
+        if onOpenImageAction != nil {
+            menu.addItem(menuItem(title: strings.editorLabel("打开图片…", "Open Image…"), action: #selector(onOpenImage(_:))))
+        }
+        if onOpenClipboardImageAction != nil {
+            menu.addItem(menuItem(title: strings.editorLabel("从剪贴板打开图片", "Open Clipboard Image"), action: #selector(onOpenClipboardImage(_:))))
+        }
         menu.addItem(menuItem(title: strings.menuCaptureHistory, action: #selector(onHistory(_:))))
         menu.addItem(menuItem(title: strings.menuSettings, action: #selector(onSettings(_:))))
         menu.addItem(.separator())
@@ -163,6 +175,10 @@ final class StatusItemController: NSObject {
     @objc private func onStopRecording(_ sender: NSMenuItem) {
         onStopRecordingAction()
     }
+
+    @objc private func onOpenImage(_ sender: NSMenuItem) { onOpenImageAction?() }
+
+    @objc private func onOpenClipboardImage(_ sender: NSMenuItem) { onOpenClipboardImageAction?() }
 
     @objc private func onHistory(_ sender: NSMenuItem) {
         onHistoryAction()

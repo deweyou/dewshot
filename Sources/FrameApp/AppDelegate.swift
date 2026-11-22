@@ -105,7 +105,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onStopRecording: { [weak self] in
                 self?.stopActiveRecording()
-            }
+            },
+            onOpenImage: { [weak self] in self?.openImageFile() },
+            onOpenClipboardImage: { [weak self] in self?.openClipboardImage() }
         )
 
         try? captureHistoryStore.cleanup()
@@ -1210,7 +1212,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func openWorkspace(_ screenshot: CapturedScreenshot, kind: ImageWorkspaceKind) -> Bool {
+    private func openImageFile() {
+        NSApp.activate(ignoringOtherApps: true)
+        ImageWorkspaceFileDialogs.open(strings: strings, window: nil) { [weak self] url in
+            self?.openEditorFile(at: url)
+        }
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls where url.isFileURL {
+            openEditorFile(at: url)
+        }
+    }
+
+    private func openEditorFile(at url: URL) {
+        do {
+            if url.pathExtension.lowercased() == "frameimage" {
+                let project = try ImageWorkspaceRaster.project(at: url)
+                _ = openWorkspace(try project.screenshot(), kind: .temporaryPreview, initialElements: project.elements)
+            } else {
+                let screenshot = try ImageWorkspaceRaster.screenshot(data: Data(contentsOf: url))
+                _ = openWorkspace(screenshot, kind: .temporaryPreview)
+            }
+        } catch {
+            ImageWorkspaceFileDialogs.showError(error, strings: strings, window: nil)
+        }
+    }
+
+    private func openClipboardImage() {
+        NSApp.activate(ignoringOtherApps: true)
+        do {
+            _ = openWorkspace(try ImageWorkspaceRaster.pasteboardImage(.general), kind: .temporaryPreview)
+        } catch {
+            ImageWorkspaceFileDialogs.showError(error, strings: strings, window: nil,
+                message: strings.editorLabel("剪贴板里没有可打开的图片。", "The clipboard doesn’t contain a readable image."))
+        }
+    }
+
+    private func openWorkspace(
+        _ screenshot: CapturedScreenshot,
+        kind: ImageWorkspaceKind,
+        initialElements: [ImageAnnotationElement] = []
+    ) -> Bool {
         imageWorkspacePanelController.show(
             screenshot: screenshot,
             kind: kind,
@@ -1226,10 +1269,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 return true
             },
             save: { [weak self] editedScreenshot in
-                guard let self,
-                      self.saveToDesktop(editedScreenshot) else {
-                    return false
-                }
+                guard let self else { return false }
+                let saved = kind == .pinned
+                    ? self.saveToDesktop(editedScreenshot)
+                    : ImageWorkspaceFileDialogs.export(editedScreenshot, strings: self.strings)
+                guard saved else { return false }
 
                 self.quickAccessPanelController.closePreview(for: screenshot, notify: false)
                 self.endQuickAccessLifecycle(for: screenshot)
@@ -1269,7 +1313,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 } catch {
                     return false
                 }
-            }
+            },
+            initialElements: initialElements
         )
     }
 
@@ -1406,7 +1451,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func copyToClipboard(_ screenshot: CapturedScreenshot, showsFailureAlert: Bool = true) -> Bool {
         do {
-            try clipboardWriter.write(image: screenshot.image)
+            try clipboardWriter.write(image: screenshot.image, pngData: screenshot.pngData)
             NSLog("Frame 已复制截图到剪贴板")
             return true
         } catch {

@@ -526,7 +526,8 @@ final class ZFrameCoreTests: XCTestCase {
 
         XCTAssertEqual(document.elements.count, 1)
         XCTAssertEqual(document.selectedElementID, element.id)
-        XCTAssertEqual(document.topmostElementID(at: CGPoint(x: 20, y: 30)), element.id)
+        XCTAssertNil(document.topmostElementID(at: CGPoint(x: 20, y: 30)))
+        XCTAssertEqual(document.topmostElementID(at: CGPoint(x: 10, y: 30)), element.id)
 
         document.moveSelected(by: CGSize(width: 5, height: -10))
         XCTAssertEqual(document.elements[0].bounds, CGRect(x: 15, y: 10, width: 80, height: 40))
@@ -622,12 +623,17 @@ final class ZFrameCoreTests: XCTestCase {
 
         document.markCurrentRenditionSaved()
 
-        XCTAssertTrue(document.elements.isEmpty)
-        XCTAssertNil(document.selectedElementID)
-        XCTAssertFalse(document.canUndo)
+        XCTAssertEqual(document.elements.count, 1)
+        XCTAssertEqual(document.selectedElementID, document.elements.first?.id)
+        XCTAssertTrue(document.canUndo)
         XCTAssertFalse(document.canRedo)
         XCTAssertFalse(document.hasUncommittedEdits)
         XCTAssertEqual(document.selectedTool, .mosaic)
+        document.undo()
+        XCTAssertTrue(document.elements.isEmpty)
+        XCTAssertTrue(document.hasUncommittedEdits)
+        document.redo()
+        XCTAssertFalse(document.hasUncommittedEdits)
     }
 
     func testImageAnnotationDocumentReplacesSelectedText() {
