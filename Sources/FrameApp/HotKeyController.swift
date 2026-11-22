@@ -84,6 +84,34 @@ final class HotKeyController {
         )
     }
 
+    static func systemShortcutIsInUse(_ shortcut: ScreenshotShortcut) -> Bool {
+        var entries: Unmanaged<CFArray>?
+        let status = CopySymbolicHotKeys(&entries)
+        guard let entries = entries?.takeRetainedValue() as? [[String: NSNumber]],
+              status == noErr else {
+            return false
+        }
+
+        return containsEnabledSystemShortcut(shortcut, in: entries)
+    }
+
+    static func containsEnabledSystemShortcut(
+        _ shortcut: ScreenshotShortcut,
+        in entries: [[String: NSNumber]]
+    ) -> Bool {
+        let parameters = registrationParameters(for: shortcut)
+        return entries.contains { entry in
+            entry["kHISymbolicHotKeyEnabled"]?.boolValue == true
+                && entry["kHISymbolicHotKeyCode"]?.intValue == parameters.keyCode
+                && entry["kHISymbolicHotKeyModifiers"]?.uint32Value == parameters.modifierFlags
+        }
+    }
+
+    static func overlapsCommonAppShortcut(_ shortcut: ScreenshotShortcut) -> Bool {
+        shortcut.modifiers == [.command]
+            && ["A", "C", "F", "H", "M", "N", "O", "P", "Q", "S", "T", "V", "W", "X", "Z"].contains(shortcut.key.displayName)
+    }
+
     static func hotKeyKindForTesting(signature: OSType, id: UInt32) -> HotKeyKind? {
         hotKeyKind(signature: signature, id: id)
     }
@@ -130,12 +158,15 @@ final class HotKeyController {
             parameters.modifierFlags,
             hotKeyID,
             GetApplicationEventTarget(),
-            0,
+            UInt32(kEventHotKeyExclusive),
             &hotKeyRef
         )
 
         guard registerStatus == noErr, let hotKeyRef else {
             unregister()
+            if registerStatus == eventHotKeyExistsErr {
+                throw HotKeyRegistrationError.shortcutInUse(shortcut)
+            }
             throw HotKeyRegistrationError.registerHotKeyFailed(registerStatus, shortcut)
         }
 
@@ -244,13 +275,16 @@ private extension ScreenshotShortcut {
 enum HotKeyRegistrationError: Error, LocalizedError {
     case installEventHandlerFailed(OSStatus)
     case registerHotKeyFailed(OSStatus, ScreenshotShortcut)
+    case shortcutInUse(ScreenshotShortcut)
 
     var errorDescription: String? {
         switch self {
         case let .installEventHandlerFailed(status):
             "安装全局快捷键监听失败（OSStatus: \(status)）"
         case let .registerHotKeyFailed(status, shortcut):
-            "注册截图快捷键 \(shortcut.keyboardShortcut.displayName) 失败（OSStatus: \(status)）"
+            "注册快捷键 \(shortcut.keyboardShortcut.displayName) 失败（OSStatus: \(status)）"
+        case let .shortcutInUse(shortcut):
+            "快捷键 \(shortcut.displayName) 已被占用"
         }
     }
 }

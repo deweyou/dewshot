@@ -185,6 +185,9 @@ Frame directly from the mounted DMG.
 8. In Settings, change Window screenshot style between Soft Backdrop, Canvas Glow, Transparent Shadow, and Original. Change Edited screenshot save between Ask Every Time, Replace Current, and Save As New. Confirm the labels localize and the selected values persist after reopening Settings.
 9. Reset the screenshot save folder and confirm it returns to Desktop.
 10. Confirm the menu has separate Capture Screenshot and Record Screen items, displays configured shortcuts, and keeps Record Screen available when its shortcut is unset. Start each flow from its menu item or configured keyboard shortcut.
+    In the shortcut recorder, try a single modifier, a duplicate Frame shortcut,
+    an enabled macOS shortcut, and a common app shortcut such as Command+A.
+    Confirm that dismissing a conflict or warning preserves the saved shortcut.
 11. With no previous selection, confirm the active display shows a centered placeholder instead of a `0 x 0` HUD. After confirming a window capture, quit and reopen Frame, then start capture again within ten minutes. Confirm the same live window restores as the initial selection without hover preselection, even after moving the window. After confirming a region capture, reopen the overlay and confirm the same rectangle restores without hover preselection. A full-screen capture, closing a remembered window, or waiting for expiry returns to the empty state.
 12. Drag to create, move, or resize the region.
 13. Press Enter to capture.

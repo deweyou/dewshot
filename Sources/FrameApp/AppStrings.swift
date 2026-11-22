@@ -247,8 +247,8 @@ struct AppStrings {
 
     var settingsShortcutRecorderInsufficientModifiers: String {
         switch language {
-        case .zhHans: "请按下至少两个修饰键"
-        case .en: "Use at least two modifier keys"
+        case .zhHans: "请使用 ⌘、⌥ 或 ⌃ 中的至少一个"
+        case .en: "Use at least one of Command, Option, or Control"
         }
     }
 
@@ -1315,6 +1315,55 @@ struct AppStrings {
         switch language {
         case .zhHans: "Frame 快捷键注册失败"
         case .en: "Frame shortcut registration failed"
+        }
+    }
+
+    var hotKeyConflictTitle: String {
+        switch language {
+        case .zhHans: "快捷键已被占用"
+        case .en: "Shortcut is already in use"
+        }
+    }
+
+    func systemHotKeyConflictMessage(shortcut: String) -> String {
+        switch language {
+        case .zhHans: "\(shortcut) 已在 macOS 键盘快捷键中启用。请选择另一个组合。"
+        case .en: "\(shortcut) is enabled in macOS Keyboard Shortcuts. Choose a different shortcut."
+        }
+    }
+
+    func appHotKeyConflictMessage(shortcut: String) -> String {
+        switch language {
+        case .zhHans: "另一个 App 已独占 \(shortcut)。请选择另一个组合。"
+        case .en: "Another app has exclusive use of \(shortcut). Choose a different shortcut."
+        }
+    }
+
+    var commonHotKeyWarningTitle: String {
+        switch language {
+        case .zhHans: "可能与其他 App 的快捷键冲突"
+        case .en: "This shortcut may conflict with other apps"
+        }
+    }
+
+    func commonHotKeyWarningMessage(shortcut: String) -> String {
+        switch language {
+        case .zhHans: "\(shortcut) 是许多 App 的常用快捷键。设为全局快捷键后，在其他 App 里按下它也可能触发 Frame。"
+        case .en: "Many apps use \(shortcut). If you use it as a global shortcut, pressing it in another app may trigger Frame."
+        }
+    }
+
+    var hotKeyChooseAnother: String {
+        switch language {
+        case .zhHans: "换一个"
+        case .en: "Choose Another"
+        }
+    }
+
+    var hotKeyUseAnyway: String {
+        switch language {
+        case .zhHans: "仍然使用"
+        case .en: "Use Anyway"
         }
     }
 

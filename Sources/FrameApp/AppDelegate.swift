@@ -1534,6 +1534,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func changeScreenshotShortcut(to shortcut: ScreenshotShortcut) -> Bool {
+        if shortcut == SettingsStore.screenshotShortcut() {
+            return true
+        }
+        guard confirmShortcutChange(shortcut) else { return false }
+
         guard let hotKeyController else {
             SettingsStore.setScreenshotShortcut(shortcut)
             statusItemController?.updateShortcuts(
@@ -1567,6 +1572,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func changeRecordingShortcut(to shortcut: ScreenshotShortcut?) -> Bool {
+        if shortcut == SettingsStore.recordingShortcut() {
+            return true
+        }
+        if let shortcut, !confirmShortcutChange(shortcut) {
+            return false
+        }
+
         guard let hotKeyController else {
             SettingsStore.setRecordingShortcut(shortcut)
             statusItemController?.updateShortcuts(
@@ -1600,6 +1612,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func confirmShortcutChange(_ shortcut: ScreenshotShortcut) -> Bool {
+        if HotKeyController.systemShortcutIsInUse(shortcut) {
+            showHotKeyConflictAlert(message: strings.systemHotKeyConflictMessage(shortcut: shortcut.displayName))
+            return false
+        }
+
+        guard HotKeyController.overlapsCommonAppShortcut(shortcut) else {
+            return true
+        }
+
+        let alert = NSAlert()
+        alert.messageText = strings.commonHotKeyWarningTitle
+        alert.informativeText = strings.commonHotKeyWarningMessage(shortcut: shortcut.displayName)
+        alert.addButton(withTitle: strings.hotKeyChooseAnother).keyEquivalent = "\u{1b}"
+        alert.addButton(withTitle: strings.hotKeyUseAnyway)
+        return alert.runModal() == .alertSecondButtonReturn
+    }
+
     private func setScreenshotShortcutRecorderActive(_ isRecording: Bool) {
         guard let hotKeyController else {
             return
@@ -1618,9 +1648,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showHotKeyRegistrationFailedAlert(_ error: Error) {
+        if case let HotKeyRegistrationError.shortcutInUse(shortcut) = error {
+            showHotKeyConflictAlert(message: strings.appHotKeyConflictMessage(shortcut: shortcut.displayName))
+            return
+        }
+
         let alert = NSAlert()
         alert.messageText = strings.hotKeyRegistrationFailedTitle
         alert.informativeText = strings.hotKeyRegistrationFailedMessage(errorDescription: error.localizedDescription)
+        alert.addButton(withTitle: strings.ok)
+        alert.runModal()
+    }
+
+    private func showHotKeyConflictAlert(message: String) {
+        let alert = NSAlert()
+        alert.messageText = strings.hotKeyConflictTitle
+        alert.informativeText = message
         alert.addButton(withTitle: strings.ok)
         alert.runModal()
     }

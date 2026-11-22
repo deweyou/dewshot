@@ -28,8 +28,11 @@ system tool, not a branded dashboard.
   active appearance on its preview. Keep language, launch at login, the save folder, and
   capture shortcuts in General. Display the abbreviated save path and offer
   reset only for custom locations.
-- Use inline shortcut recorders. Validate the shortcut locally and reject
-  duplicates within Frame before saving.
+- Use inline shortcut recorders. Accept a letter or number with Command,
+  Option, or Control, with Shift available as an additional modifier. Reject
+  duplicates within Frame and enabled macOS shortcuts before saving. Use
+  exclusive registration to detect other exclusive reservations. Ask for
+  confirmation on common application commands such as Command+A.
 - Keep separate Screen Recording, Accessibility, and Input Monitoring rows.
   Explain each permission's purpose and show granted status or a single link to
   the corresponding System Settings pane. Recheck when the pane appears or

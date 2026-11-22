@@ -245,9 +245,9 @@ final class SettingsWindowControllerTests: XCTestCase {
         )
 
         button.startRecording()
-        button.keyDown(with: keyEvent(characters: "a", modifiers: [.command], keyCode: kVK_ANSI_A))
+        button.keyDown(with: keyEvent(characters: "a", modifiers: [], keyCode: kVK_ANSI_A))
 
-        XCTAssertEqual(button.title, "⌘A")
+        XCTAssertEqual(button.title, "A")
         XCTAssertEqual(failures, [nil, .insufficientModifiers])
     }
 
@@ -271,7 +271,7 @@ final class SettingsWindowControllerTests: XCTestCase {
         )
 
         button.startRecording()
-        button.keyDown(with: keyEvent(characters: "a", modifiers: [.command], keyCode: kVK_ANSI_A))
+        button.keyDown(with: keyEvent(characters: "a", modifiers: [.shift], keyCode: kVK_ANSI_A))
         button.update(
             strings: AppStrings(language: .en),
             shortcut: .default,
@@ -280,7 +280,7 @@ final class SettingsWindowControllerTests: XCTestCase {
             onRecordingChange: { _ in }
         )
 
-        XCTAssertEqual(button.title, "⌘A")
+        XCTAssertEqual(button.title, "⇧A")
     }
 
     func testSettingsWindowUsesConfiguredMinimumSize() throws {
