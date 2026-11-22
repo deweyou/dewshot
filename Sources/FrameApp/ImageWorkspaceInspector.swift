@@ -240,17 +240,19 @@ final class ImageWorkspaceInspector: NSView {
         }
         transform.setAccessibilityLabel(transform.title)
         let commands = row([crop, resize, transform])
-        commands.spacing = 6
+        commands.spacing = 2
         commands.distribution = .fillEqually
         for command in [crop, resize, transform] {
-            command.controlSize = .small
-            command.bezelStyle = .accessoryBarAction
+            command.isBordered = false
+            command.contentTintColor = .labelColor
             command.font = .systemFont(ofSize: 12, weight: .medium)
-            command.heightAnchor.constraint(equalToConstant: 28).isActive = true
+            command.heightAnchor.constraint(equalToConstant: 26).isActive = true
         }
 
-        let image = stack([heading(label("图片", "Image")), commands], spacing: 9)
-        commands.widthAnchor.constraint(equalTo: image.widthAnchor).isActive = true
+        let commandGroup = InspectorSurface(content: commands, inset: 2, cornerRadius: 15)
+        commandGroup.identifier = NSUserInterfaceItemIdentifier("ImageWorkspaceInspectorImageCommands")
+        let image = stack([heading(label("图片", "Image")), commandGroup], spacing: 9)
+        commandGroup.widthAnchor.constraint(equalTo: image.widthAnchor).isActive = true
         return image
     }
 
@@ -285,8 +287,11 @@ final class ImageWorkspaceInspector: NSView {
             control.isBordered = false
             control.widthAnchor.constraint(equalToConstant: 24).isActive = true
         }
-        fit.bezelStyle = .accessoryBarAction
-        let cluster = InspectorSurface(content: row([out, actual, more]), inset: 2)
+        fit.isBordered = false
+        fit.contentTintColor = .secondaryLabelColor
+        fit.font = .systemFont(ofSize: 12, weight: .medium)
+        fit.heightAnchor.constraint(equalToConstant: 26).isActive = true
+        let cluster = InspectorSurface(content: row([out, actual, more]), inset: 2, cornerRadius: 14)
         let zoom = row([cluster, NSView(), fit])
         zoom.translatesAutoresizingMaskIntoConstraints = false
         zoom.heightAnchor.constraint(equalToConstant: 28).isActive = true
@@ -493,11 +498,11 @@ final class ImageWorkspaceInspector: NSView {
 
 @MainActor
 private final class InspectorSurface: NSView {
-    init(content: NSView, inset: CGFloat = 10) {
+    init(content: NSView, inset: CGFloat = 10, cornerRadius: CGFloat = 12) {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
-        layer?.cornerRadius = 12
+        layer?.cornerRadius = cornerRadius
         layer?.cornerCurve = .continuous
         content.translatesAutoresizingMaskIntoConstraints = false
         addSubview(content)

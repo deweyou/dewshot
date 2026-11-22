@@ -4,7 +4,8 @@
 
 - Add a right inspector to the image editor, open by default, with contextual
   shape, text, and redaction controls. Group image commands and zoom
-  together. Use a shared editor background and inset the expanded canvas.
+  together and remove individual outlines from the image commands. Use a
+  shared editor background and inset the expanded canvas.
   Restore compact controls when the inspector is collapsed. Support italic
   annotation text and changing a selected redaction's mode.
 

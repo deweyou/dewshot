@@ -230,7 +230,8 @@ system tool, not a branded dashboard.
   Give text a font, size, bold and italic, alignment, and color. Show all four
   redaction modes in a two-column grid with a visible selection. Group the
   current tool’s controls on one quiet surface. Keep compact image commands
-  and zoom together at the top of the inspector.
+  and zoom together at the top of the inspector. Share one low-contrast
+  capsule across the image commands. Use a quiet text action for Fit.
 - Put Crop, Resize, Transform, and zoom controls in the inspector when it is
   expanded. Crop replaces the tool controls with aspect ratio, pixel dimensions,
   Cancel, and Apply. When the inspector is collapsed, restore a compact editing

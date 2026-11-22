@@ -2609,7 +2609,13 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         let canvas = try XCTUnwrap(findAnnotationCanvas(in: content))
         XCTAssertFalse(inspector.isHidden)
         XCTAssertNil(findButton(in: content, accessibilityLabel: "Mosaic Options"))
-        XCTAssertNotNil(findButton(in: inspector, accessibilityLabel: "Crop"))
+        let commandGroup = try XCTUnwrap(findView(in: inspector, identifier: "ImageWorkspaceInspectorImageCommands"))
+        for title in ["Crop", "Resize", "Transform…"] {
+            let button = try XCTUnwrap(findButton(in: commandGroup, accessibilityLabel: title))
+            XCTAssertFalse(button.isBordered)
+        }
+        let fit = try XCTUnwrap(findButton(in: inspector, accessibilityLabel: "Fit"))
+        XCTAssertFalse(fit.isBordered)
         let toolbar = try XCTUnwrap(findView(in: content, accessibilityLabel: "Image Workspace Toolbar"))
         let imageContainer = try XCTUnwrap(findView(in: content, accessibilityLabel: "Image Preview Container"))
         XCTAssertEqual(imageContainer.frame.minX, 14, accuracy: 0.5)
