@@ -93,11 +93,31 @@ final class SettingsWindowController {
         titleField.setContentCompressionResistancePriority(.required, for: .horizontal)
         titleField.setContentHuggingPriority(.required, for: .horizontal)
 
-        titlebarView.addSubview(titleField)
-        NSLayoutConstraint.activate([
-            titleField.centerXAnchor.constraint(equalTo: titlebarView.centerXAnchor),
-            titleField.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
-        ])
+        if #available(macOS 26.0, *) {
+            let glass = NSGlassEffectView()
+            glass.style = .regular
+            glass.cornerRadius = 12
+            glass.translatesAutoresizingMaskIntoConstraints = false
+
+            let titleContent = NSView()
+            titleContent.addSubview(titleField)
+            glass.contentView = titleContent
+            titlebarView.addSubview(glass)
+            NSLayoutConstraint.activate([
+                titleField.centerXAnchor.constraint(equalTo: titleContent.centerXAnchor),
+                titleField.centerYAnchor.constraint(equalTo: titleContent.centerYAnchor),
+                glass.widthAnchor.constraint(equalTo: titleField.widthAnchor, constant: 24),
+                glass.heightAnchor.constraint(equalToConstant: 24),
+                glass.centerXAnchor.constraint(equalTo: titlebarView.centerXAnchor),
+                glass.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
+            ])
+        } else {
+            titlebarView.addSubview(titleField)
+            NSLayoutConstraint.activate([
+                titleField.centerXAnchor.constraint(equalTo: titlebarView.centerXAnchor),
+                titleField.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
+            ])
+        }
 
         centeredTitleField = titleField
     }
@@ -235,8 +255,8 @@ private struct SettingsRootView: View {
     var body: some View {
         HStack(spacing: 0) {
             SettingsSidebar(strings: strings, selection: $presentation.section)
-
-            Divider()
+                .padding(.leading, 12)
+                .padding(.vertical, 12)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
@@ -256,6 +276,7 @@ private struct SettingsRootView: View {
             .background(Color(nsColor: .textBackgroundColor))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(nsColor: .textBackgroundColor))
     }
 
     @ViewBuilder
@@ -290,7 +311,16 @@ private struct SettingsSidebar: View {
     let strings: AppStrings
     @Binding var selection: SettingsSection
 
+    @ViewBuilder
     var body: some View {
+        if #available(macOS 26.0, *) {
+            sidebarContent.glassEffect(.regular, in: .rect(cornerRadius: 16))
+        } else {
+            sidebarContent.background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 16))
+        }
+    }
+
+    private var sidebarContent: some View {
         VStack(alignment: .leading, spacing: 3) {
             ForEach(SettingsSection.allCases) { section in
                 SettingsSidebarButton(
@@ -311,7 +341,6 @@ private struct SettingsSidebar: View {
         .padding(.vertical, 18)
         .frame(width: 164)
         .frame(maxHeight: .infinity)
-        .background(Color(nsColor: .windowBackgroundColor))
     }
 }
 

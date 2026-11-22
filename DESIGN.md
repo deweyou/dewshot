@@ -16,7 +16,9 @@ system tool, not a branded dashboard.
 
 - Use a compact sidebar with General, Capture, History, and Permissions.
   Capture groups screenshots, recording, and text recognition. Keep the native,
-  resizable window and the centered titlebar.
+  resizable window and the centered titlebar. Use Regular Liquid Glass on the
+  inset sidebar and the centered window title, with a solid background behind
+  each pane’s heading and settings.
 - Give each pane one clear heading. Use lightly shaded groups, quiet dividers,
   system typography, and trailing native controls. Put version and build
   metadata near the bottom of the sidebar.

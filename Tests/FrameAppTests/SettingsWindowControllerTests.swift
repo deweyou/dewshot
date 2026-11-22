@@ -323,6 +323,13 @@ final class SettingsWindowControllerTests: XCTestCase {
             ) as? NSTextField
         )
         XCTAssertEqual(titleField.stringValue, "Settings")
+        if #available(macOS 26.0, *) {
+            let glass = try XCTUnwrap(titleField.superview?.enclosingGlassEffect)
+            XCTAssertEqual(glass.style, .regular)
+            XCTAssertNil(glass.tintColor)
+        }
+        controller.update(strings: AppStrings(language: .zhHans))
+        XCTAssertEqual(titleField.stringValue, "设置")
     }
 
     func testOCRLanguageSettingsExposeDefaultOptions() {
@@ -440,5 +447,14 @@ final class SettingsWindowControllerTests: XCTestCase {
             isARepeat: false,
             keyCode: UInt16(keyCode)
         )!
+    }
+}
+
+
+@available(macOS 26.0, *)
+@MainActor
+private extension NSView {
+    var enclosingGlassEffect: NSGlassEffectView? {
+        (self as? NSGlassEffectView) ?? superview?.enclosingGlassEffect
     }
 }
