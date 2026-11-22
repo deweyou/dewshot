@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Automatically copy finished screenshots and screen recordings to the clipboard
+  while keeping their corner previews. Turn this off in Capture settings.
 - Simplify the image editor and recording player headers, separate pinned-image
   window controls from the image, and show timeline thumbnails for longer MP4s.
 - Give Capture History a window title, clearer tile metadata, and actions that

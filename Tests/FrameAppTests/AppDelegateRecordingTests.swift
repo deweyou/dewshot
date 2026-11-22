@@ -210,7 +210,7 @@ final class AppDelegateRecordingTests: XCTestCase {
         XCTAssertEqual(beepCount, 1)
     }
 
-    func testFinishedScrollingScreenshotShowsQuickAccessPreview() async throws {
+    func testFinishedScrollingScreenshotKeepsPreviewAndClipboardWhenAutoCopyIsOff() async throws {
         _ = NSApplication.shared
         let selection = SelectionCapture(
             rect: CGRect(x: 40, y: 60, width: 320, height: 180),
@@ -218,10 +218,15 @@ final class AppDelegateRecordingTests: XCTestCase {
         )
         let selectionOverlay = SpySelectionOverlayController()
         let scrollingController = SpyScrollingScreenshotSessionController()
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("FrameTests.\(UUID())"))
+        let clipboardWriter = ClipboardWriter(pasteboard: pasteboard)
+        try clipboardWriter.write(text: "previous value")
         let delegate = AppDelegate(
             selectionOverlayController: selectionOverlay,
             scrollingScreenshotSessionController: scrollingController,
             captureHistoryStore: CaptureHistoryStore(rootDirectory: makeTemporaryDirectory()),
+            clipboardWriter: clipboardWriter,
+            automaticallyCopiesCaptures: { false },
             hasScreenRecordingAccess: { true },
             showMissingScreenRecordingPermission: {},
             playInvalidActionFeedback: {}
@@ -243,9 +248,10 @@ final class AppDelegateRecordingTests: XCTestCase {
             delegate.quickAccessScreenshotCountForTesting() == 1
         }
         XCTAssertEqual(delegate.quickAccessScreenshotCountForTesting(), 1)
+        XCTAssertEqual(pasteboard.string(forType: .string), "previous value")
     }
 
-    func testFinishingScrollingScreenshotShowsPendingPreviewThenUpgradesSameCard() async throws {
+    func testFinishingScrollingScreenshotCopiesOnlyFinalImageAndUpgradesSameCard() async throws {
         _ = NSApplication.shared
         let selection = SelectionCapture(
             rect: CGRect(x: 40, y: 60, width: 320, height: 180),
@@ -253,10 +259,15 @@ final class AppDelegateRecordingTests: XCTestCase {
         )
         let selectionOverlay = SpySelectionOverlayController()
         let scrollingController = SpyScrollingScreenshotSessionController()
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("FrameTests.\(UUID())"))
+        let clipboardWriter = ClipboardWriter(pasteboard: pasteboard)
+        try clipboardWriter.write(text: "previous value")
         let delegate = AppDelegate(
             selectionOverlayController: selectionOverlay,
             scrollingScreenshotSessionController: scrollingController,
             captureHistoryStore: CaptureHistoryStore(rootDirectory: makeTemporaryDirectory()),
+            clipboardWriter: clipboardWriter,
+            automaticallyCopiesCaptures: { true },
             hasScreenRecordingAccess: { true },
             showMissingScreenRecordingPermission: {},
             playInvalidActionFeedback: {}
@@ -271,7 +282,11 @@ final class AppDelegateRecordingTests: XCTestCase {
         let completed = CapturedScreenshot(
             id: screenshotID,
             pngData: Data([1, 2, 3]),
-            image: NSImage(size: CGSize(width: 64, height: 256)),
+            image: NSImage(size: CGSize(width: 64, height: 256), flipped: false) { rect in
+                NSColor.white.setFill()
+                rect.fill()
+                return true
+            },
             rect: CGRect(origin: selection.rect.origin, size: CGSize(width: 320, height: 1_280))
         )
 
@@ -286,6 +301,7 @@ final class AppDelegateRecordingTests: XCTestCase {
                 && delegate.quickAccessScreenshotIsPendingForTesting(id: screenshotID)
         }
 
+        XCTAssertEqual(pasteboard.string(forType: .string), "previous value")
         scrollingController.complete(with: completed)
 
         try await waitUntil {
@@ -293,6 +309,8 @@ final class AppDelegateRecordingTests: XCTestCase {
                 && !delegate.quickAccessScreenshotIsPendingForTesting(id: screenshotID)
         }
         XCTAssertEqual(delegate.quickAccessScreenshotCountForTesting(), 1)
+        XCTAssertEqual(NSImage(pasteboard: pasteboard)?.size, completed.image.size)
+        XCTAssertNil(pasteboard.string(forType: .string))
     }
 
     func testRecordingStartDoesNotShowStaticKeyboardHintOverlay() async throws {
@@ -393,10 +411,19 @@ final class AppDelegateRecordingTests: XCTestCase {
         XCTAssertEqual(recordingService.recordedRequests.count, 1)
     }
 
-    func testStoppingRecordingFreezesElapsedHUDWhileSaving() async throws {
+    func testStoppingRecordingFreezesElapsedHUDAndCopiesCompletedFile() async throws {
         _ = NSApplication.shared
-        let recordingService = SpyRecordingService()
-        let delegate = AppDelegate(recordingService: recordingService)
+        let recordingURL = try makeTemporaryMP4File()
+        let recordingService = SpyRecordingService(recordingURL: recordingURL)
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("FrameTests.\(UUID())"))
+        let clipboardWriter = ClipboardWriter(pasteboard: pasteboard)
+        try clipboardWriter.write(text: "previous value")
+        let delegate = AppDelegate(
+            recordingService: recordingService,
+            captureHistoryStore: CaptureHistoryStore(rootDirectory: makeTemporaryDirectory()),
+            clipboardWriter: clipboardWriter,
+            automaticallyCopiesCaptures: { true }
+        )
         defer {
             delegate.finishActiveRecordingForTesting()
         }
@@ -413,9 +440,15 @@ final class AppDelegateRecordingTests: XCTestCase {
         }
         XCTAssertTrue(delegate.activeRecordingElapsedTimerIsValidForTesting())
 
+        XCTAssertEqual(pasteboard.string(forType: .string), "previous value")
         delegate.stopActiveRecordingForTesting()
 
         XCTAssertFalse(delegate.activeRecordingElapsedTimerIsValidForTesting())
+        try await waitUntil { delegate.quickAccessRecordingCountForTesting() == 1 }
+
+        let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL]
+        let copiedURL = try XCTUnwrap(urls?.first)
+        XCTAssertEqual(try Data(contentsOf: copiedURL), try Data(contentsOf: recordingURL))
     }
 
     private func waitUntil(
@@ -655,6 +688,12 @@ private final class SpyRecordingService: RecordingServicing, @unchecked Sendable
     private let lock = NSLock()
     private var requests: [RecordingRequest] = []
     private var createdSessions: [SpyRecordingSession] = []
+    private let recordingURL: URL
+
+    init(recordingURL: URL = URL(fileURLWithPath: "/tmp/frame-test-recording.mp4")) {
+        self.recordingURL = recordingURL
+    }
+
 
     var recordedRequests: [RecordingRequest] {
         lock.withLock {
@@ -669,7 +708,7 @@ private final class SpyRecordingService: RecordingServicing, @unchecked Sendable
     }
 
     func startRecording(_ request: RecordingRequest) async throws -> RecordingSessionControlling {
-        let session = SpyRecordingSession()
+        let session = SpyRecordingSession(recordingURL: recordingURL)
         lock.withLock {
             requests.append(request)
             createdSessions.append(session)
@@ -683,6 +722,12 @@ private final class SpyRecordingSession: RecordingSessionControlling, @unchecked
     private var currentState: RecordingSessionState = .recording
     private var cancelCalls = 0
     private var keyboardHints: [String] = []
+    private let recordingURL: URL
+
+    init(recordingURL: URL) {
+        self.recordingURL = recordingURL
+    }
+
 
     var state: RecordingSessionState {
         lock.withLock {
@@ -720,7 +765,7 @@ private final class SpyRecordingSession: RecordingSessionControlling, @unchecked
         }
         return CapturedRecording(
             id: UUID(),
-            fileURL: URL(fileURLWithPath: "/tmp/frame-test-recording.mp4"),
+            fileURL: recordingURL,
             format: .mp4,
             rect: .zero,
             pixelSize: .zero,

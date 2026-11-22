@@ -225,6 +225,7 @@ private struct SettingsDetailView: View {
     let launchAtLoginService: any LaunchAtLoginServicing
 
     private var strings: AppStrings { presentation.strings }
+    @State private var automaticallyCopiesCaptures = SettingsStore.automaticallyCopiesCaptures()
 
     var body: some View {
         ScrollView {
@@ -263,6 +264,20 @@ private struct SettingsDetailView: View {
             )
         case .capture:
             VStack(alignment: .leading, spacing: 18) {
+                SettingsControlGroup {
+                    SettingsControlRow(
+                        strings.settingsAutomaticallyCopyCaptures,
+                        subtitle: strings.settingsAutomaticallyCopyCapturesDescription
+                    ) {
+                        Toggle(strings.settingsAutomaticallyCopyCaptures, isOn: $automaticallyCopiesCaptures)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                            .onChange(of: automaticallyCopiesCaptures) { _, isEnabled in
+                                SettingsStore.setAutomaticallyCopiesCaptures(isEnabled)
+                            }
+                    }
+                }
                 ScreenshotSettingsView(strings: strings)
                 RecordingSettingsView(strings: strings)
                 TextRecognitionSettingsView(strings: strings)

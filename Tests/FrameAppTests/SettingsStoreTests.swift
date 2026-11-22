@@ -43,6 +43,16 @@ final class SettingsStoreTests: XCTestCase {
         }
     }
 
+    func testAutomaticallyCopiesCapturesDefaultsOnAndPersistsChanges() {
+        XCTAssertTrue(SettingsStore.automaticallyCopiesCaptures(defaults: defaults))
+
+        SettingsStore.setAutomaticallyCopiesCaptures(false, defaults: defaults)
+        XCTAssertFalse(SettingsStore.automaticallyCopiesCaptures(defaults: defaults))
+
+        SettingsStore.setAutomaticallyCopiesCaptures(true, defaults: defaults)
+        XCTAssertTrue(SettingsStore.automaticallyCopiesCaptures(defaults: defaults))
+    }
+
     func testScreenshotShortcutPersistsCustomStorageValue() {
         let shortcut = ScreenshotShortcut(key: .number("7"), modifiers: [.command, .option])
 

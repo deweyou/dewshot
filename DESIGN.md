@@ -191,6 +191,10 @@ system tool, not a branded dashboard.
 - Quick Access is a small fixed post-capture preview with icon-only hover
   actions for copy, save, workspace, pin, and close. Lead with copy and save,
   and give secondary actions quieter icons.
+- Auto-copy is on by default and lives in Capture settings. Copy screenshots
+  as images and recordings as files after capture completes, and keep their
+  previews available. Copy only the active display's image during a multi-display
+  full-screen capture. A scrolling capture copies its final stitched image.
 - Keep captured image and video pixels visually true. Apply stable deep glass
   only to hover action overlays, close/status/duration accessories, fallback
   placeholders, and the larger hover preview shell so arbitrary media or

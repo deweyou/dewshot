@@ -10,6 +10,7 @@ enum SettingsStore {
     static let windowScreenshotDecorationStyleKey = "windowScreenshotDecorationStyle"
     static let rememberedSelectionKey = "rememberedWindowSelection"
     static let imageWorkspaceSaveCurrentBehaviorKey = "imageWorkspaceSaveCurrentBehavior"
+    static let automaticallyCopiesCapturesKey = "automaticallyCopiesCaptures"
     static let ocrRecognitionLanguagesKey = "ocrRecognitionLanguages"
     static let captureHistoryEnabledKey = "captureHistoryEnabled"
     static let captureHistoryRetentionKey = "captureHistoryRetention"
@@ -182,6 +183,18 @@ enum SettingsStore {
         defaults: UserDefaults = .standard
     ) {
         defaults.set(behavior.rawValue, forKey: imageWorkspaceSaveCurrentBehaviorKey)
+    }
+
+    static func automaticallyCopiesCaptures(defaults: UserDefaults = .standard) -> Bool {
+        guard defaults.object(forKey: automaticallyCopiesCapturesKey) != nil else {
+            return true
+        }
+
+        return defaults.bool(forKey: automaticallyCopiesCapturesKey)
+    }
+
+    static func setAutomaticallyCopiesCaptures(_ isEnabled: Bool, defaults: UserDefaults = .standard) {
+        defaults.set(isEnabled, forKey: automaticallyCopiesCapturesKey)
     }
 
     static func isCaptureHistoryEnabled(defaults: UserDefaults = .standard) -> Bool {

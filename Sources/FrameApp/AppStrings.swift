@@ -182,6 +182,20 @@ struct AppStrings {
         }
     }
 
+    var settingsAutomaticallyCopyCaptures: String {
+        switch language {
+        case .zhHans: "自动复制到剪贴板"
+        case .en: "Automatically copy to clipboard"
+        }
+    }
+
+    var settingsAutomaticallyCopyCapturesDescription: String {
+        switch language {
+        case .zhHans: "截图或录屏完成后直接复制"
+        case .en: "Copy screenshots and recordings when they finish"
+        }
+    }
+
     var settingsPermissions: String {
         switch language {
         case .zhHans: "权限"

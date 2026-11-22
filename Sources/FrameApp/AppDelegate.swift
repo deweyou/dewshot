@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let ocrService = OCRService()
     private let ocrTextPanelController = OCRTextPanelController()
     private let clipboardWriter: ClipboardWriter
+    private let automaticallyCopiesCaptures: () -> Bool
     private let recordingService: RecordingServicing
     private let recordingFileWriter: RecordingFileWriter
     private let videoEditingExporter: VideoEditingExporting
@@ -53,6 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         videoPreviewWindowController: VideoPreviewWindowController = VideoPreviewWindowController(),
         captureHistoryStore: CaptureHistoryStore = CaptureHistoryStore(),
         clipboardWriter: ClipboardWriter = ClipboardWriter(),
+        automaticallyCopiesCaptures: @escaping () -> Bool = { SettingsStore.automaticallyCopiesCaptures() },
         recordingFileWriter: RecordingFileWriter = RecordingFileWriter(),
         videoEditingExporter: VideoEditingExporting = VideoEditingExporter(),
         hasScreenRecordingAccess: @escaping () -> Bool = { ScreenRecordingPermission.hasAccess },
@@ -69,6 +71,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.videoPreviewWindowController = videoPreviewWindowController
         self.captureHistoryStore = captureHistoryStore
         self.clipboardWriter = clipboardWriter
+        self.automaticallyCopiesCaptures = automaticallyCopiesCaptures
         self.recordingFileWriter = recordingFileWriter
         self.videoEditingExporter = videoEditingExporter
         self.hasScreenRecordingAccess = hasScreenRecordingAccess
@@ -233,6 +236,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     case .fullScreen:
                         do {
                             let screenshots = try self.captureService.captureFullScreens()
+                            let anchorPoint = quickAccessAnchor?.center ?? NSEvent.mouseLocation
+                            let activeScreenshot = screenshots.first { $0.rect.contains(anchorPoint) } ?? screenshots.first
+                            if let activeScreenshot {
+                                self.automaticallyCopyScreenshot(activeScreenshot)
+                            }
                             self.quickAccessPanelController.restoreTemporarilyHiddenPreviews()
                             for screenshot in screenshots {
                                 self.storeInCaptureHistory(screenshot)
@@ -248,6 +256,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     case let .capture(selection):
                         do {
                             let screenshot = try await self.captureService.capture(selection: selection)
+                            self.automaticallyCopyScreenshot(screenshot)
                             self.storeInCaptureHistory(screenshot)
                             self.quickAccessPanelController.restoreTemporarilyHiddenPreviews()
                             self.showQuickAccess(for: screenshot, anchor: quickAccessAnchor)
@@ -307,6 +316,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     return
                 }
 
+                self.automaticallyCopyScreenshot(screenshot)
                 self.storeInCaptureHistory(screenshot)
                 if pendingPreview?.id == screenshot.id {
                     self.activeQuickAccessScreenshots[screenshot.id] = screenshot
@@ -653,6 +663,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let stableRecording = self.storeInCaptureHistory(recording)
                 let anchor = self.activeRecordingQuickAccessAnchor
                 self.finishActiveRecording()
+                if self.automaticallyCopiesCaptures() {
+                    _ = self.copyRecordingFileToClipboard(stableRecording.fileURL, showsFailureAlert: false)
+                }
                 self.showVideoQuickAccess(for: stableRecording, anchor: anchor)
                 NSLog(
                     "Frame 已停止录屏：url=\(stableRecording.fileURL.path), duration=\(stableRecording.duration)"
@@ -1346,13 +1359,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         activeQuickAccessScreenshots[screenshot.id] ?? screenshot
     }
 
-    private func copyToClipboard(_ screenshot: CapturedScreenshot) -> Bool {
+    private func automaticallyCopyScreenshot(_ screenshot: CapturedScreenshot) {
+        guard automaticallyCopiesCaptures() else {
+            return
+        }
+
+        _ = copyToClipboard(screenshot, showsFailureAlert: false)
+    }
+
+    private func copyToClipboard(_ screenshot: CapturedScreenshot, showsFailureAlert: Bool = true) -> Bool {
         do {
             try clipboardWriter.write(image: screenshot.image)
             NSLog("Frame 已复制截图到剪贴板")
             return true
         } catch {
-            showQuickAccessFailedAlert(title: strings.copyFailedTitle, error: error)
+            reportClipboardFailure(error, showsAlert: showsFailureAlert)
             return false
         }
     }
@@ -1371,14 +1392,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
-    private func copyRecordingFileToClipboard(_ fileURL: URL) -> Bool {
+    private func copyRecordingFileToClipboard(_ fileURL: URL, showsFailureAlert: Bool = true) -> Bool {
         do {
             try clipboardWriter.write(fileURL: fileURL)
             NSLog("Frame 已复制录屏文件到剪贴板")
             return true
         } catch {
-            showQuickAccessFailedAlert(title: strings.copyFailedTitle, error: error)
+            reportClipboardFailure(error, showsAlert: showsFailureAlert)
             return false
+        }
+    }
+
+    private func reportClipboardFailure(_ error: Error, showsAlert: Bool) {
+        if showsAlert {
+            showQuickAccessFailedAlert(title: strings.copyFailedTitle, error: error)
+        } else {
+            NSLog("Frame 自动复制失败: \(error.localizedDescription)")
         }
     }
 
