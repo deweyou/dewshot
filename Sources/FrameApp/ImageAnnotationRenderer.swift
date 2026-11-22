@@ -1,6 +1,8 @@
 import AppKit
+import CoreImage
 import FrameCore
 
+@MainActor
 struct ImageAnnotationRenderer {
     func render(
         screenshot: CapturedScreenshot,
@@ -18,93 +20,40 @@ struct ImageAnnotationRenderer {
         let imageSize = screenshot.image.size.width > 0 && screenshot.image.size.height > 0
             ? screenshot.image.size
             : screenshot.rect.size
-        let renderedImage = NSImage(size: imageSize)
+        let pixelSize = ImageWorkspaceRaster.pixelSize(screenshot.image)
+        guard ImageWorkspaceRaster.validSize(Int(pixelSize.width), Int(pixelSize.height)),
+              let graphics = CGContext(data: nil, width: Int(pixelSize.width), height: Int(pixelSize.height),
+                                       bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                       bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+            throw ImageAnnotationRendererError.pngEncodingFailed
+        }
         let mosaicSource = document.containsMosaicElements
             ? ImageMosaicDrawingSource(sourceImage: screenshot.image, imageSize: imageSize)
             : nil
 
-        renderedImage.lockFocus()
-        NSGraphicsContext.current?.imageInterpolation = .high
-        screenshot.image.draw(
-            in: NSRect(origin: .zero, size: imageSize),
-            from: .zero,
-            operation: .sourceOver,
-            fraction: 1
-        )
+        NSGraphicsContext.saveGraphicsState()
+        let context = NSGraphicsContext(cgContext: graphics, flipped: false)
+        NSGraphicsContext.current = context
+        graphics.scaleBy(x: pixelSize.width / imageSize.width, y: pixelSize.height / imageSize.height)
+        context.imageInterpolation = .high
+        screenshot.image.draw(in: CGRect(origin: .zero, size: imageSize), from: .zero, operation: .sourceOver, fraction: 1)
+        ImageAnnotationViewRenderer.draw(document: document, mosaicSource: mosaicSource, imageSize: imageSize)
+        NSGraphicsContext.restoreGraphicsState()
 
-        for element in document.elements {
-            draw(element, mosaicSource: mosaicSource, imageSize: imageSize)
+        guard let image = graphics.makeImage() else {
+            throw ImageAnnotationRendererError.pngEncodingFailed
         }
-        renderedImage.unlockFocus()
-
-        guard let pngData = renderedImage.pngData() else {
+        let bitmap = NSBitmapImageRep(cgImage: image)
+        bitmap.size = imageSize
+        guard let pngData = bitmap.representation(using: .png, properties: [:]) else {
             throw ImageAnnotationRendererError.pngEncodingFailed
         }
 
         return CapturedScreenshot(
-            id: preservingID ? screenshot.id : UUID(),
-            pngData: pngData,
-            image: renderedImage,
-            rect: screenshot.rect
+            id: preservingID ? screenshot.id : UUID(), pngData: pngData,
+            image: NSImage(cgImage: image, size: imageSize), rect: screenshot.rect
         )
     }
-
-    private func draw(
-        _ element: ImageAnnotationElement,
-        mosaicSource: ImageMosaicDrawingSource?,
-        imageSize: CGSize
-    ) {
-        switch element.kind {
-        case let .shape(shapeKind):
-            drawShape(element, shapeKind: shapeKind)
-        case .brush:
-            drawStroke(points: element.points, style: element.style, alphaMultiplier: 1)
-        case let .text(text):
-            drawText(text, in: element.bounds, style: element.style)
-        case let .mosaic(mode):
-            ImageMosaicDrawing.draw(
-                element,
-                mode: mode,
-                source: mosaicSource,
-                imageSize: imageSize
-            )
-        case .highlight:
-            drawStroke(points: element.points, style: element.style, alphaMultiplier: 0.42)
-        }
-    }
-
-    private func drawShape(_ element: ImageAnnotationElement, shapeKind: ImageAnnotationShapeKind) {
-        ImageAnnotationShapeDrawing.draw(element, kind: shapeKind)
-    }
-
-    private func drawStroke(points: [CGPoint], style: ImageAnnotationStyle, alphaMultiplier: Double) {
-        guard !points.isEmpty else {
-            return
-        }
-
-        let path = NSBezierPath()
-        path.lineCapStyle = .round
-        path.lineJoinStyle = .round
-        path.lineWidth = max(1, style.lineWidth)
-        path.move(to: points[0])
-        for point in points.dropFirst() {
-            path.line(to: point)
-        }
-        style.strokeColor.withAlpha(style.strokeColor.alpha * alphaMultiplier).nsColor.setStroke()
-        path.stroke()
-    }
-
-    private func drawText(_ text: String, in bounds: CGRect, style: ImageAnnotationStyle) {
-        guard !text.isEmpty else {
-            return
-        }
-
-        text.draw(
-            in: bounds.standardized,
-            withAttributes: ImageAnnotationTextStyle.attributes(for: style)
-        )
-    }
-
 }
 
 extension ImageAnnotationDocument {
@@ -123,6 +72,7 @@ final class ImageMosaicDrawingSource {
     private let sourceImage: NSImage
     private let imageSize: CGSize
     private var sourcePixels: ImageMosaicPixelBuffer?
+    private var blurredImagesByRadius: [Int: NSImage] = [:]
     private var pixelatedImagesByBlockSize: [Int: NSImage] = [:]
 
     init(sourceImage: NSImage, imageSize: CGSize) {
@@ -146,6 +96,22 @@ final class ImageMosaicDrawingSource {
         pixelatedImagesByBlockSize[blockDimension] = pixelatedImage
         return pixelatedImage
     }
+
+    func blurredImage(radius: CGFloat) -> NSImage? {
+        let key = max(2, Int(radius.rounded()))
+        if let image = blurredImagesByRadius[key] { return image }
+        guard let pixels = sourceImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+        let input = CIImage(cgImage: pixels)
+        let blur = input.clampedToExtent().applyingFilter("CIGaussianBlur", parameters: [
+            kCIInputRadiusKey: CGFloat(key) * input.extent.width / max(1, imageSize.width),
+        ])
+        guard let output = Self.blurContext.createCGImage(blur, from: input.extent) else { return nil }
+        let image = NSImage(cgImage: output, size: imageSize)
+        blurredImagesByRadius[key] = image
+        return image
+    }
+
+    private static let blurContext = CIContext()
 
     private func sourcePixelBuffer() -> ImageMosaicPixelBuffer? {
         if let sourcePixels {
@@ -330,13 +296,22 @@ enum ImageMosaicDrawing {
         source: ImageMosaicDrawingSource?,
         imageSize: CGSize
     ) {
+        if mode == .redact {
+            NSColor.black.setFill()
+            element.bounds.integral.fill()
+            return
+        }
+
         let blockSize = max(4, element.style.mosaicBlockSize)
-        guard let pixelatedImage = source?.pixelatedImage(blockSize: blockSize) else {
+        let strength = element.style.mosaicStrength
+        let blurRadius = strength <= 1 ? blockSize * strength : strength
+        let transformed = mode == .blur ? source?.blurredImage(radius: blurRadius) : source?.pixelatedImage(blockSize: blockSize)
+        guard let pixelatedImage = transformed else {
             return
         }
 
         switch mode {
-        case .rectangle:
+        case .rectangle, .blur:
             draw(
                 pixelatedImage,
                 imageSize: imageSize,
@@ -347,8 +322,10 @@ enum ImageMosaicDrawing {
                 pixelatedImage,
                 imageSize: imageSize,
                 clippedToStrokeThrough: element.points,
-                width: max(blockSize * 2, element.style.lineWidth)
+                width: max(2, element.style.mosaicBrushWidth ?? max(blockSize * 2, element.style.lineWidth))
             )
+        case .redact:
+            break
         }
     }
 

@@ -7,47 +7,23 @@ import FrameCore
 
 @MainActor
 final class SettingsWindowControllerTests: XCTestCase {
-    func testSettingsWindowUsesSinglePagePreferenceListLayout() {
-        XCTAssertEqual(SettingsWindowLayout.defaultSize.width, 620, accuracy: 0.5)
-        XCTAssertEqual(SettingsWindowLayout.defaultSize.height, 600, accuracy: 0.5)
-        XCTAssertEqual(SettingsWindowLayout.minimumSize.width, 560, accuracy: 0.5)
-        XCTAssertEqual(SettingsWindowLayout.minimumSize.height, 460, accuracy: 0.5)
-        XCTAssertFalse(SettingsWindowLayout.usesSidebar)
-        XCTAssertEqual(SettingsListMetrics.maxContentWidth, 540, accuracy: 0.5)
-        XCTAssertEqual(SettingsListMetrics.contentPadding, 30, accuracy: 0.5)
-        XCTAssertEqual(SettingsListMetrics.sectionSpacing, 14, accuracy: 0.5)
-        XCTAssertFalse(SettingsListMetrics.showsAboutAsSection)
-        XCTAssertTrue(SettingsListMetrics.showsAboutFooter)
-    }
-
-    func testSettingsSinglePageKeepsSettingsDomainsInProductOrder() {
-        XCTAssertEqual(SettingsSection.allCases, [
-            .general,
-            .screenshot,
-            .recording,
-            .textRecognition,
-            .history,
-            .permissions,
+    func testSettingsNavigationKeepsCategoriesInProductOrder() {
+        let sections: [SettingsSection] = [.general, .capture, .history, .permissions]
+        XCTAssertEqual(SettingsSection.allCases, sections)
+        XCTAssertEqual(sections.map { $0.title(strings: AppStrings(language: .zhHans)) }, [
+            "通用", "捕获", "历史", "权限",
         ])
-
-        let strings = AppStrings(language: .zhHans)
-        XCTAssertEqual(SettingsSection.allCases.map { $0.title(strings: strings) }, [
-            "通用",
-            "截图",
-            "录屏",
-            "文字识别",
-            "历史",
-            "权限",
+        XCTAssertEqual(sections.map { $0.title(strings: AppStrings(language: .en)) }, [
+            "General", "Capture", "History", "Permissions",
         ])
     }
 
     func testSettingsTypographyUsesSystemFontsAndReadableRows() {
         XCTAssertTrue(SettingsTypographyMetrics.usesSystemFont)
-        XCTAssertTrue(SettingsTypographyMetrics.usesQuietSectionTitles)
         XCTAssertTrue(SettingsTypographyMetrics.usesMediumRowLabels)
         XCTAssertEqual(SettingsTypographyMetrics.sectionFontSize, 13, accuracy: 0.5)
-        XCTAssertEqual(SettingsTypographyMetrics.rowFontSize, 14, accuracy: 0.5)
-        XCTAssertEqual(SettingsTypographyMetrics.secondaryFontSize, 13, accuracy: 0.5)
+        XCTAssertEqual(SettingsTypographyMetrics.rowFontSize, 13, accuracy: 0.5)
+        XCTAssertEqual(SettingsTypographyMetrics.secondaryFontSize, 12, accuracy: 0.5)
         XCTAssertEqual(SettingsTypographyMetrics.footerFontSize, 11, accuracy: 0.5)
     }
 
@@ -56,18 +32,6 @@ final class SettingsWindowControllerTests: XCTestCase {
             SettingsAboutFooterText.value(appName: "Frame", version: "0.1.0", build: "1"),
             "Frame · Version 0.1.0 · Build 1"
         )
-    }
-
-    func testSettingsRowsUseQuietGroupedListMetrics() {
-        XCTAssertTrue(SettingsGroupMetrics.usesVisibleGroupBackground)
-        XCTAssertEqual(SettingsGroupMetrics.cornerRadius, 10, accuracy: 0.5)
-        XCTAssertEqual(SettingsGroupMetrics.rowMinHeight, 36, accuracy: 0.5)
-        XCTAssertEqual(SettingsGroupMetrics.containerPadding, 10, accuracy: 0.5)
-        XCTAssertEqual(SettingsGroupMetrics.labelColumnWidth, 120, accuracy: 0.5)
-        XCTAssertEqual(SettingsGroupMetrics.horizontalPadding, 12, accuracy: 0.5)
-        XCTAssertEqual(SettingsGroupMetrics.controlSpacing, 14, accuracy: 0.5)
-        XCTAssertEqual(SettingsGroupMetrics.borderOpacity, 0.38, accuracy: 0.01)
-        XCTAssertEqual(SettingsSectionGroupMetrics.titleSpacing, 6, accuracy: 0.5)
     }
 
     func testScreenshotShortcutSettingsUseInlineRecorder() {
@@ -109,7 +73,6 @@ final class SettingsWindowControllerTests: XCTestCase {
         XCTAssertTrue(SettingsSaveLocationMetrics.showsResetOnlyForCustomLocation)
         XCTAssertFalse(SettingsSaveLocationMetrics.usesNestedControlBackground)
         XCTAssertFalse(SettingsSaveLocationMetrics.usesSeparateRevealBox)
-        XCTAssertEqual(SettingsSaveLocationMetrics.summaryWidth, 180, accuracy: 0.5)
     }
 
     func testSaveLocationSummaryUsesAbbreviatedPathForDefaultDirectory() {
@@ -282,9 +245,9 @@ final class SettingsWindowControllerTests: XCTestCase {
         )
 
         button.startRecording()
-        button.keyDown(with: keyEvent(characters: "a", modifiers: [.command], keyCode: kVK_ANSI_A))
+        button.keyDown(with: keyEvent(characters: "a", modifiers: [], keyCode: kVK_ANSI_A))
 
-        XCTAssertEqual(button.title, "⌘A")
+        XCTAssertEqual(button.title, "A")
         XCTAssertEqual(failures, [nil, .insufficientModifiers])
     }
 
@@ -308,7 +271,7 @@ final class SettingsWindowControllerTests: XCTestCase {
         )
 
         button.startRecording()
-        button.keyDown(with: keyEvent(characters: "a", modifiers: [.command], keyCode: kVK_ANSI_A))
+        button.keyDown(with: keyEvent(characters: "a", modifiers: [.shift], keyCode: kVK_ANSI_A))
         button.update(
             strings: AppStrings(language: .en),
             shortcut: .default,
@@ -317,7 +280,7 @@ final class SettingsWindowControllerTests: XCTestCase {
             onRecordingChange: { _ in }
         )
 
-        XCTAssertEqual(button.title, "⌘A")
+        XCTAssertEqual(button.title, "⇧A")
     }
 
     func testSettingsWindowUsesConfiguredMinimumSize() throws {
@@ -328,7 +291,6 @@ final class SettingsWindowControllerTests: XCTestCase {
         controller.show(
             strings: AppStrings(language: .en),
             onShortcutChange: { _ in true },
-            onCheckPermission: {},
             onLanguageChange: { _ in },
             onChooseScreenshotDirectory: { nil },
             onResetScreenshotDirectory: {},
@@ -340,25 +302,27 @@ final class SettingsWindowControllerTests: XCTestCase {
             window.close()
         }
 
-        XCTAssertEqual(window.minSize.width, 560, accuracy: 0.5)
-        XCTAssertEqual(window.minSize.height, 460, accuracy: 0.5)
-        XCTAssertEqual(window.frame.size.width, 620, accuracy: 0.5)
-        XCTAssertEqual(window.frame.size.height, 600, accuracy: 0.5)
+        XCTAssertEqual(window.minSize.width, 688, accuracy: 0.5)
+        XCTAssertGreaterThanOrEqual(window.minSize.height, SettingsWindowLayout.minimumSize.height)
+        XCTAssertEqual(window.frame.size.width, 752, accuracy: 0.5)
+        XCTAssertEqual(window.frame.size.height, 556, accuracy: 0.5)
         XCTAssertEqual(window.title, "Settings")
-        XCTAssertTrue(SettingsWindowLayout.usesCenteredTitlebarLabel)
         XCTAssertEqual(window.titleVisibility, .hidden)
-        XCTAssertEqual(window.toolbarStyle, .automatic)
-        XCTAssertFalse(window.titlebarAppearsTransparent)
-        XCTAssertFalse(window.styleMask.contains(.fullSizeContentView))
-        XCTAssertTrue(window.contentViewController is NSHostingController<AnyView>)
+        XCTAssertEqual(window.toolbarStyle, .unifiedCompact)
+        XCTAssertTrue(window.titlebarAppearsTransparent)
+        XCTAssertEqual(window.titlebarSeparatorStyle, .none)
+        XCTAssertTrue(window.styleMask.contains(.fullSizeContentView))
 
-        let titleField = try XCTUnwrap(
-            descendant(
-                in: window.contentView?.superview,
-                identifier: SettingsWindowLayout.centeredTitlebarTitleIdentifier
-            ) as? NSTextField
-        )
-        XCTAssertEqual(titleField.stringValue, "Settings")
+        let split = try XCTUnwrap(window.contentViewController as? NSSplitViewController)
+        XCTAssertTrue(split.splitView.isVertical)
+        XCTAssertEqual(split.splitViewItems.map(\.behavior), [.sidebar, .default])
+        XCTAssertTrue(split.splitViewItems[0].allowsFullHeightLayout)
+        XCTAssertFalse(split.splitViewItems[0].canCollapse)
+        if #available(macOS 26.0, *) {
+            XCTAssertTrue(split.splitViewItems[1].automaticallyAdjustsSafeAreaInsets)
+        }
+        controller.update(strings: AppStrings(language: .zhHans))
+        XCTAssertEqual(window.title, "设置")
     }
 
     func testOCRLanguageSettingsExposeDefaultOptions() {
@@ -421,24 +385,6 @@ final class SettingsWindowControllerTests: XCTestCase {
         XCTAssertEqual(frame.midY, visibleFrame.midY, accuracy: 0.5)
         XCTAssertEqual(frame.width, 900, accuracy: 0.5)
         XCTAssertEqual(frame.height, 540, accuracy: 0.5)
-    }
-
-    private func descendant(in view: NSView?, identifier: NSUserInterfaceItemIdentifier) -> NSView? {
-        guard let view else {
-            return nil
-        }
-
-        if view.identifier == identifier {
-            return view
-        }
-
-        for subview in view.subviews {
-            if let match = descendant(in: subview, identifier: identifier) {
-                return match
-            }
-        }
-
-        return nil
     }
 
     private func keyEvent(

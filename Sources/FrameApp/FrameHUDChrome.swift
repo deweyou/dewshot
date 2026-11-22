@@ -2,7 +2,6 @@ import AppKit
 
 enum FrameHUDChrome {
     enum Surface {
-        case toolbar
         case editor
         case overlay
     }
@@ -18,8 +17,6 @@ enum FrameHUDChrome {
 
     static func backgroundColor(for surface: Surface) -> NSColor {
         switch surface {
-        case .toolbar:
-            NSColor.black.withAlphaComponent(0.60)
         case .editor:
             NSColor.black.withAlphaComponent(0.84)
         case .overlay:
@@ -58,5 +55,24 @@ enum FrameHUDChrome {
         layer?.backgroundColor = backgroundColor(for: .overlay).cgColor
         layer?.borderWidth = 0.5
         layer?.borderColor = border.cgColor
+    }
+}
+
+/// The media windows use a dark, neutral chrome so the editing canvas remains the focus.
+final class MediaWindowHeaderView: NSVisualEffectView {
+    init() {
+        super.init(frame: .zero)
+        appearance = NSAppearance(named: .vibrantDark)
+        material = .titlebar
+        blendingMode = .withinWindow
+        state = .followsWindowActiveState
+        wantsLayer = true
+        layer?.backgroundColor = NSColor(white: 0.105, alpha: 1).cgColor
+        translatesAutoresizingMaskIntoConstraints = false
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
     }
 }

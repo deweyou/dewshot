@@ -29,17 +29,11 @@ The packaging script creates the production `.build/app/Frame.app` by default. S
 
 For user-facing GUI changes, final handoff must explicitly ask whether to replace the local test app unless the user already declined or replacement was already completed in the same turn.
 
-When replacing the user's local app or preparing a repeat GUI test build, do not use the default ad-hoc package. Always run this exact stable-signing flow:
-
-```sh
-FRAME_APP_VARIANT=development FRAME_CODESIGN_IDENTITY="Frame Local Dev CLI" scripts/package-app.sh
-mkdir -p ~/Applications
-rm -rf ~/Applications/Frame\ Dev.app
-ditto ".build/app/Frame Dev.app" ~/Applications/Frame\ Dev.app
-open ~/Applications/Frame\ Dev.app
-```
-
-After replacement, verify `codesign -dv --verbose=2 ~/Applications/Frame\ Dev.app` reports `Authority=Frame Local Dev CLI` before telling the user it is ready.
+For repeat GUI testing and local replacement, use the `development` variant
+signed with an Apple Development identity from `security find-identity -v -p
+codesigning`. Install it at `~/Applications/Frame Dev.app` and verify the
+installed signature reports an Apple Development authority before handing off.
+Follow [the local installation flow](docs/development.md#manual-smoke-test).
 
 ## Knowledge Base
 
@@ -67,7 +61,9 @@ For user-facing features, behavior changes, bug fixes, and release workflow chan
 
 ## macOS Permission Notes
 
-Screen Recording permission is tied to the app identity and code signature. Local ad-hoc builds can require re-authorization after rebuilding because the binary signature changes. For repeat manual testing, package the `development` variant with `FRAME_CODESIGN_IDENTITY="Frame Local Dev CLI"`, copy it to the stable `~/Applications/Frame Dev.app` path, and authorize that exact app. Keep this as the default local development path even after Apple signing certificates exist; reserve Apple Development or Developer ID identities for explicit signing-path or distribution tests.
+Screen Recording permission is tied to the app identity and code signature.
+For repeat GUI testing, keep the same Apple Development identity, development
+bundle identifier, and installed path. See [macOS Permissions](docs/permissions.md).
 
 ## Git Hygiene
 

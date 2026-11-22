@@ -202,6 +202,7 @@ final class CaptureHistoryStore {
         kind: CaptureHistoryKind,
         data: Data,
         filenameExtension: String? = nil,
+        id: UUID = UUID(),
         imageSize: CGSize,
         rect: CGRect,
         date: Date = Date(),
@@ -217,7 +218,6 @@ final class CaptureHistoryStore {
 
         try ensureDirectories()
 
-        let id = UUID()
         let fileExtension = filenameExtension ?? kind.fileExtension
         let filename = "\(id.uuidString).\(fileExtension)"
         let record = CaptureHistoryRecord(
@@ -231,10 +231,15 @@ final class CaptureHistoryStore {
             rect: rect
         )
 
-        try data.write(to: captureURL(for: record), options: .atomic)
         var records = try readRecords()
+        try data.write(to: captureURL(for: record), options: .atomic)
         records.append(record)
-        try writeRecords(records)
+        do {
+            try writeRecords(records)
+        } catch {
+            try? fileManager.removeItem(at: captureURL(for: record))
+            throw error
+        }
         try cleanup(now: date, configuration: configuration)
         return try readRecords().first { $0.id == id }
     }
@@ -244,13 +249,59 @@ final class CaptureHistoryStore {
         date: Date = Date(),
         configuration: CaptureHistoryConfiguration = .current()
     ) throws -> CaptureHistoryRecord? {
-        try addScreenshot(
-            pngData: screenshot.pngData,
+        try addCapture(
+            kind: .screenshot,
+            data: screenshot.pngData,
+            id: screenshot.id,
             imageSize: screenshot.image.size,
             rect: screenshot.rect,
             date: date,
             configuration: configuration
         )
+    }
+
+    @discardableResult
+    func saveEditedScreenshot(
+        _ screenshot: CapturedScreenshot,
+        configuration: CaptureHistoryConfiguration = .current()
+    ) throws -> Bool {
+        guard configuration.isEnabled else {
+            return false
+        }
+        guard screenshot.pngData.count <= configuration.sizeLimit.bytes else {
+            throw CocoaError(.fileWriteOutOfSpace)
+        }
+
+        var records = try readRecords()
+        guard let index = records.firstIndex(where: { $0.id == screenshot.id && $0.kind == .screenshot }) else {
+            return try addScreenshot(screenshot, configuration: configuration) != nil
+        }
+
+        let original = records[index]
+        let replacement = CaptureHistoryRecord(
+            id: original.id,
+            kind: original.kind,
+            createdAt: original.createdAt,
+            filename: "\(UUID().uuidString).png",
+            byteSize: screenshot.pngData.count,
+            pixelWidth: Int(screenshot.image.size.width.rounded()),
+            pixelHeight: Int(screenshot.image.size.height.rounded()),
+            rect: screenshot.rect
+        )
+        records[index] = replacement
+        let retained = retainedRecords(records, now: Date(), configuration: configuration, preserving: replacement.id)
+        guard retained.contains(where: { $0.id == replacement.id }) else { return false }
+
+        try screenshot.pngData.write(to: captureURL(for: replacement), options: .atomic)
+        do {
+            try writeRecords(retained)
+        } catch {
+            try? fileManager.removeItem(at: captureURL(for: replacement))
+            throw error
+        }
+        try? fileManager.removeItem(at: captureURL(for: original))
+        removeUnretainedFiles(records, keeping: retained)
+        return true
     }
 
     func addRecording(
@@ -316,25 +367,33 @@ final class CaptureHistoryStore {
         now: Date = Date(),
         configuration: CaptureHistoryConfiguration = .current()
     ) throws {
-        var records = try readRecords()
+        let records = try readRecords()
+        let retained = retainedRecords(records, now: now, configuration: configuration)
+        try writeRecords(retained)
+        removeUnretainedFiles(records, keeping: retained)
+    }
 
-        if let retentionDuration = configuration.retention.duration {
-            let cutoff = now.addingTimeInterval(-retentionDuration)
-            for record in records where record.createdAt < cutoff {
-                try? fileManager.removeItem(at: captureURL(for: record))
-            }
-            records.removeAll { $0.createdAt < cutoff }
+    private func retainedRecords(
+        _ records: [CaptureHistoryRecord],
+        now: Date,
+        configuration: CaptureHistoryConfiguration,
+        preserving recordID: UUID? = nil
+    ) -> [CaptureHistoryRecord] {
+        let cutoff = configuration.retention.duration.map { now.addingTimeInterval(-$0) } ?? .distantPast
+        var retained = records.filter { $0.createdAt >= cutoff }.sorted { $0.createdAt < $1.createdAt }
+        var totalBytes = retained.reduce(0) { $0 + $1.byteSize }
+        while totalBytes > configuration.sizeLimit.bytes, retained.count > 1,
+              let index = retained.firstIndex(where: { $0.id != recordID }) {
+            totalBytes -= retained.remove(at: index).byteSize
         }
+        return retained
+    }
 
-        records.sort { $0.createdAt < $1.createdAt }
-        var totalBytes = records.reduce(0) { $0 + $1.byteSize }
-        while totalBytes > configuration.sizeLimit.bytes, records.count > 1 {
-            let removed = records.removeFirst()
-            totalBytes -= removed.byteSize
-            try? fileManager.removeItem(at: captureURL(for: removed))
+    private func removeUnretainedFiles(_ records: [CaptureHistoryRecord], keeping retained: [CaptureHistoryRecord]) {
+        let keptIDs = Set(retained.map(\.id))
+        for record in records where !keptIDs.contains(record.id) {
+            try? fileManager.removeItem(at: captureURL(for: record))
         }
-
-        try writeRecords(records)
     }
 
     private var indexURL: URL {

@@ -14,45 +14,32 @@ system tool, not a branded dashboard.
 
 ## Settings
 
-- Settings is a compact single-page preference list, not a multi-column dashboard.
-  Do not introduce a sidebar unless the number of settings grows enough that
-  scrolling becomes materially harder than category navigation.
-- Use quiet grouped rows with short section labels, fixed label columns, native
-  controls aligned to the trailing edge, and subtle separators. Avoid large
-  empty detail panes, nested cards, or decorative section chrome.
-- The default Settings window should show multiple groups at once and scroll for
-  longer preference sets such as OCR languages. Use a roughly 620 x 600 default
-  window, a 560 x 460 minimum, and about 540 px of content width so the page
-  feels like a preference pane instead of a narrow form. Preserve a resizable
-  native window with a standard centered titlebar and system traffic-light
-  controls.
-- The native window titlebar owns the centered Settings title. Do not duplicate
-  a large "Settings" / "设置" heading inside the content area.
-- Section containers need enough inner padding that row dividers never visually
-  collide with the rounded border. Keep section gaps compact, around 14 px, and
-  use subtle borders instead of heavy card outlines.
-- Settings typography uses the macOS system font throughout. Prefer hierarchy
-  through size, weight, spacing, and grouping rather than custom Chinese display
-  fonts. Section titles and row labels should stay medium-weight; avoid large
-  bold labels that make simple preferences feel oversized.
-- Screenshot and recording shortcut editing use compact inline recorders in the
-  General section. Validate simple local format rules and prevent duplicate
-  Frame capture shortcuts before applying, but do not proactively inspect
-  system-wide shortcut conflicts.
-- Save location settings belong in the General section and use a quiet inline
-  summary: show only a folder icon plus the abbreviated path without repeating
-  the folder name or adding a nested card background, keep folder choosing as a
-  small native action, avoid secondary Finder reveal buttons in the row, and
-  show reset only for custom locations.
-- About/version/build metadata belongs in a small secondary English footer, not
-  a primary settings section.
-- Permissions use one compact group with separate Screen Recording,
-  Accessibility, and Input Monitoring rows. Show the current state and direct
-  request/System Settings actions, then refresh state when Frame becomes active
-  again. Do not imply that optional feature permissions block basic capture.
-- Long option collections such as OCR language toggles should stay out of the
-  main settings scroll. Use a whole-row entry with a selected-count summary that
-  opens an attached sheet for detailed editing.
+- Use a compact sidebar with General, Capture, History, and Permissions.
+  Use small symbols and give each label vertical space. Capture groups
+  screenshots, recording, and text recognition. Use an AppKit
+  split-view sidebar that extends into the window chrome. Let macOS render its
+  material and row selection. Place the page heading and controls on a solid
+  detail surface, with safe-area insets around the window controls and sidebar.
+- Give each pane one clear heading. Use lightly shaded groups, quiet dividers,
+  system typography, and a shared trailing edge for native controls. Place
+  supporting details beneath their row labels. Put version and build metadata
+  near the bottom of the sidebar.
+- In General, show small previews for Follow System, Light, and Dark and mark the
+  active appearance on its preview. Keep language, launch at login, the save folder, and
+  capture shortcuts in General. Display the abbreviated save path and offer
+  reset only for custom locations.
+- Use inline shortcut recorders. Accept a letter or number with Command,
+  Option, or Control, with Shift available as an additional modifier. Reject
+  duplicates within Frame and enabled macOS shortcuts before saving. Use
+  exclusive registration to detect other exclusive reservations. Ask for
+  confirmation on common application commands such as Command+A.
+- Keep separate Screen Recording, Accessibility, and Input Monitoring rows.
+  Explain each permission's purpose and show granted status or a single link to
+  the corresponding System Settings pane. Recheck when the pane appears or
+  Frame becomes active. Explain optional permissions when the user selects
+  automatic scrolling or keystroke hints.
+- In Capture, show the selected OCR language count and open the language
+  chooser as a sheet from the entire row.
 
 ## Screenshot Overlay
 
@@ -72,19 +59,22 @@ system tool, not a branded dashboard.
 
 - The menu bar menu exposes Capture Screenshot and Record Screen as separate
   direct actions. Show configured shortcuts using native menu key equivalents;
-  keep Record Screen available even when its optional global shortcut is unset.
+  use Command+Shift+R as the default for Record Screen, and keep the menu
+  action available when the shortcut is unset.
 
-- Use native glass/material effects first. In AppKit, prefer
-  `NSVisualEffectView` with a HUD-appropriate material before drawing custom
-  backgrounds. In future SwiftUI surfaces, prefer Liquid Glass APIs such as
-  `glassEffect` and glass button styles when the deployment target allows them.
-- The HUD is a compact dark glass hub, not a heavy solid toolbar.
+- Use untinted AppKit Regular Liquid Glass for both capture HUD capsules.
+  The glass and tooltip follow the app appearance. Pair the native material
+  with charcoal icons in light appearance and soft light gray icons in dark
+  appearance.
 - Keep the HUD small and low-priority. It should not compete with the selected
   content.
 - Keep HUD width stable while users edit size, toggle ratio lock, or open ratio
   presets. Avoid adding extra persistent buttons when an inline icon can carry
   the interaction.
-- Place mode/actions on the left and the size readout on the right.
+- Place compact action icons on the left and the size readout on the right.
+  Keep both screenshot HUD capsules 42 pt high and describe icon actions with
+  tooltips and accessibility labels. Prefer placing the screenshot HUD outside
+  the selection, below when space allows and above for bottom-edge selections.
 - Size is persistent in screenshot modes. If a mode cannot edit size, disable
   editing rather than hiding or moving the size position.
 - Size editing uses fixed-width numeric fields. Commit edited dimensions on
@@ -108,11 +98,10 @@ system tool, not a branded dashboard.
 - Tooltips should be delayed and owned above the overlay/HUD layer. Default
   placement is below the hovered control, flipping above only when there is not
   enough space.
-- HUD icon content uses fixed white on a deliberately deep glass background.
-  Do not reintroduce background-aware black/white icon switching or
-  appearance-dependent dynamic icon colors for the capture HUD; keep contrast
-  stable with a dark glass fill that is less transparent than system chrome, a
-  quiet hairline border, and subtle hover fill instead.
+- Group the two capsules in a native glass container and use the material's own
+  edge. Keep the selection scrim around the controls and reveal the desktop
+  directly through the glass. Choose icon colors from the app appearance and
+  keep hover fills subtle.
 - Delay screenshot countdowns are passive: after the user starts the countdown,
   keep a prominent semi-transparent red countdown near the current screen's
   bottom center while letting underlying apps receive mouse interaction. Hide
@@ -121,9 +110,9 @@ system tool, not a branded dashboard.
 
 ## Recording HUD
 
-- Recording HUD states inherit the screenshot HUD chrome: native glass, compact
-  buttons, stable sizing, delayed tooltips, less-transparent dark glass chrome,
-  white icon contrast, and a quiet boundary.
+- The recording setup inherits the screenshot HUD appearance, with compact
+  controls and delayed tooltips. Keep the primary recording action red with
+  white text.
 - The screenshot HUD may switch into recording setup without closing the
   selection overlay. Setup controls stay compact and cover start recording,
   MP4/GIF format, cursor visibility, and keyboard hint visibility. The MP4/GIF
@@ -160,28 +149,22 @@ system tool, not a branded dashboard.
 
 - HUD-like controls share one visual language across capture, Image Workspace,
   video preview/editing, and Quick Access surfaces.
-- Glass containers use HUD material, a quiet translucent border, and capsule
-  geometry when the control row is short. For fixed-height toolbars, the left
-  and right ends should read as large rounded caps rather than square panels.
-- Capture, recording, and workspace toolbar rows use a darker,
-  less-transparent glass fill under that material so light icons stay readable
-  without relying on background luminance detection.
-- Icon buttons are icon-only except for compact state toggles such as the
-  MP4/GIF recording format control. Their default state is quiet; hover shows a
-  circular background behind the icon instead of changing the whole toolbar or
-  adding explanatory text.
+- Use capsule geometry to group related controls in the capture launcher and
+  image editor. Center the editor's markup tools in one quiet capsule. Give
+  standalone actions pill backgrounds and keep the window header aligned
+  with the native window controls. Center the text and chevron as one group
+  inside menu pills, with equal padding at both ends.
+- Use short visible labels for starting and finishing scrolling capture, starting
+  recording, and the recording format. Keep secondary actions compact and give
+  icon-only buttons a tooltip and accessibility label.
 - Actions that are visible before their behavior is implemented stay disabled:
   no pointer cursor, no hover fill, and disabled tint.
-- Selected tools keep the same circular affordance, using a compact accent tint
-  with a light glyph rather than a heavy filled segment.
-- Toolbar chrome must not obscure the screenshot. Workspace toolbar rows align
-  vertically with the native traffic-light row and extend behind the native
-  traffic-light controls. The toolbar chrome and image preview run edge-to-edge
-  inside the workspace content; editing actions start after the traffic-light
-  safe area.
-- Workspace toolbar and image preview keep a small vertical gap so the titlebar
-  controls and preview surface read as separate layers without restoring outer
-  padding.
+- Use a circular or capsule-shaped highlight with an accent tint and a light
+  glyph for selected tools. Use the same shape for pointer feedback.
+- The window action row extends behind the native traffic lights. Give the
+  editor toolbar, inspector, and canvas surround a shared neutral background.
+  In the expanded workspace, leave the same gap above and beside the canvas.
+  Give secondary output actions a quiet resting appearance.
 - Workspace windows should open with the image area matching the screenshot
   aspect ratio so the initial preview does not show letterbox/pillarbox edges.
 - Workspace resize keeps the image area at the screenshot aspect ratio while the
@@ -194,23 +177,32 @@ system tool, not a branded dashboard.
 - Image Workspace panels use the native macOS window shadow because the surface
   behaves like a real movable and resizable window. Avoid custom shadow gutters
   unless the workspace becomes a borderless HUD-like surface again.
-- Pinned image windows are image-only. They use native macOS traffic-light
-  controls over the top-left of the image and do not show the workspace toolbar
-  or visible output actions.
+- Pinned windows give the image its own surface below the native titlebar.
+  Put output actions in the context menu.
 - Pinned image windows expose Copy, Download, and Edit through the context menu.
   These actions must not close the pinned window. Edit opens or activates the
   preview/edit workspace for the same screenshot.
 - Every icon-only action must keep a tooltip and accessibility label.
 - Video Preview output actions follow the workspace's traffic-light-safe header
   pattern: a compact, right-aligned group of fixed-width icon cells with a
-  centered hover circle. The MP4 editor remains a deep horizontal workbench for
-  its timeline, playback, duration, and speed controls rather than becoming a
-  second floating capsule toolbar.
+  centered hover circle. Keep playback, duration, speed, and the timeline in the
+  bottom editor bar. Use a few subdued frames in longer MP4 timelines to help
+  users find a position without hiding the trim handles or time labels.
 
 ## Quick Access
 
 - Quick Access is a small fixed post-capture preview with icon-only hover
-  actions for copy, save, workspace, pin, and close.
+  actions for copy, save, workspace, pin, and close. Lead with copy and save,
+  and give secondary actions quieter icons.
+- Auto-copy is on by default and lives in Capture settings. Copy screenshots
+  as images and recordings as files after capture completes, and keep their
+  previews available. Copy only the active display's image during a multi-display
+  full-screen capture. A scrolling capture copies its final stitched image.
+- Each preview auto-dismisses after 30 seconds by default once its result has
+  been copied or stored in history. Capture settings offer 10 seconds,
+  30 seconds, 1 minute, and Never for subsequent previews. Start the timer
+  after final stitching and pause it during hover, pointer interaction, OCR,
+  or temporary hiding.
 - Keep captured image and video pixels visually true. Apply stable deep glass
   only to hover action overlays, close/status/duration accessories, fallback
   placeholders, and the larger hover preview shell so arbitrary media or
@@ -229,63 +221,50 @@ system tool, not a branded dashboard.
   pinned window.
 - Opening workspace again for the same captured screenshot activates the existing
   preview/edit window instead of creating duplicates.
-- Workspace Copy and Download are active output actions. On success they close
-  the workspace and the originating Quick Access preview. The checkmark Save
-  Current action follows the user's configured default: Ask Every Time opens the
-  Replace Current / Save As New choice menu, Replace Current updates the
-  current in-memory edited screenshot and any still-active Quick Access preview,
-  and Save As New creates another Quick Access preview. Replace Current must not
-  overwrite a user-saved external file.
-- Save Current, Copy, and Download form one compact, evenly sized output group
-  in the workspace toolbar. Copy and Download tooltips read Save and Copy and
-  Save and Download. The toolbar divides History, Tools, Contextual Style, and
-  Output with short quiet separators; the style separator hides with its control.
-  Every primary icon uses the shared visual-metrics catalog, a 28 pt control cell,
-  a 22 pt hover/selected circle, and a 14 pt visual glyph box. Normalize native
-  SF Symbol ink bounds through that catalog instead of adding point-size or
-  baseline overrides at individual button call sites.
-- Screenshot editing controls stay in the top workspace toolbar. Shape tools
-  are flat top-level buttons for rectangle, oval, line, and arrow. Only mosaic
-  uses a split button: the main icon activates the current mosaic mode, and the
-  attached chevron opens Region/Brush mosaic options through at least a 20 pt
-  target. The two sides share one compact visual container, inner divider, and
-  hover/selected state while retaining independent actions. The old separate
-  Color and Thickness/Font Size toolbar menus are
-  replaced by a compact contextual header style control. It appears in the
-  toolbar only when the selected object or active tool supports color and
-  contextual size edits. Color uses an icon-only swatch selector without a
-  visible chevron and a tiled dropdown palette, while contextual size uses an icon plus
-  slider without a visible numeric value. The control edits the selected
-  annotation when one is selected, or the current tool defaults when no
-  annotation is selected. It is a lightweight editing affordance, not a
-  persistent side inspector or layer/property panel.
-- The image canvas uses a fully opaque black backdrop behind aspect-fitted image
-  content; do not let desktop/window translucency show through the work area.
-- The editor opens with the pointer/select tool active, while remembering the
-  last selected color, thickness, font size, mosaic mode, and shape type.
-  Thickness options include 1, 2, 4, 8, 12, 16, and 24 px; text sizes include
-  12, 14, 16, 18, 22, 28, 36, 48, 64, 80, and 96 pt. Dropdown menus mark the
-  active option with the native menu selected state. The mosaic primary icon
-  follows its selected subtool.
-- Editing is object-based: annotations can be selected, moved, resized, deleted,
-  undone, and redone. Selected annotations use a thin high-contrast outline
-  without a visible resize anchor; their top-right corner remains a resize target.
-- Text annotations support re-entering text edit mode after creation. Double
-  clicking any annotation enters that object's editing context: text edits
-  inline, shape subtypes select their matching shape tool, and brush, highlight,
-  and mosaic select their matching tool context.
-- Canvas tool shortcuts are local to the Image Workspace responder chain. Use
-  `V`, `R`, `O`, `L`, `A`, `B`, `T`, `H`, and `M` for Select, Rectangle, Oval,
-  Line, Arrow, Brush, Text, Highlight, and Mosaic; `[` and `]` step contextual
-  size. Inline text editing keeps native text shortcuts and normal character
-  entry.
-- Shape annotations include rectangle, oval, line, and arrow. Arrows should be
-  straight-edged filled wedge arrows that grow from a fine tail into a wider
-  body and filled head instead of stroked line arrows. Holding Shift while
-  drawing constrains rectangles/ovals to squares/circles and line/arrow angles
-  to horizontal, vertical, or 45 degrees. Mosaic supports both
-  rectangular regions and brush strokes; rectangular mosaic should show a
-  lightweight selection frame while dragging and apply pixelation after release.
+- Undo and Redo sit beside the traffic lights. Center the markup group in the
+  remaining space before Copy, Export, and Save Current. Use 36 pt targets
+  and 18 pt glyph boxes for markup. Give Save Current the primary treatment.
+- Open the right inspector by default. The titlebar toggle hides it and
+  returns the width to the canvas. Selecting a tool or object changes the
+  inspector's controls. Give shapes a color, width, and line or fill controls.
+  Give text a font, size, bold and italic, alignment, and color. Show all four
+  redaction modes in a two-column grid with a visible selection. Group the
+  current tool’s controls on one quiet surface. Keep compact image commands
+  and zoom together at the top of the inspector. Share one low-contrast
+  capsule across the image commands. Use a quiet text action for Fit.
+- Put Crop, Resize, Transform, and zoom controls in the inspector when it is
+  expanded. Crop replaces the tool controls with aspect ratio, pixel dimensions,
+  Cancel, and Apply. When the inspector is collapsed, restore a compact editing
+  row and footer zoom controls. Keep the window frame stable when toggling.
+- Return applies the crop and Escape cancels it. The canvas status row shows
+  actual pixel dimensions and feedback. The canvas has an opaque work area and a
+  checkerboard where the image has transparent pixels.
+- Crop, resize, rotate, flip, and raster adjustments share undo with annotation
+  edits. Guides and object handles are visible on canvas only. Shapes use
+  corner handles. Lines and arrows use their actual endpoints. Hold Shift
+  while drawing to constrain shapes and angles, and hold Option while
+  dragging with a drawing tool to draw over an existing annotation.
+- Inline text starts on a blank click. Drag for a fixed-width text box.
+  Double-click to re-edit text and press Escape to restore it as it was before
+  entering that edit. The text editor keeps native selection and clipboard
+  shortcuts. With the canvas focused, `V`, `R`, `O`, `L`, `A`, `B`, `T`, `H`,
+  and `M` switch tools, and `[` / `]` step through common sizes.
+- Mosaic has a compact split control for Region, Brush, Blur, and Solid
+  Redaction. Preview the effect during the drag. Block size and brush width
+  are independent. Draw solid redactions above the other objects and omit
+  text intersecting them from OCR selection. Share a flattened image when
+  redaction is used. Editable project files include the underlying image.
+- Copy and Export deliver the currently rendered image, show feedback, and
+  keep the editor open. The Copy and Export actions leave history as it is.
+  Save Current follows the configured default. Replace Current updates the
+  history entry and any active originating preview. Save As New creates a
+  separate history entry and a preview. If history cannot store the result,
+  offer to export it. Keep the editor dirty until the file is written.
+  The current session keeps editable objects and undo after a save.
+- A local `.frameimage` project stores the current raster and objects so a user
+  can continue editing later. An image exported from the same session contains
+  the flattened result. Importing a local image opens a new session, so replacing
+  the history version leaves the source file in place.
 - It should stay lightweight and dismissible, without blocking normal system
   usage.
 - Starting a recording temporarily hides existing Quick Access cards; it must
@@ -331,12 +310,15 @@ system tool, not a branded dashboard.
   rather than adding a separate toolbar band.
 - History tiles follow the Quick Access visual language: rounded image preview,
   fine translucent border, compact metadata, and icon-only hover HUD actions.
-- Restoring a history tile should return the capture to the bottom-left Quick
-  Access stack instead of opening recordings directly in the system player.
+- Single-click selects a history tile. Double-click or Return opens the selected
+  screenshot in the image workspace or recording in Frame's video preview.
+  Restore brings the capture back to the bottom-left Quick Access stack.
   Restored recordings must keep enough media metadata, including duration, for
   the same Preview and Edit actions available after a fresh recording.
 - Recording history tiles should use the first decodable recording frame as the
   preview image and fall back to a lightweight video placeholder only when
   decoding fails.
-- Keep history actions hidden until the tile is hovered. Metadata should remain
-  one compact line below the preview and must not reintroduce table columns.
+- Keep history actions hidden until the tile is hovered. Place capture time on
+  the first line below the preview and keep dimensions and size secondary.
+  Empty history offers a capture action, a filter reset, or a route to Settings
+  depending on why the grid is empty.

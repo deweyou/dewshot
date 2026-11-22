@@ -5,15 +5,18 @@ private let imageWorkspaceEscapeKeyCode: UInt16 = 53
 
 @MainActor
 final class ImageWorkspaceTextSelectionOverlayView: NSView {
-    private let imageSize: CGSize
+    private var imageSize: CGSize
     private let copyText: (String) -> Bool
     private let imageZoom: ImageWorkspaceImageZoom
+    private var originalLayout: RecognizedTextLayout?
+    private var redactions: [CGRect] = []
     private var cutLayout: RecognizedTextCutLayout?
     private var selectedCutIDs: Set<UUID> = []
     private var selectionAnchorCutID: UUID?
     private var isDraggingSelection = false
     private var isTextSelectionEnabled = true
     private var trackingArea: NSTrackingArea?
+    var shouldPassThroughPoint: ((CGPoint) -> Bool)?
     var menuProvider: (() -> NSMenu)?
     var magnifyHandler: ((NSEvent) -> Void)?
     var scrollWheelHandler: ((NSEvent) -> Void)?
@@ -47,6 +50,7 @@ final class ImageWorkspaceTextSelectionOverlayView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? {
         guard !isHidden,
               isTextSelectionEnabled,
+              shouldPassThroughPoint?(point) != true,
               cut(at: point) != nil || hasSelectedText else {
             return nil
         }
@@ -103,8 +107,34 @@ final class ImageWorkspaceTextSelectionOverlayView: NSView {
         cutLayout?.selectedText(for: selectedCutIDs) ?? ""
     }
 
+    func resetImageSize(_ imageSize: CGSize) {
+        self.imageSize = imageSize
+        originalLayout = nil
+        cutLayout = nil
+        clearSelection()
+        updateVisibility()
+        window?.invalidateCursorRects(for: self)
+        needsDisplay = true
+    }
+
     func setRecognizedTextLayout(_ textLayout: RecognizedTextLayout) {
-        setCutLayout(RecognizedTextCutLayout(textLayout: textLayout))
+        originalLayout = textLayout
+        applyRedactions(to: textLayout)
+    }
+
+    func excludeText(in rects: [CGRect]) {
+        guard rects != redactions else { return }
+        redactions = rects
+        if let originalLayout { applyRedactions(to: originalLayout) }
+    }
+
+    private func applyRedactions(to layout: RecognizedTextLayout) {
+        let filtered = layout.lines.filter { line in
+            let rect = CGRect(x: line.bounds.x * imageSize.width, y: line.bounds.y * imageSize.height,
+                              width: line.bounds.width * imageSize.width, height: line.bounds.height * imageSize.height)
+            return !redactions.contains { $0.intersects(rect) }
+        }
+        setCutLayout(RecognizedTextCutLayout(textLayout: RecognizedTextLayout(lines: filtered)))
     }
 
     func setCutLayout(_ cutLayout: RecognizedTextCutLayout) {

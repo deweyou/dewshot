@@ -152,6 +152,7 @@ final class SelectionOverlayController: SelectionOverlayControlling {
                 placeholderText: strings.capturePlaceholder,
                 scrollingActionText: strings.scrollingScreenshotAction,
                 ocrActionText: strings.quickAccessOCR,
+                strings: strings,
                 onInteraction: { [weak self] in
                     guard let createdWindow else {
                         return
@@ -317,7 +318,7 @@ final class SelectionOverlayController: SelectionOverlayControlling {
                 return event
             }
 
-            if self.overlayWindows.contains(where: \.isEditingSize) {
+            if NSApp.modalWindow != nil || self.overlayWindows.contains(where: \.isEditingSize) {
                 return event
             }
 

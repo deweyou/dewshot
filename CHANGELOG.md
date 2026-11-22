@@ -2,6 +2,81 @@
 
 ## Unreleased
 
+- Add a right inspector to the image editor, open by default, with contextual
+  shape, text, and redaction controls. Group image commands and zoom
+  together and remove individual outlines from the image commands. Use a
+  shared editor background and inset the expanded canvas.
+  Restore compact controls when the inspector is collapsed. Support italic
+  annotation text and changing a selected redaction's mode.
+
+- Center frequently used markup tools in the image editor toolbar and give
+  them larger targets. Use the lower row for image commands, styles, and
+  crop controls. Match the capture launcher’s capsule shapes in the markup
+  group, selected tools, and editor commands. Center the label and arrow
+  together on toolbar menu buttons.
+
+- Open local images and clipboard images in the redesigned editor. Crop on
+  the canvas, resize by pixels or percent, rotate, flip, and see zoom and
+  pixel dimensions while editing.
+- Adjust exposure, contrast, and saturation, extend the canvas, remove the
+  background, and combine images. Save a local project with editable objects.
+- Drag shape handles and arrow endpoints directly. Edit and wrap text in place,
+  cancel text changes with Escape, and choose line, arrow, text, and fill styles.
+  Add numbered stamps, a spotlight, live mosaic, blur, and solid redaction.
+- Copy or export the rendered image as PNG, JPEG, HEIC, or TIFF while keeping
+  the editor open. Replacing the current history image preserves editable
+  objects and undo in the current session.
+
+- Automatically dismiss corner previews after 30 seconds by default. Choose
+  10 seconds, 30 seconds, 1 minute, or Never in Capture settings.
+- Use Command+Shift+R as the default shortcut for starting a recording.
+- Allow one modifier for capture shortcuts. Check for enabled macOS shortcuts
+  and exclusive reservations, and warn about common app shortcuts before saving.
+- Match Settings dropdown arrows to the smaller disclosure arrows and use
+  standard-size menu items.
+- Automatically copy finished screenshots and screen recordings to the clipboard
+  while keeping their corner previews. Turn this off in Capture settings.
+- Simplify the image editor and recording player headers, separate pinned-image
+  window controls from the image, and show timeline thumbnails for longer MP4s.
+- Give Capture History a window title, clearer tile metadata, and actions that
+  match empty, filtered, or disabled history.
+- Label scrolling capture’s Start and Finish controls, clarify its toolbar icon,
+  and emphasize copy and save in Quick Access.
+- Reduce the initial height of short OCR results and soften unselected text
+  outlines. Give the recording stop action more visual weight than delete.
+
+- Organize Settings into four panes and preview each appearance before selecting it.
+  Use the native macOS split-view sidebar and a unified window header.
+- Refine Settings spacing and control styling, with compact appearance previews,
+  quieter shortcut fields, and save paths and permission status under their labels.
+- Give Settings sidebar items more breathing room and use smaller navigation icons.
+- Show permission purposes and granted status in Settings. Provide a single
+  Settings link for missing access and explain optional permissions where
+  automatic scrolling and recording keystroke hints are used.
+
+- Choose Follow System, Light, or Dark in Settings. Both screenshot HUD capsules
+  use untinted Regular Liquid Glass and follow the selected appearance. The desktop
+  shows through the capsules while the surrounding selection stays dimmed.
+  Use softer icon and dimension colors in both appearances.
+- Require macOS 26 or later.
+
+- Open history screenshots in the editor or recordings in the player with a
+  double-click or Return.
+
+- Switch OCR results between selectable full text and individual blocks. Frame
+  remembers the last view.
+
+- Explain when scrolling capture stops and how to continue or finish with the
+  portion already captured.
+
+- Confirm successful Quick Access copies and show the destination after saving.
+
+- Keep the Start Recording title visible on its red button.
+
+- Keep explicitly replaced and newly saved screenshot edits in capture history.
+  Copying or exporting an image delivers the current edit without changing its
+  history entry.
+
 - Add a Launch at Login setting backed by macOS Service Management, with
   approval and failure feedback that reflects the system's real login-item state.
 - Separate development and production packaging as `Frame Dev`

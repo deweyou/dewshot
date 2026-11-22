@@ -29,7 +29,7 @@ permissions:
 jobs:
   release:
     name: Build release artifacts
-    runs-on: macos-15
+    runs-on: macos-26
 
     steps:
       - name: Checkout
@@ -68,6 +68,7 @@ jobs:
           test -f "$release_dir/${{ steps.version.outputs.artifact_name }}.dmg"
           test -f "$release_dir/SHA256SUMS"
           test "$(plutil -extract CFBundleIdentifier raw .build/app/Frame.app/Contents/Info.plist)" = "dev.deweyou.frame"
+          test "$(plutil -extract LSMinimumSystemVersion raw .build/app/Frame.app/Contents/Info.plist)" = "26.0"
           (cd "$release_dir" && shasum -a 256 -c SHA256SUMS)
           hdiutil verify "$release_dir/${{ steps.version.outputs.artifact_name }}.dmg"
 

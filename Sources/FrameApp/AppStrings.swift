@@ -56,6 +56,13 @@ struct AppStrings {
         }
     }
 
+    var confirmScreenshotHint: String {
+        switch language {
+        case .zhHans: "截图 ↵"
+        case .en: "Capture ↵"
+        }
+    }
+
     var menuCapture: String {
         switch language {
         case .zhHans: "截取屏幕"
@@ -112,6 +119,27 @@ struct AppStrings {
         }
     }
 
+    var settingsCapture: String {
+        switch language {
+        case .zhHans: "捕获"
+        case .en: "Capture"
+        }
+    }
+
+    var settingsPreferences: String {
+        switch language {
+        case .zhHans: "偏好"
+        case .en: "Preferences"
+        }
+    }
+
+    var settingsShortcuts: String {
+        switch language {
+        case .zhHans: "快捷键"
+        case .en: "Shortcuts"
+        }
+    }
+
     var settingsLaunchAtLogin: String {
         switch language {
         case .zhHans: "登录时启动"
@@ -151,6 +179,38 @@ struct AppStrings {
         switch language {
         case .zhHans: "文字识别"
         case .en: "Text Recognition"
+        }
+    }
+
+    var settingsAutomaticallyCopyCaptures: String {
+        switch language {
+        case .zhHans: "自动复制到剪贴板"
+        case .en: "Automatically copy to clipboard"
+        }
+    }
+
+    var settingsAutomaticallyCopyCapturesDescription: String {
+        switch language {
+        case .zhHans: "截图或录屏完成后直接复制"
+        case .en: "Copy screenshots and recordings when they finish"
+        }
+    }
+
+    var settingsQuickAccessDismissal: String {
+        switch language {
+        case .zhHans: "角落预览自动关闭"
+        case .en: "Close corner previews"
+        }
+    }
+
+    func settingsQuickAccessDismissalOption(_ dismissal: QuickAccessDismissal) -> String {
+        switch (language, dismissal) {
+        case (.zhHans, .never): "永不"
+        case (.en, .never): "Never"
+        case (.zhHans, .oneMinute): "1 分钟后"
+        case (.en, .oneMinute): "After 1 minute"
+        case (.zhHans, _): "\(dismissal.rawValue) 秒后"
+        case (.en, _): "After \(dismissal.rawValue) seconds"
         }
     }
 
@@ -205,8 +265,8 @@ struct AppStrings {
 
     var settingsShortcutRecorderInsufficientModifiers: String {
         switch language {
-        case .zhHans: "请按下至少两个修饰键"
-        case .en: "Use at least two modifier keys"
+        case .zhHans: "请使用 ⌘、⌥ 或 ⌃ 中的至少一个"
+        case .en: "Use at least one of Command, Option, or Control"
         }
     }
 
@@ -265,10 +325,24 @@ struct AppStrings {
         }
     }
 
-    var settingsRequestPermission: String {
+    var settingsScreenRecordingPurpose: String {
         switch language {
-        case .zhHans: "请求权限"
-        case .en: "Request Permission"
+        case .zhHans: "用于截图和录屏"
+        case .en: "Used to take screenshots and record your screen"
+        }
+    }
+
+    var settingsAccessibilityPurpose: String {
+        switch language {
+        case .zhHans: "用于自动滚动截图"
+        case .en: "Used for automatic scrolling during capture"
+        }
+    }
+
+    var settingsInputMonitoringPurpose: String {
+        switch language {
+        case .zhHans: "用于录屏时显示按键"
+        case .en: "Used to show keystrokes in recordings"
         }
     }
 
@@ -279,24 +353,31 @@ struct AppStrings {
         }
     }
 
-    var settingsPermissionMissing: String {
-        switch language {
-        case .zhHans: "未开启"
-        case .en: "Missing"
-        }
-    }
-
-    var settingsCheckPermission: String {
-        switch language {
-        case .zhHans: "检查权限"
-        case .en: "Check Permission"
-        }
-    }
-
     var settingsOpenSystemSettings: String {
         switch language {
-        case .zhHans: "打开系统设置"
-        case .en: "Open System Settings"
+        case .zhHans: "前往设置"
+        case .en: "Open Settings"
+        }
+    }
+
+    var autoScrollPermissionMessage: String {
+        switch language {
+        case .zhHans: "自动滚动需要辅助功能权限。也可以手动继续。"
+        case .en: "Auto-scroll needs Accessibility permission. You can still scroll manually."
+        }
+    }
+
+    var keyboardHintsPermissionTitle: String {
+        switch language {
+        case .zhHans: "按键提示需要输入监控权限"
+        case .en: "Keystroke hints need Input Monitoring permission"
+        }
+    }
+
+    var keyboardHintsPermissionMessage: String {
+        switch language {
+        case .zhHans: "在系统设置中允许 Frame 在录屏时显示按键。你也可以直接开始录制。"
+        case .en: "Allow Frame in System Settings to show keystrokes in recordings. You can still start recording."
         }
     }
 
@@ -384,6 +465,13 @@ struct AppStrings {
         switch language {
         case .zhHans: "语言"
         case .en: "Language"
+        }
+    }
+
+    var settingsAppearance: String {
+        switch language {
+        case .zhHans: "外观"
+        case .en: "Appearance"
         }
     }
 
@@ -702,6 +790,20 @@ struct AppStrings {
         }
     }
 
+    var quickAccessCopied: String {
+        switch language {
+        case .zhHans: "已复制"
+        case .en: "Copied"
+        }
+    }
+
+    func quickAccessSaved(to folder: String) -> String {
+        switch language {
+        case .zhHans: "已保存到\(folder)"
+        case .en: "Saved to \(folder)"
+        }
+    }
+
     var quickAccessPin: String {
         switch language {
         case .zhHans: "固定到预览窗口"
@@ -885,6 +987,10 @@ struct AppStrings {
         case (.en, .rectangle): "Region"
         case (.zhHans, .brush): "画笔"
         case (.en, .brush): "Brush"
+        case (.zhHans, .blur): "模糊"
+        case (.en, .blur): "Blur"
+        case (.zhHans, .redact): "纯色遮挡"
+        case (.en, .redact): "Solid redaction"
         }
     }
 
@@ -1010,6 +1116,41 @@ struct AppStrings {
         }
     }
 
+    var captureHistoryEmptyMessage: String {
+        switch language {
+        case .zhHans: "截图或录屏后，可以在这里找到最近的捕获。"
+        case .en: "Screenshots and recordings you take will appear here."
+        }
+    }
+
+    var captureHistoryFilterEmptyTitle: String {
+        switch language {
+        case .zhHans: "这个分类还没有记录"
+        case .en: "No captures in this category"
+        }
+    }
+
+    var captureHistoryFilterEmptyMessage: String {
+        switch language {
+        case .zhHans: "查看全部记录，找回其他截图和录屏。"
+        case .en: "View all captures to find other screenshots and recordings."
+        }
+    }
+
+    var captureHistoryDisabledTitle: String {
+        switch language {
+        case .zhHans: "历史记录已关闭"
+        case .en: "Capture history is off"
+        }
+    }
+
+    var captureHistoryDisabledMessage: String {
+        switch language {
+        case .zhHans: "在设置里开启「保存最近捕获」后，新记录会出现在这里。"
+        case .en: "Turn on recent captures in Settings to keep new screenshots and recordings here."
+        }
+    }
+
     var captureHistoryFilterAll: String {
         switch language {
         case .zhHans: "全部"
@@ -1050,6 +1191,14 @@ struct AppStrings {
         case .zhHans: "识别文字"
         case .en: "Recognized Text"
         }
+    }
+
+    var ocrFullTextView: String {
+        language == .zhHans ? "全文" : "Full Text"
+    }
+
+    var ocrTextBlocksView: String {
+        language == .zhHans ? "分块" : "Blocks"
     }
 
     var ocrCopyAll: String {
@@ -1191,6 +1340,55 @@ struct AppStrings {
         }
     }
 
+    var hotKeyConflictTitle: String {
+        switch language {
+        case .zhHans: "快捷键已被占用"
+        case .en: "Shortcut is already in use"
+        }
+    }
+
+    func systemHotKeyConflictMessage(shortcut: String) -> String {
+        switch language {
+        case .zhHans: "\(shortcut) 已在 macOS 键盘快捷键中启用。请选择另一个组合。"
+        case .en: "\(shortcut) is enabled in macOS Keyboard Shortcuts. Choose a different shortcut."
+        }
+    }
+
+    func appHotKeyConflictMessage(shortcut: String) -> String {
+        switch language {
+        case .zhHans: "另一个 App 已独占 \(shortcut)。请选择另一个组合。"
+        case .en: "Another app has exclusive use of \(shortcut). Choose a different shortcut."
+        }
+    }
+
+    var commonHotKeyWarningTitle: String {
+        switch language {
+        case .zhHans: "可能与其他 App 的快捷键冲突"
+        case .en: "This shortcut may conflict with other apps"
+        }
+    }
+
+    func commonHotKeyWarningMessage(shortcut: String) -> String {
+        switch language {
+        case .zhHans: "\(shortcut) 是许多 App 的常用快捷键。设为全局快捷键后，在其他 App 里按下它也可能触发 Frame。"
+        case .en: "Many apps use \(shortcut). If you use it as a global shortcut, pressing it in another app may trigger Frame."
+        }
+    }
+
+    var hotKeyChooseAnother: String {
+        switch language {
+        case .zhHans: "换一个"
+        case .en: "Choose Another"
+        }
+    }
+
+    var hotKeyUseAnyway: String {
+        switch language {
+        case .zhHans: "仍然使用"
+        case .en: "Use Anyway"
+        }
+    }
+
     func hotKeyRegistrationFailedMessage(errorDescription: String) -> String {
         switch language {
         case .zhHans:
@@ -1204,13 +1402,6 @@ struct AppStrings {
         switch language {
         case .zhHans: "Frame 截图失败"
         case .en: "Frame capture failed"
-        }
-    }
-
-    var permissionReadyTitle: String {
-        switch language {
-        case .zhHans: "Frame 屏幕录制权限已开启"
-        case .en: "Frame Screen Recording permission is enabled"
         }
     }
 
@@ -1251,15 +1442,6 @@ struct AppStrings {
         }
     }
 
-    func permissionReadyMessage(shortcut: String) -> String {
-        switch language {
-        case .zhHans:
-            "你可以使用 \(shortcut) 或菜单栏截图入口开始区域截图。"
-        case .en:
-            "Use \(shortcut) or the menu bar capture item to start a region screenshot."
-        }
-    }
-
     var copyFailedTitle: String {
         switch language {
         case .zhHans: "Frame 复制失败"
@@ -1297,5 +1479,11 @@ extension AppLanguage {
         case .en:
             "English"
         }
+    }
+}
+
+extension AppStrings {
+    func editorLabel(_ chinese: String, _ english: String) -> String {
+        language == .zhHans ? chinese : english
     }
 }

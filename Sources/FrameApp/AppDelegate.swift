@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let ocrService = OCRService()
     private let ocrTextPanelController = OCRTextPanelController()
     private let clipboardWriter: ClipboardWriter
+    private let automaticallyCopiesCaptures: () -> Bool
     private let recordingService: RecordingServicing
     private let recordingFileWriter: RecordingFileWriter
     private let videoEditingExporter: VideoEditingExporting
@@ -53,6 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         videoPreviewWindowController: VideoPreviewWindowController = VideoPreviewWindowController(),
         captureHistoryStore: CaptureHistoryStore = CaptureHistoryStore(),
         clipboardWriter: ClipboardWriter = ClipboardWriter(),
+        automaticallyCopiesCaptures: @escaping () -> Bool = { SettingsStore.automaticallyCopiesCaptures() },
         recordingFileWriter: RecordingFileWriter = RecordingFileWriter(),
         videoEditingExporter: VideoEditingExporting = VideoEditingExporter(),
         hasScreenRecordingAccess: @escaping () -> Bool = { ScreenRecordingPermission.hasAccess },
@@ -69,6 +71,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.videoPreviewWindowController = videoPreviewWindowController
         self.captureHistoryStore = captureHistoryStore
         self.clipboardWriter = clipboardWriter
+        self.automaticallyCopiesCaptures = automaticallyCopiesCaptures
         self.recordingFileWriter = recordingFileWriter
         self.videoEditingExporter = videoEditingExporter
         self.hasScreenRecordingAccess = hasScreenRecordingAccess
@@ -79,6 +82,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         strings = AppStrings.current()
+        SettingsStore.appTheme().apply(to: NSApp)
+        let usesDefaultRecordingShortcut = !SettingsStore.hasSavedRecordingShortcut()
+        if usesDefaultRecordingShortcut,
+           SettingsStore.recordingShortcut() == nil || HotKeyController.systemShortcutIsInUse(.defaultRecording) {
+            SettingsStore.setRecordingShortcut(nil)
+        }
+
         statusItemController = StatusItemController(
             strings: strings,
             onCapture: { [weak self] in
@@ -95,7 +105,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onStopRecording: { [weak self] in
                 self?.stopActiveRecording()
-            }
+            },
+            onOpenImage: { [weak self] in self?.openImageFile() },
+            onOpenClipboardImage: { [weak self] in self?.openClipboardImage() }
         )
 
         try? captureHistoryStore.cleanup()
@@ -112,7 +124,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         do {
-            try hotKeyController.register()
+            do {
+                try hotKeyController.register()
+            } catch HotKeyRegistrationError.shortcutInUse(let shortcut)
+                where usesDefaultRecordingShortcut && hotKeyController.recordingShortcut == shortcut {
+                try hotKeyController.register(recordingShortcut: .some(nil))
+                SettingsStore.setRecordingShortcut(nil)
+                statusItemController?.updateShortcuts(
+                    screenshotShortcut: hotKeyController.shortcut,
+                    recordingShortcut: nil
+                )
+            }
             self.hotKeyController = hotKeyController
         } catch {
             showHotKeyRegistrationFailedAlert(error)
@@ -124,20 +146,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotKeyController?.unregister()
     }
 
-    func applicationDidBecomeActive(_ notification: Notification) {
-        settingsWindowController.refreshPermissions()
-    }
-
     @objc func onCapture() {
         startCaptureFlow()
-    }
-
-    @objc func onCheckPermission() {
-        if ScreenRecordingPermission.hasAccess {
-            showPermissionReadyAlert()
-        } else {
-            ScreenRecordingPermission.showMissingPermissionAlert(strings: strings)
-        }
     }
 
     @objc func onSettings() {
@@ -151,9 +161,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onShortcutRecordingChange: { [weak self] isRecording in
                 self?.setScreenshotShortcutRecorderActive(isRecording)
-            },
-            onCheckPermission: { [weak self] in
-                self?.onCheckPermission()
             },
             onLanguageChange: { [weak self] language in
                 self?.changeLanguage(to: language)
@@ -247,10 +254,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     case .fullScreen:
                         do {
                             let screenshots = try self.captureService.captureFullScreens()
+                            let anchorPoint = quickAccessAnchor?.center ?? NSEvent.mouseLocation
+                            let activeScreenshot = screenshots.first { $0.rect.contains(anchorPoint) } ?? screenshots.first
+                            let copied = activeScreenshot.map(self.automaticallyCopyScreenshot) ?? false
                             self.quickAccessPanelController.restoreTemporarilyHiddenPreviews()
                             for screenshot in screenshots {
-                                self.storeInCaptureHistory(screenshot)
-                                self.showQuickAccess(for: screenshot, anchor: quickAccessAnchor)
+                                let stored = self.storeInCaptureHistory(screenshot)
+                                self.showQuickAccess(
+                                    for: screenshot,
+                                    anchor: quickAccessAnchor,
+                                    canAutoDismiss: stored || (copied && screenshot.id == activeScreenshot?.id)
+                                )
                             }
                             NSLog("Frame 已捕获全屏截图：screens=\(screenshots.count)")
                         } catch {
@@ -262,9 +276,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     case let .capture(selection):
                         do {
                             let screenshot = try await self.captureService.capture(selection: selection)
-                            self.storeInCaptureHistory(screenshot)
+                            let copied = self.automaticallyCopyScreenshot(screenshot)
+                            let stored = self.storeInCaptureHistory(screenshot)
                             self.quickAccessPanelController.restoreTemporarilyHiddenPreviews()
-                            self.showQuickAccess(for: screenshot, anchor: quickAccessAnchor)
+                            self.showQuickAccess(for: screenshot, anchor: quickAccessAnchor, canAutoDismiss: copied || stored)
                             NSLog("Frame 截图选区类型：\(selection.kind)")
                         } catch {
                             self.quickAccessPanelController.restoreTemporarilyHiddenPreviews()
@@ -321,14 +336,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     return
                 }
 
-                self.storeInCaptureHistory(screenshot)
+                let copied = self.automaticallyCopyScreenshot(screenshot)
+                let stored = self.storeInCaptureHistory(screenshot)
                 if pendingPreview?.id == screenshot.id {
                     self.activeQuickAccessScreenshots[screenshot.id] = screenshot
                     self.quickAccessPanelController.updatePreview(for: screenshot)
-                    self.quickAccessPanelController.setScreenshotPending(false, for: screenshot)
+                    self.quickAccessPanelController.setScreenshotPending(
+                        false, for: screenshot, canAutoDismiss: copied || stored
+                    )
                 } else {
                     self.quickAccessPanelController.restoreTemporarilyHiddenPreviews()
-                    self.showQuickAccess(for: screenshot, anchor: anchor)
+                    self.showQuickAccess(for: screenshot, anchor: anchor, canAutoDismiss: copied || stored)
                 }
                 pendingPreview = nil
                 NSLog("Frame 已完成滚动长截图：rect=\(screenshot.rect.debugDescription)")
@@ -404,8 +422,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showQuickAccess(
         for screenshot: CapturedScreenshot,
         anchor: CGRect?,
-        isPending: Bool = false
+        isPending: Bool = false,
+        canAutoDismiss: Bool = false
     ) {
+        if activeQuickAccessScreenshotIDs.contains(screenshot.id),
+           quickAccessPanelController.updatePreview(for: screenshot) {
+            activeQuickAccessScreenshots[screenshot.id] = screenshot
+            return
+        }
+
         activeQuickAccessScreenshotIDs.insert(screenshot.id)
         activeQuickAccessScreenshots[screenshot.id] = screenshot
         quickAccessPanelController.show(
@@ -413,6 +438,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             preferredAnchor: anchor,
             strings: strings,
             isPending: isPending,
+            canAutoDismiss: canAutoDismiss,
+            isInUse: { [weak self] in
+                guard let self else { return false }
+                return self.recognizingScreenshotIDs.contains(screenshot.id)
+                    || self.ocrTextPanelController.hasPanel(for: screenshot)
+            },
             copy: { [weak self] in
                 guard let self else {
                     return false
@@ -421,6 +452,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let currentScreenshot = self.currentQuickAccessScreenshot(for: screenshot)
                 let didCopy = self.copyToClipboard(currentScreenshot)
                 if didCopy {
+                    self.quickAccessPanelController.showDeliveryFeedback(self.strings.quickAccessCopied, captureID: screenshot.id)
                     self.endQuickAccessLifecycle(for: screenshot)
                 }
 
@@ -432,12 +464,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
 
                 let currentScreenshot = self.currentQuickAccessScreenshot(for: screenshot)
-                let didSave = self.saveToDesktop(currentScreenshot)
-                if didSave {
-                    self.endQuickAccessLifecycle(for: screenshot)
+                guard let savedURL = self.saveScreenshotFile(currentScreenshot) else {
+                    return false
                 }
-
-                return didSave
+                self.showQuickAccessSavedFeedback(for: screenshot.id, fileURL: savedURL)
+                self.endQuickAccessLifecycle(for: screenshot)
+                return true
             },
             recognizeText: { [weak self] in
                 guard let self else {
@@ -657,10 +689,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     byteSize: capturedRecording.byteSize,
                     duration: duration
                 )
-                let stableRecording = self.storeInCaptureHistory(recording)
+                let (stableRecording, stored) = self.storeInCaptureHistory(recording)
                 let anchor = self.activeRecordingQuickAccessAnchor
                 self.finishActiveRecording()
-                self.showVideoQuickAccess(for: stableRecording, anchor: anchor)
+                let copied = self.automaticallyCopiesCaptures()
+                    && self.copyRecordingFileToClipboard(stableRecording.fileURL, showsFailureAlert: false)
+                self.showVideoQuickAccess(for: stableRecording, anchor: anchor, canAutoDismiss: copied || stored)
                 NSLog(
                     "Frame 已停止录屏：url=\(stableRecording.fileURL.path), duration=\(stableRecording.duration)"
                 )
@@ -835,16 +869,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         await exportEditedRecording(recording, editingState: editingState, choice: choice)
     }
 
-    private func showVideoQuickAccess(for recording: CapturedRecording, anchor: CGRect?) {
+    private func showVideoQuickAccess(
+        for recording: CapturedRecording,
+        anchor: CGRect?,
+        canAutoDismiss: Bool = false
+    ) {
         quickAccessPanelController.show(
             for: recording,
             preferredAnchor: anchor,
             strings: strings,
+            canAutoDismiss: canAutoDismiss,
             download: { [weak self] in
-                self?.downloadRecording(recording) ?? false
+                guard let self, let savedURL = self.saveRecordingFile(recording.fileURL, format: recording.format) else {
+                    return false
+                }
+                self.showQuickAccessSavedFeedback(for: recording.id, fileURL: savedURL)
+                return true
             },
             copy: { [weak self] in
-                self?.copyRecordingToClipboard(recording) ?? false
+                guard let self, self.copyRecordingToClipboard(recording) else {
+                    return false
+                }
+                self.quickAccessPanelController.showDeliveryFeedback(self.strings.quickAccessCopied, captureID: recording.id)
+                return true
             },
             preview: { [weak self] in
                 self?.openVideoPreview(recording) ?? false
@@ -912,8 +959,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case .replaceCurrent:
                 _ = quickAccessPanelController.updatePreview(for: editedRecording)
             case .saveAsNew:
-                let stableRecording = storeInCaptureHistory(editedRecording)
-                showVideoQuickAccess(for: stableRecording, anchor: nil)
+                let (stableRecording, stored) = storeInCaptureHistory(editedRecording)
+                showVideoQuickAccess(for: stableRecording, anchor: nil, canAutoDismiss: stored)
             }
 
             return true
@@ -926,6 +973,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showCaptureHistory() {
         let controller = captureHistoryWindowController ?? CaptureHistoryWindowController(
             store: captureHistoryStore,
+            open: { [weak self] record in
+                self?.openHistoryRecord(record)
+            },
             restore: { [weak self] record in
                 self?.restoreHistoryRecord(record)
             },
@@ -937,21 +987,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             delete: { [weak self] record in
                 self?.deleteHistoryRecord(record)
+            },
+            startCapture: { [weak self] filter in
+                if filter == .recordings {
+                    self?.startRecordingCaptureFlow()
+                } else {
+                    self?.onCapture()
+                }
+            },
+            openHistorySettings: { [weak self] in
+                self?.onSettings()
+                self?.settingsWindowController.selectSection(.history)
             }
         )
         captureHistoryWindowController = controller
         controller.show(strings: strings)
     }
 
-    private func storeInCaptureHistory(_ screenshot: CapturedScreenshot) {
+    private func storeInCaptureHistory(_ screenshot: CapturedScreenshot) -> Bool {
         do {
-            _ = try captureHistoryStore.addScreenshot(screenshot)
+            return try captureHistoryStore.addScreenshot(screenshot) != nil
         } catch {
             NSLog("Frame 写入截图历史失败: \(error.localizedDescription)")
+            return false
         }
     }
 
-    private func storeInCaptureHistory(_ recording: CapturedRecording) -> CapturedRecording {
+    private func storeInCaptureHistory(_ recording: CapturedRecording) -> (CapturedRecording, Bool) {
         do {
             let recordingData = try Data(contentsOf: recording.fileURL)
             guard let record = try captureHistoryStore.addRecording(
@@ -960,10 +1022,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 pixelSize: recording.pixelSize,
                 rect: recording.rect
             ) else {
-                return recording
+                return (recording, false)
             }
 
-            return CapturedRecording(
+            let storedRecording = CapturedRecording(
                 id: record.id,
                 fileURL: captureHistoryStore.fileURL(for: record),
                 format: recording.format,
@@ -972,9 +1034,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 byteSize: record.byteSize,
                 duration: recording.duration
             )
+            return (storedRecording, true)
         } catch {
             NSLog("Frame 写入录屏历史失败: \(error.localizedDescription)")
-            return recording
+            return (recording, false)
         }
     }
 
@@ -984,7 +1047,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             throw CaptureHistoryError.imageDecodeFailed
         }
 
-        return CapturedScreenshot(pngData: data, image: image, rect: record.rect)
+        return CapturedScreenshot(id: record.id, pngData: data, image: image, rect: record.rect)
     }
 
     private func recording(from record: CaptureHistoryRecord) async throws -> CapturedRecording {
@@ -1048,6 +1111,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return duration
     }
 
+    private func openHistoryRecord(_ record: CaptureHistoryRecord) {
+        switch record.kind {
+        case .screenshot:
+            do {
+                _ = openWorkspace(try screenshot(from: record), kind: .temporaryPreview)
+            } catch {
+                showQuickAccessFailedAlert(title: strings.captureFailedTitle, error: error)
+            }
+        case .recording:
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                do {
+                    _ = self.openVideoPreview(try await self.recording(from: record))
+                } catch {
+                    self.showQuickAccessFailedAlert(title: self.strings.captureFailedTitle, error: error)
+                }
+            }
+        }
+    }
+
     private func restoreHistoryRecord(_ record: CaptureHistoryRecord) {
         guard record.kind == .screenshot else {
             Task { @MainActor in
@@ -1059,7 +1142,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             showQuickAccess(
                 for: try screenshot(from: record),
-                anchor: ActiveScreenResolver.preferredQuickAccessFollowAnchor()
+                anchor: ActiveScreenResolver.preferredQuickAccessFollowAnchor(),
+                canAutoDismiss: true
             )
         } catch {
             showQuickAccessFailedAlert(title: strings.captureFailedTitle, error: error)
@@ -1070,7 +1154,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             showVideoQuickAccess(
                 for: try await recording(from: record),
-                anchor: ActiveScreenResolver.preferredQuickAccessFollowAnchor()
+                anchor: ActiveScreenResolver.preferredQuickAccessFollowAnchor(),
+                canAutoDismiss: true
             )
         } catch {
             showQuickAccessFailedAlert(title: strings.captureFailedTitle, error: error)
@@ -1127,7 +1212,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func openWorkspace(_ screenshot: CapturedScreenshot, kind: ImageWorkspaceKind) -> Bool {
+    private func openImageFile() {
+        NSApp.activate(ignoringOtherApps: true)
+        ImageWorkspaceFileDialogs.open(strings: strings, window: nil) { [weak self] url in
+            self?.openEditorFile(at: url)
+        }
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls where url.isFileURL {
+            openEditorFile(at: url)
+        }
+    }
+
+    private func openEditorFile(at url: URL) {
+        do {
+            if url.pathExtension.lowercased() == "frameimage" {
+                let project = try ImageWorkspaceRaster.project(at: url)
+                _ = openWorkspace(try project.screenshot(), kind: .temporaryPreview, initialElements: project.elements)
+            } else {
+                let screenshot = try ImageWorkspaceRaster.screenshot(data: Data(contentsOf: url))
+                _ = openWorkspace(screenshot, kind: .temporaryPreview)
+            }
+        } catch {
+            ImageWorkspaceFileDialogs.showError(error, strings: strings, window: nil)
+        }
+    }
+
+    private func openClipboardImage() {
+        NSApp.activate(ignoringOtherApps: true)
+        do {
+            _ = openWorkspace(try ImageWorkspaceRaster.pasteboardImage(.general), kind: .temporaryPreview)
+        } catch {
+            ImageWorkspaceFileDialogs.showError(error, strings: strings, window: nil,
+                message: strings.editorLabel("剪贴板里没有可打开的图片。", "The clipboard doesn’t contain a readable image."))
+        }
+    }
+
+    private func openWorkspace(
+        _ screenshot: CapturedScreenshot,
+        kind: ImageWorkspaceKind,
+        initialElements: [ImageAnnotationElement] = []
+    ) -> Bool {
         imageWorkspacePanelController.show(
             screenshot: screenshot,
             kind: kind,
@@ -1143,10 +1269,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 return true
             },
             save: { [weak self] editedScreenshot in
-                guard let self,
-                      self.saveToDesktop(editedScreenshot) else {
-                    return false
-                }
+                guard let self else { return false }
+                let saved = kind == .pinned
+                    ? self.saveToDesktop(editedScreenshot)
+                    : ImageWorkspaceFileDialogs.export(editedScreenshot, strings: self.strings)
+                guard saved else { return false }
 
                 self.quickAccessPanelController.closePreview(for: screenshot, notify: false)
                 self.endQuickAccessLifecycle(for: screenshot)
@@ -1164,25 +1291,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             replaceCurrent: { [weak self] editedScreenshot in
                 guard let self else {
-                    return
+                    throw CocoaError(.userCancelled)
                 }
 
-                guard self.activeQuickAccessScreenshotIDs.contains(editedScreenshot.id) else {
-                    return
+                let stored = try self.persistEditedScreenshot(editedScreenshot)
+                guard stored || ImageWorkspaceFileDialogs.export(editedScreenshot, strings: self.strings) else {
+                    throw CocoaError(.userCancelled)
                 }
-
-                self.activeQuickAccessScreenshots[editedScreenshot.id] = editedScreenshot
-                self.quickAccessPanelController.updatePreview(for: editedScreenshot)
+                self.recognizedTextLayouts.removeValue(forKey: editedScreenshot.id)
+                if self.activeQuickAccessScreenshotIDs.contains(editedScreenshot.id) {
+                    self.activeQuickAccessScreenshots[editedScreenshot.id] = editedScreenshot
+                    self.quickAccessPanelController.updatePreview(for: editedScreenshot)
+                }
             },
             saveAsNew: { [weak self] editedScreenshot in
                 guard let self else {
                     return false
                 }
 
-                self.showQuickAccess(for: editedScreenshot, anchor: editedScreenshot.rect)
-                return true
-            }
+                do {
+                    let stored = try self.persistEditedScreenshot(editedScreenshot)
+                    if stored {
+                        self.showQuickAccess(for: editedScreenshot, anchor: editedScreenshot.rect, canAutoDismiss: true)
+                        return true
+                    }
+                    return ImageWorkspaceFileDialogs.export(editedScreenshot, strings: self.strings)
+                } catch {
+                    return false
+                }
+            },
+            initialElements: initialElements
         )
+    }
+
+    private func persistEditedScreenshot(_ screenshot: CapturedScreenshot) throws -> Bool {
+        do {
+            let stored = try captureHistoryStore.saveEditedScreenshot(screenshot)
+            captureHistoryWindowController?.refreshRecords()
+            return stored
+        } catch {
+            showQuickAccessFailedAlert(title: strings.saveFailedTitle, error: error)
+            throw error
+        }
     }
 
     private func recognizeText(in screenshot: CapturedScreenshot) -> Bool {
@@ -1296,13 +1446,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         activeQuickAccessScreenshots[screenshot.id] ?? screenshot
     }
 
-    private func copyToClipboard(_ screenshot: CapturedScreenshot) -> Bool {
+    private func automaticallyCopyScreenshot(_ screenshot: CapturedScreenshot) -> Bool {
+        guard automaticallyCopiesCaptures() else {
+            return false
+        }
+
+        return copyToClipboard(screenshot, showsFailureAlert: false)
+    }
+
+    private func copyToClipboard(_ screenshot: CapturedScreenshot, showsFailureAlert: Bool = true) -> Bool {
         do {
-            try clipboardWriter.write(image: screenshot.image)
+            try clipboardWriter.write(image: screenshot.image, pngData: screenshot.pngData)
             NSLog("Frame 已复制截图到剪贴板")
             return true
         } catch {
-            showQuickAccessFailedAlert(title: strings.copyFailedTitle, error: error)
+            reportClipboardFailure(error, showsAlert: showsFailureAlert)
             return false
         }
     }
@@ -1321,14 +1479,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
-    private func copyRecordingFileToClipboard(_ fileURL: URL) -> Bool {
+    private func copyRecordingFileToClipboard(_ fileURL: URL, showsFailureAlert: Bool = true) -> Bool {
         do {
             try clipboardWriter.write(fileURL: fileURL)
             NSLog("Frame 已复制录屏文件到剪贴板")
             return true
         } catch {
-            showQuickAccessFailedAlert(title: strings.copyFailedTitle, error: error)
+            reportClipboardFailure(error, showsAlert: showsFailureAlert)
             return false
+        }
+    }
+
+    private func reportClipboardFailure(_ error: Error, showsAlert: Bool) {
+        if showsAlert {
+            showQuickAccessFailedAlert(title: strings.copyFailedTitle, error: error)
+        } else {
+            NSLog("Frame 自动复制失败: \(error.localizedDescription)")
         }
     }
 
@@ -1349,14 +1515,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func showQuickAccessSavedFeedback(for captureID: UUID, fileURL: URL) {
+        let folder = FileManager.default.displayName(atPath: fileURL.deletingLastPathComponent().path)
+        quickAccessPanelController.showDeliveryFeedback(strings.quickAccessSaved(to: folder), captureID: captureID)
+    }
+
     private func saveToDesktop(_ screenshot: CapturedScreenshot) -> Bool {
+        saveScreenshotFile(screenshot) != nil
+    }
+
+    private func saveScreenshotFile(_ screenshot: CapturedScreenshot) -> URL? {
         do {
             let saveURL = try ScreenshotFileWriter(strings: strings).write(pngData: screenshot.pngData)
             NSLog("Frame 已保存截图：\(saveURL.path)")
-            return true
+            return saveURL
         } catch {
             showQuickAccessFailedAlert(title: strings.saveFailedTitle, error: error)
-            return false
+            return nil
         }
     }
 
@@ -1375,16 +1550,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func downloadRecordingFile(_ fileURL: URL, format: RecordingFormat) -> Bool {
+        saveRecordingFile(fileURL, format: format) != nil
+    }
+
+    private func saveRecordingFile(_ fileURL: URL, format: RecordingFormat) -> URL? {
         do {
             let saveURL = try recordingFileWriter.copyRecording(
                 from: fileURL,
                 format: format
             )
             NSLog("Frame 已保存录屏：\(saveURL.path)")
-            return true
+            return saveURL
         } catch {
             showQuickAccessFailedAlert(title: strings.saveFailedTitle, error: error)
-            return false
+            return nil
         }
     }
 
@@ -1442,6 +1621,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func changeScreenshotShortcut(to shortcut: ScreenshotShortcut) -> Bool {
+        if shortcut == SettingsStore.screenshotShortcut() {
+            return true
+        }
+        guard confirmShortcutChange(shortcut) else { return false }
+
         guard let hotKeyController else {
             SettingsStore.setScreenshotShortcut(shortcut)
             statusItemController?.updateShortcuts(
@@ -1475,6 +1659,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func changeRecordingShortcut(to shortcut: ScreenshotShortcut?) -> Bool {
+        if shortcut == SettingsStore.recordingShortcut() {
+            return true
+        }
+        if let shortcut, !confirmShortcutChange(shortcut) {
+            return false
+        }
+
         guard let hotKeyController else {
             SettingsStore.setRecordingShortcut(shortcut)
             statusItemController?.updateShortcuts(
@@ -1508,6 +1699,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func confirmShortcutChange(_ shortcut: ScreenshotShortcut) -> Bool {
+        if HotKeyController.systemShortcutIsInUse(shortcut) {
+            showHotKeyConflictAlert(message: strings.systemHotKeyConflictMessage(shortcut: shortcut.displayName))
+            return false
+        }
+
+        guard HotKeyController.overlapsCommonAppShortcut(shortcut) else {
+            return true
+        }
+
+        let alert = NSAlert()
+        alert.messageText = strings.commonHotKeyWarningTitle
+        alert.informativeText = strings.commonHotKeyWarningMessage(shortcut: shortcut.displayName)
+        alert.addButton(withTitle: strings.hotKeyChooseAnother).keyEquivalent = "\u{1b}"
+        alert.addButton(withTitle: strings.hotKeyUseAnyway)
+        return alert.runModal() == .alertSecondButtonReturn
+    }
+
     private func setScreenshotShortcutRecorderActive(_ isRecording: Bool) {
         guard let hotKeyController else {
             return
@@ -1526,9 +1735,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showHotKeyRegistrationFailedAlert(_ error: Error) {
+        if case let HotKeyRegistrationError.shortcutInUse(shortcut) = error {
+            showHotKeyConflictAlert(message: strings.appHotKeyConflictMessage(shortcut: shortcut.displayName))
+            return
+        }
+
         let alert = NSAlert()
         alert.messageText = strings.hotKeyRegistrationFailedTitle
         alert.informativeText = strings.hotKeyRegistrationFailedMessage(errorDescription: error.localizedDescription)
+        alert.addButton(withTitle: strings.ok)
+        alert.runModal()
+    }
+
+    private func showHotKeyConflictAlert(message: String) {
+        let alert = NSAlert()
+        alert.messageText = strings.hotKeyConflictTitle
+        alert.informativeText = message
         alert.addButton(withTitle: strings.ok)
         alert.runModal()
     }
@@ -1553,15 +1775,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             alert.informativeText = error.localizedDescription
         }
-        alert.addButton(withTitle: strings.ok)
-        alert.runModal()
-    }
-
-    private func showPermissionReadyAlert() {
-        let alert = NSAlert()
-        alert.messageText = strings.permissionReadyTitle
-        let shortcut = SettingsStore.screenshotShortcut().keyboardShortcut.displayName
-        alert.informativeText = strings.permissionReadyMessage(shortcut: shortcut)
         alert.addButton(withTitle: strings.ok)
         alert.runModal()
     }

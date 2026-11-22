@@ -193,10 +193,10 @@ public struct ScreenshotShortcut: Equatable, Hashable, Identifiable, Sendable {
         reservedShortcuts: Set<ScreenshotShortcut>
     ) -> ScreenshotShortcut? {
         let components = storageValue
-            .split(separator: "+")
+            .split(separator: "+", omittingEmptySubsequences: false)
             .map { String($0).lowercased() }
 
-        guard components.count >= 3,
+        guard components.count >= 2,
               let keyComponent = components.last,
               let key = ScreenshotShortcutKey(storageValue: keyComponent) else {
             return nil
@@ -207,7 +207,9 @@ public struct ScreenshotShortcut: Equatable, Hashable, Identifiable, Sendable {
             guard let modifier = ScreenshotShortcutModifier(storageValue: component) else {
                 return nil
             }
-            modifiers.insert(modifier)
+            guard modifiers.insert(modifier).inserted else {
+                return nil
+            }
         }
 
         switch validate(key: key, modifiers: modifiers, reservedShortcuts: reservedShortcuts) {
@@ -223,7 +225,7 @@ public struct ScreenshotShortcut: Equatable, Hashable, Identifiable, Sendable {
     }
 
     private var hasEnoughModifiers: Bool {
-        modifiers.count >= 2 && !modifiers.isDisjoint(with: [.command, .option, .control])
+        !modifiers.isDisjoint(with: [.command, .option, .control])
     }
 
     private var legacyRawValue: String? {

@@ -5,7 +5,7 @@ flowchart TD
     Change["Interactive AppKit change"] --> E2E["Add or update component E2E"]
     Change --> Unit["Keep deterministic logic in unit tests"]
     E2E --> Local["Run real-window AppKit E2E locally"]
-    Unit --> CI["Run stable suite on macos-15 CI"]
+    Unit --> CI["Run stable suite on macos-26 CI"]
     CI --> Manual["Use manual smoke only for permissions and full desktop flows"]
 ```
 
@@ -45,7 +45,7 @@ Do not call modal menu presentation such as `NSMenu.popUp` from CI tests. Prefer
 
 ## CI Expectations
 
-GitHub Actions runs on a fixed `macos-15` runner and records the AppKit component E2E local-only requirement:
+GitHub Actions runs on a fixed `macos-26` runner and records the AppKit component E2E local-only requirement:
 
 ```sh
 swift test --filter HUDSizeControlTests

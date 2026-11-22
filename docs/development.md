@@ -14,9 +14,9 @@ Frame development uses SwiftPM for verification, a local packaging script for ap
 
 ## Requirements
 
-- macOS
+- macOS 26 or later
 - Swift 6.2 toolchain
-- Xcode command line tools
+- Xcode command line tools with the macOS 26 SDK or later
 - Apple Developer Program membership only for Apple Development and public distribution signing
 
 ## Verify
@@ -53,24 +53,10 @@ The different bundle identifiers isolate `UserDefaults` and macOS TCC permission
 
 The packaging script also copies app resources from `Sources/FrameApp/Resources` into the app bundle. `Frame.icns` is written to `Contents/Resources` and referenced by `CFBundleIconFile`; menu bar PNG assets are copied so `StatusItemController` can load `FrameStatusIconTemplate` as a template image.
 
-For stable local Screen Recording permission during development, sign with a stable local Code Signing identity:
-
-```sh
-export FRAME_CODESIGN_IDENTITY="Frame Local Dev CLI"
-FRAME_APP_VARIANT=development scripts/package-app.sh
-```
-
-Use this pattern for day-to-day development even when a real Apple certificate is available. The goal is to keep local TCC identity stable while avoiding accidental use of distribution credentials in debug builds. Use Apple Development or Developer ID identities only when intentionally testing those signing paths.
-
-For a Team-backed development-signing check, copy the exact identity name from `security find-identity -v -p codesigning` and run:
-
-```sh
-FRAME_APP_VARIANT=development \
-FRAME_CODESIGN_IDENTITY="Apple Development: Your Name (IDENTIFIER)" \
-scripts/package-app.sh
-```
-
-This produces `Frame Dev.app` with the development App ID and keeps it separate from the production app. See [Signing and development-device migration](signing-and-device-migration.md) for certificate recovery and new-Mac setup.
+For local GUI testing, sign the development variant with the exact Apple
+Development identity listed by `security find-identity -v -p codesigning`.
+See the [local installation flow](#manual-smoke-test) and
+[signing setup for a new Mac](signing-and-device-migration.md#set-up-a-new-development-mac).
 
 ## Manual Beta Release
 
@@ -161,120 +147,47 @@ to `/Applications`, open it from there, use macOS `Open Anyway` when prompted,
 grant Screen Recording permission, and relaunch the app. Do not ask users to run
 Frame directly from the mounted DMG.
 
-## Local Signing Identity Setup
-
-Each development Mac should create one local self-signed Code Signing identity. It does not require an Apple Developer account and should not be used for public distribution.
-
-The recommended identity name is:
-
-```sh
-Frame Local Dev CLI
-```
-
-### Keychain Access
-
-Create the identity manually:
-
-1. Open Keychain Access.
-2. Choose `Certificate Assistant -> Create a Certificate...`.
-3. Name it `Frame Local Dev CLI`.
-4. Set `Identity Type` to `Self Signed Root`.
-5. Set `Certificate Type` to `Code Signing`.
-6. Check `Let me override defaults`.
-7. Continue through the assistant and create the certificate in the login keychain.
-8. Trust it for code signing if macOS does not list it as a valid signing identity.
-
-### Command Line
-
-If Keychain Access creates a certificate without a paired private key, generate and trust the identity from the command line:
-
-```sh
-tmpdir=$(mktemp -d)
-cat > "$tmpdir/code-signing.cnf" <<'EOF'
-[ req ]
-default_bits = 2048
-prompt = no
-default_md = sha256
-distinguished_name = dn
-x509_extensions = codesign_ext
-
-[ dn ]
-CN = Frame Local Dev CLI
-O = Frame Local Dev
-C = CN
-
-[ codesign_ext ]
-basicConstraints = critical, CA:false
-keyUsage = critical, digitalSignature
-extendedKeyUsage = critical, codeSigning
-subjectKeyIdentifier = hash
-authorityKeyIdentifier = keyid,issuer
-EOF
-
-openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
-  -keyout "$tmpdir/key.pem" \
-  -out "$tmpdir/cert.pem" \
-  -config "$tmpdir/code-signing.cnf"
-
-openssl pkcs12 -export \
-  -inkey "$tmpdir/key.pem" \
-  -in "$tmpdir/cert.pem" \
-  -name "Frame Local Dev CLI" \
-  -out "$tmpdir/id.p12" \
-  -passout pass:frame-local
-
-security import "$tmpdir/id.p12" \
-  -k "$HOME/Library/Keychains/login.keychain-db" \
-  -P "frame-local" \
-  -T /usr/bin/codesign \
-  -T /usr/bin/security
-
-security add-trusted-cert \
-  -r trustRoot \
-  -p codeSign \
-  -k "$HOME/Library/Keychains/login.keychain-db" \
-  "$tmpdir/cert.pem"
-
-rm -rf "$tmpdir"
-```
-
-Verify the identity exists:
-
-```sh
-security find-identity -v -p codesigning
-```
-
-Expected output should include `Frame Local Dev CLI` and at least `1 valid identities found`.
-
 ## Manual Smoke Test
 
-1. Build and package with the stable local signing identity:
+1. Choose an Apple Development signing identity from
+   `security find-identity -v -p codesigning`, then package the development build:
 
    ```sh
    FRAME_APP_VARIANT=development \
-   FRAME_CODESIGN_IDENTITY="Frame Local Dev CLI" \
+   FRAME_CODESIGN_IDENTITY="Apple Development: Your Name (IDENTIFIER)" \
    scripts/package-app.sh
    ```
 
-2. Replace the stable local app path for permission testing:
+2. Quit the installed Frame Dev, replace it at `~/Applications/Frame Dev.app`,
+   then verify the signature before opening it:
 
    ```sh
-   mkdir -p ~/Applications
-   rm -rf ~/Applications/Frame\ Dev.app
-   ditto ".build/app/Frame Dev.app" ~/Applications/Frame\ Dev.app
-   open ~/Applications/Frame\ Dev.app
+   mkdir -p "$HOME/Applications"
+   frame_previous=$(mktemp -d "$HOME/Applications/.frame-update.XXXXXXXX")
+   if [ -d "$HOME/Applications/Frame Dev.app" ]; then
+       mv "$HOME/Applications/Frame Dev.app" "$frame_previous/Frame Dev.app"
+   fi
+   ditto ".build/app/Frame Dev.app" "$HOME/Applications/Frame Dev.app"
+   codesign --verify --strict --deep "$HOME/Applications/Frame Dev.app"
+   codesign -dv --verbose=4 "$HOME/Applications/Frame Dev.app" 2>&1
+   open "$HOME/Applications/Frame Dev.app"
    ```
 
-Agents should use this stable-sign-and-replace flow whenever the user asks to run a local GUI build, replace the local app, or test screenshot behavior manually. Do not use a bare ad-hoc `scripts/package-app.sh` for repeated local GUI testing unless the task is specifically testing ad-hoc signing.
+   Check for an Apple Development authority, a Team ID, and
+   `Identifier=dev.deweyou.frame.dev`. The directory in `frame_previous`
+   holds the previous bundle for rollback.
 
 3. Grant Screen Recording permission when prompted.
 4. Quit and reopen `~/Applications/Frame Dev.app`.
-5. Open `Frame -> 设置...` / `Frame -> Settings...`, then open it again from another display and confirm it centers on the current display.
-6. Change the language between Follow System, 中文, and English. Confirm the menu, settings window labels, permission alerts opened after the change, Quick Access tooltips, and capture placeholder use the selected language. In General, turn Launch at Login on and confirm Frame appears under System Settings > General > Login Items & Extensions; turn it off and confirm the login item is removed. If macOS reports that approval is required, confirm Settings explains where to approve it. In Permissions, confirm Screen Recording, Accessibility, and Input Monitoring each show their current state; open System Settings from a row, return to Frame, and confirm the states refresh.
-7. In Settings, choose a custom screenshot save folder, quit and reopen Frame, and confirm the path persists.
+5. Open `Frame -> 设置...` / `Frame -> Settings...`. Switch among General, Capture, History, and Permissions and confirm the controls match the selected pane. Reopen Settings from another display and confirm it centers on that display.
+6. Change the language between Follow System, 中文, and English. Confirm the menu, settings window labels, permission alerts opened after the change, Quick Access tooltips, and capture placeholder use the selected language. In General, turn Launch at Login on and confirm Frame appears under System Settings > General > Login Items & Extensions; turn it off and confirm the login item is removed. If macOS reports that approval is required, confirm Settings explains where to approve it. In Permissions, verify that granted rows show a checkmark and missing rows link to the matching macOS settings pane. Return to Frame from System Settings and confirm the states refresh. With a dedicated test app that lacks optional access, verify that automatic scrolling offers Settings and allows manual scrolling, and that recording can start with keystroke hints disabled.
+7. In General, switch between the Light, Dark, and Follow System appearance previews. Confirm the Settings window updates immediately and both screenshot HUD capsules, icons, dimensions, and tooltips remain readable over light and dark content. Quit and reopen Frame to confirm the choice persists. Also verify that a custom screenshot save folder persists.
 8. In Settings, change Window screenshot style between Soft Backdrop, Canvas Glow, Transparent Shadow, and Original. Change Edited screenshot save between Ask Every Time, Replace Current, and Save As New. Confirm the labels localize and the selected values persist after reopening Settings.
 9. Reset the screenshot save folder and confirm it returns to Desktop.
 10. Confirm the menu has separate Capture Screenshot and Record Screen items, displays configured shortcuts, and keeps Record Screen available when its shortcut is unset. Start each flow from its menu item or configured keyboard shortcut.
+    In the shortcut recorder, try a single modifier, a duplicate Frame shortcut,
+    an enabled macOS shortcut, and a common app shortcut such as Command+A.
+    Confirm that dismissing a conflict or warning preserves the saved shortcut.
 11. With no previous selection, confirm the active display shows a centered placeholder instead of a `0 x 0` HUD. After confirming a window capture, quit and reopen Frame, then start capture again within ten minutes. Confirm the same live window restores as the initial selection without hover preselection, even after moving the window. After confirming a region capture, reopen the overlay and confirm the same rectangle restores without hover preselection. A full-screen capture, closing a remembered window, or waiting for expiry returns to the empty state.
 12. Drag to create, move, or resize the region.
 13. Press Enter to capture.
@@ -291,18 +204,16 @@ Agents should use this stable-sign-and-replace flow whenever the user asks to ru
 24. Resize the workspace and confirm the image preview area preserves the captured image aspect ratio with an opaque black canvas behind any unused area. Open screenshots that fit on screen and confirm the preview/edit and pinned windows start near the image's original display size instead of the old small cap. Open a small screenshot and confirm the displayed image starts at its original size instead of being enlarged to fill the window. Pinch on the trackpad inside the preview/edit workspace and pinned window; the image content should zoom in and out while the window frame stays fixed. After zooming in, two-finger scroll across the preview and confirm the enlarged image pans to other areas without revealing blank space.
 25. Confirm switching focus to another app does not close the preview/edit workspace.
 26. Click the same Quick Access workspace action again and confirm it activates the existing preview/edit workspace instead of opening a duplicate.
-27. Confirm the top toolbar shows Select, Rectangle, Oval, Line, Arrow, Brush, Text, Highlight, Mosaic, the contextual header style control, Save Current, Copy, and Download. Confirm the stable dark glass remains readable above bright and saturated captured pixels, History / Tools / Contextual Style / Output are separated by quiet short dividers, and the selected tool uses a compact accent circle with a light glyph. Confirm the header style control appears only when the selected object or active tool supports color and contextual size edits, replaces the old separate Color and Thickness/Font Size toolbar menu buttons, and is absent from pinned image-only windows. The Select tool should be active by default; the header style control and its divider should be hidden until a drawable style context is active. Change color, thickness, font size, shape, and mosaic mode from the toolbar, reopen the workspace, and confirm those choices are remembered while Select is still active by default.
-28. Confirm Save Current is disabled before edits, while Copy and Download are enabled. The three output controls should use equal button sizes with compact group spacing; their icons should share the same visual box and centerline as the main tools. Copy and Download tooltips should say Save and Copy / Save and Download.
-29. Click each editing tool's main icon and confirm it activates the tool without opening an option menu.
-30. Confirm only Mosaic has an attached chevron dropdown with a comfortable target, and that it contains Region/Brush mosaic modes. Its primary action and chevron should read as one compact split control with a shared hover/selected state and an inner divider. Shape, Brush, Text, and Highlight should not expose tool-option chevrons. Confirm the header style control color swatch has no visible chevron and opens a tiled icon-only palette. Selecting Shape, Brush, or Highlight should switch the header style control size slider to Thickness with 1, 2, 4, 8, 12, 16, and 24 px stroke widths, while selecting Text should switch it to Font Size with 12 through 96 pt options. Confirm the control does not show the selected size as visible text.
-31. Draw a rectangle, oval, line, arrow, brush stroke, highlight stroke, text label, rectangle mosaic, and brush mosaic; confirm the drawn content stays on the captured image. Hold Shift while drawing rectangle/oval and confirm square/circle output; hold Shift while drawing line/arrow and confirm horizontal, vertical, or 45-degree snapping. Rectangle mosaic should show only a selection frame while dragging and apply pixelation after release.
-32. Select an edited object, move it, resize it from its top-right corner without a visible anchor, delete it, undo, and redo. Confirm Undo and Redo are disabled when their history stacks are empty.
-33. Re-select a text label, edit the text, then change Font Size while the text is selected and confirm the selected text updates immediately.
-34. Confirm `V`, `R`, `O`, `L`, `A`, `B`, `T`, `H`, and `M` switch Select, Rectangle, Oval, Line, Arrow, Brush, Text, Highlight, and Mosaic while the canvas is focused. Confirm `[` and `]` step the current contextual size, and that normal typing plus Command-A/C/X/V still works inside an inline text editor.
-35. Confirm single-clicking existing annotations can select and move them without first switching to Select. Double-click text, arrow, rectangle, oval, line, brush, highlight, and mosaic objects and confirm the toolbar and header style control enter the matching editing context.
-36. Confirm Save Current becomes enabled after an edit and follows the Edited screenshot save setting. Ask Every Time should open Replace Current / Save As New choices; Replace Current should update the current in-memory screenshot, refresh the still-visible Quick Access preview, clear the pending annotation selection, and keep the workspace open; Save As New should add another Quick Access preview and keep the workspace open without writing a local file directly.
-37. Confirm workspace Copy includes rendered edits, then closes the workspace and the originating Quick Access preview on success.
-38. Confirm workspace Download writes a rendered edited `Frame yyyy-MM-dd HH.mm.ss.png` to the configured screenshot folder, then closes the workspace and originating Quick Access preview on success.
+27. Open a local image and a clipboard image using the Frame menu. Check that the window row holds Undo, Redo, markup, Copy, Export, and Save Current. Check that the right inspector starts open and shows commands for the current tool or selected object. Collapse it and check that the canvas gains width and the compact editing row and zoom controls return. Showing style or crop controls should keep the markup group and window size stable. Check the pixel dimensions, zoom, Fit, and 100% in the status row.
+28. Crop to a fixed aspect ratio, apply with Return, and undo to recover the original image. Cancel another crop with Escape. Resize with locked pixel dimensions and with percentages, rotate, and flip. Confirm annotations stay aligned and participate in Undo and Redo.
+29. Draw a rectangle or oval and resize from a visible corner. Draw an arrow and drag its endpoint. Hold Shift to constrain angles and shapes. Hold Option while dragging to draw over an existing object.
+30. Click an empty part of the canvas with the Text tool to create a new label. Drag to set a fixed width and test wrapping, alignment, and a text preset. Reopen an existing label, type an edit, and press Escape to restore the previous text. Verify standard text edit shortcuts.
+31. Apply rectangle mosaic and confirm the effect appears during the drag. Switch modes and verify brush width, pixel block size, blur intensity, and solid redaction. Copy or export a draft that contains a solid redaction and check that the output has opaque pixels over the region.
+32. Add a numbered stamp, a spotlight, and an image. Test duplicating and reordering objects. Adjust color and reset its preview. Extend the canvas, then test an image with a distinct subject for background removal.
+33. Save an editable project and reopen it from the Frame menu. Confirm its objects remain editable. Resize or rotate a new design, save again, and verify the reopened composition.
+34. Export PNG, JPEG, HEIC, and TIFF. Verify the selected name and destination, and check dimensions and transparency with PNG. Try JPEG or HEIC at different quality settings.
+35. Copy an edited image into another app. Confirm the editor stays open and Capture History retains the original. Repeat with Export and check the in-window confirmation.
+36. Save Current using Replace Current and confirm it updates the history record and the originating preview if still active. Verify the annotations and undo are still available. Use Save As New and confirm it creates a separate entry and a preview.
 39. With Replace Current or Save As New configured, confirm Escape or the native close button asks only Save, Don't Save, or Cancel when unsaved edits exist, and that Save follows the configured default. Confirm Ask Every Time intentionally retains Replace Current / Save As New choices. Don't Save closes without creating or replacing a screenshot; Cancel leaves the workspace open with edits intact.
 40. Confirm pin closes the originating Quick Access card and opens a persistent image-only pinned window.
 41. Confirm the pinned window has no toolbar or visible output buttons, keeps the image edge-to-edge, stays open after focus changes, and closes with the native red traffic-light close button.

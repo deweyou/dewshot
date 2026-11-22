@@ -50,7 +50,6 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
     typealias PerformStitch = (@escaping () -> Void) -> Void
     typealias IncrementalPipelineFactory = () -> any ScrollingScreenshotIncrementalProcessing
     typealias PermissionCheck = @MainActor () -> Bool
-    typealias PermissionRequest = @MainActor () -> Void
 
     private let stepDelay: TimeInterval
     private let maximumScrollSteps: Int
@@ -70,7 +69,7 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
     private let usesDefaultPreviewPipeline: Bool
     private let incrementalPipelineFactory: IncrementalPipelineFactory?
     private let canAutoScroll: PermissionCheck
-    private let requestAutoScrollPermission: PermissionRequest
+    private let openAccessibilitySettings: @MainActor () -> Void
     private let previewPresenter: (any ScrollingScreenshotPreviewPresenting)?
     private let boundaryOverlayController = RecordingBoundaryOverlayController()
     private var activeSession: ScrollingScreenshotSession?
@@ -78,6 +77,8 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
     private var hudPanel: NSPanel?
     private var hudStackView: NSStackView?
     private var hudChromeView: ScrollingScreenshotHUDChromeView?
+    private var hudNoticeLabel: NSTextField?
+    private var hudActionsWidth: NSLayoutConstraint?
     private var previewRenderGeneration = 0
     private var isPreviewRendering = false
     private var pendingPreviewSamples: [CapturedScreenshot]?
@@ -104,7 +105,7 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
         previewPresenter: (any ScrollingScreenshotPreviewPresenting)? = nil,
         incrementalPipelineFactory: IncrementalPipelineFactory? = nil,
         canAutoScroll: PermissionCheck? = nil,
-        requestAutoScrollPermission: PermissionRequest? = nil
+        openAccessibilitySettings: @escaping @MainActor () -> Void = AccessibilityPermission.openSettings
     ) {
         self.stepDelay = stepDelay
         self.maximumScrollSteps = maximumScrollSteps
@@ -132,9 +133,7 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
         self.canAutoScroll = canAutoScroll ?? {
             scrollRegion != nil || AccessibilityPermission.hasAccess
         }
-        self.requestAutoScrollPermission = requestAutoScrollPermission ?? {
-            _ = AccessibilityPermission.requestAccess()
-        }
+        self.openAccessibilitySettings = openAccessibilitySettings
     }
 
     convenience init(captureService: CaptureService = CaptureService()) {
@@ -188,6 +187,7 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
         }
 
         session.phase = .running
+        session.notice = .manualHint
         activeSession = session
         updateHUDControls()
         previewPresenter?.show(selectionRect: session.selection.rect)
@@ -210,6 +210,7 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
         pendingPreviewSamples = nil
         session.phase = .finishing
         session.isAutoScrollingEnabled = false
+        session.showsAutoScrollPermissionHelp = false
         activeSession = session
         hideInterfaceForFinalization()
         previewPresenter?.close()
@@ -263,17 +264,23 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
 
     func toggleAutoScroll() {
         guard var session = activeSession,
-              session.phase == .running else {
+              session.phase == .running,
+              session.notice != .captureLimit,
+              session.notice != .automaticLimit else {
             return
         }
 
         if !session.isAutoScrollingEnabled,
            !canAutoScroll() {
-            requestAutoScrollPermission()
+            session.showsAutoScrollPermissionHelp = true
+            activeSession = session
+            updateHUDControls()
             return
         }
 
+        session.showsAutoScrollPermissionHelp = false
         session.isAutoScrollingEnabled.toggle()
+        session.notice = session.isAutoScrollingEnabled ? nil : .manualHint
         session.consecutiveAutoScrollNoProgressSamples = 0
         activeSession = session
         updateHUDControls()
@@ -359,6 +366,8 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
             }
         case let .failure(error):
             session.isAutoScrollingEnabled = false
+            let isResourceLimit = error as? ScrollingScreenshotStitchingError == .resourceLimitExceeded
+            session.notice = isResourceLimit ? .captureLimit : .captureFailure
             activeSession = session
             previewPresenter?.update(image: nil, status: .unreliableOverlap)
             updateHUDControls()
@@ -368,7 +377,7 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
                 } else {
                     resumeAfterFinalStitchFailure(error, sessionID: sessionID)
                 }
-            } else if error as? ScrollingScreenshotStitchingError != .resourceLimitExceeded {
+            } else if !isResourceLimit {
                 scheduleNextIncrementalSample()
             }
         }
@@ -409,7 +418,23 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
             return
         }
 
-        guard session.isAutoScrollingEnabled else {
+        if !session.isAutoScrollingEnabled {
+            let previousNotice = session.notice
+            switch progress.state {
+            case .appended where previousNotice != .automaticLimit:
+                session.notice = nil
+            case .unreliableOverlap:
+                session.notice = .unmatched
+                if session.notice != previousNotice {
+                    session.showsAutoScrollPermissionHelp = false
+                }
+            case .initialized, .appended, .noProgress, .historicalRepeat:
+                break
+            }
+            if session.notice != previousNotice {
+                activeSession = session
+                updateHUDControls()
+            }
             scheduleNextIncrementalSample()
             return
         }
@@ -424,12 +449,14 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
             session.consecutiveAutoScrollNoProgressSamples += 1
             if session.consecutiveAutoScrollNoProgressSamples >= maximumConsecutiveIncrementalNoProgressSamples {
                 session.isAutoScrollingEnabled = false
+                session.notice = .noNewContent
             }
             activeSession = session
             updateHUDControls()
             scheduleNextIncrementalSample()
         case .historicalRepeat, .unreliableOverlap:
             session.isAutoScrollingEnabled = false
+            session.notice = progress.state == .historicalRepeat ? .earlierContent : .unmatched
             activeSession = session
             updateHUDControls()
             scheduleNextIncrementalSample()
@@ -446,6 +473,7 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
 
         if session.completedScrollSteps >= maximumScrollSteps {
             session.isAutoScrollingEnabled = false
+            session.notice = .automaticLimit
             activeSession = session
             updateHUDControls()
             scheduleNextIncrementalSample()
@@ -553,6 +581,7 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
         session.completedScrollSteps += 1
         if session.completedScrollSteps >= maximumScrollSteps {
             session.isAutoScrollingEnabled = false
+            session.notice = .automaticLimit
         }
         activeSession = session
         updateHUDControls()
@@ -607,6 +636,7 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
         }
 
         session.phase = .running
+        session.notice = .captureFailure
         activeSession = session
         restoreInterfaceAfterFinalizationFailure(for: session)
         previewPresenter?.show(selectionRect: session.selection.rect)
@@ -720,6 +750,7 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
             session.consecutiveAutoScrollNoProgressSamples += 1
             if session.consecutiveAutoScrollNoProgressSamples >= maximumConsecutiveAutoScrollNoProgressSamples {
                 session.isAutoScrollingEnabled = false
+                session.notice = .noNewContent
             }
         case .waiting, .unreliableOverlap:
             break
@@ -786,25 +817,40 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
         stackView.alignment = .centerY
         stackView.distribution = .fillEqually
         stackView.spacing = 0
+        let noticeLabel = NSTextField(labelWithString: "")
+        noticeLabel.translatesAutoresizingMaskIntoConstraints = false
+        noticeLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        noticeLabel.textColor = HUDChromePalette.deepGlassForegroundColor
+        noticeLabel.alignment = .center
+        noticeLabel.maximumNumberOfLines = 2
+        noticeLabel.lineBreakMode = .byWordWrapping
+        chromeView.addSubview(noticeLabel)
         chromeView.addSubview(stackView)
         contentView.addSubview(chromeView)
         panel.contentView = contentView
 
+        let actionsWidth = stackView.widthAnchor.constraint(equalToConstant: 80)
         NSLayoutConstraint.activate([
+            actionsWidth,
             chromeView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             chromeView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             chromeView.topAnchor.constraint(equalTo: contentView.topAnchor),
             chromeView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
 
-            stackView.leadingAnchor.constraint(equalTo: chromeView.leadingAnchor, constant: 6),
-            stackView.trailingAnchor.constraint(equalTo: chromeView.trailingAnchor, constant: -6),
-            stackView.topAnchor.constraint(equalTo: chromeView.topAnchor),
+            stackView.centerXAnchor.constraint(equalTo: chromeView.centerXAnchor),
+            stackView.leadingAnchor.constraint(greaterThanOrEqualTo: chromeView.leadingAnchor, constant: 6),
+            stackView.heightAnchor.constraint(equalToConstant: 42),
             stackView.bottomAnchor.constraint(equalTo: chromeView.bottomAnchor),
+            noticeLabel.leadingAnchor.constraint(equalTo: chromeView.leadingAnchor, constant: 12),
+            noticeLabel.trailingAnchor.constraint(equalTo: chromeView.trailingAnchor, constant: -12),
+            noticeLabel.topAnchor.constraint(equalTo: chromeView.topAnchor, constant: 8),
         ])
 
         self.hudPanel = panel
         self.hudStackView = stackView
         self.hudChromeView = chromeView
+        self.hudNoticeLabel = noticeLabel
+        self.hudActionsWidth = actionsWidth
         updateHUDControls()
         panel.setFrame(positionedHUDFrame(near: selection.rect, size: panel.frame.size), display: false)
         panel.orderFrontRegardless()
@@ -817,6 +863,8 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
         hudPanel = nil
         hudStackView = nil
         hudChromeView = nil
+        hudNoticeLabel = nil
+        hudActionsWidth = nil
     }
 
     private func hideInterfaceForFinalization() {
@@ -844,18 +892,29 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
 
         switch session.phase {
         case .waiting:
-            stackView.addArrangedSubview(makeHUDButton(title: session.strings.scrollingScreenshotStart, symbolName: "play.fill", action: #selector(startButtonClicked)))
+            stackView.addArrangedSubview(makeHUDButton(title: session.strings.scrollingScreenshotStart, symbolName: "play.fill", action: #selector(startButtonClicked), showsTitle: true))
             stackView.addArrangedSubview(makeHUDButton(title: session.strings.scrollingScreenshotCancel, symbolName: "xmark", action: #selector(cancelButtonClicked)))
-            hudPanel?.setContentSize(Self.waitingHUDPanelSize)
+            updateHUDNotice(nil, baseSize: Self.waitingHUDPanelSize)
         case .running:
-            stackView.addArrangedSubview(makeHUDButton(title: session.strings.scrollingScreenshotFinish, symbolName: "checkmark", action: #selector(finishButtonClicked)))
-            stackView.addArrangedSubview(makeHUDButton(
-                title: session.isAutoScrollingEnabled ? session.strings.scrollingScreenshotStopAutoScroll : session.strings.scrollingScreenshotAutoScroll,
+            stackView.addArrangedSubview(makeHUDButton(title: session.strings.scrollingScreenshotFinish, symbolName: "checkmark", action: #selector(finishButtonClicked), showsTitle: true))
+            let canAttemptAutoScroll = session.notice != .captureLimit && session.notice != .automaticLimit
+            let showsPermissionHelp = canAttemptAutoScroll && session.showsAutoScrollPermissionHelp
+            let autoScrollTitle = session.isAutoScrollingEnabled
+                ? session.strings.scrollingScreenshotStopAutoScroll
+                : session.strings.scrollingScreenshotAutoScroll
+            let autoScrollButton = makeHUDButton(
+                title: showsPermissionHelp ? session.strings.settingsOpenSystemSettings : autoScrollTitle,
                 symbolName: session.isAutoScrollingEnabled ? "stop.circle.fill" : "arrow.down.circle.fill",
-                action: #selector(autoScrollButtonClicked)
-            ))
+                action: showsPermissionHelp ? #selector(openAutoScrollSettings) : #selector(autoScrollButtonClicked),
+                showsTitle: showsPermissionHelp
+            )
+            autoScrollButton.isEnabled = canAttemptAutoScroll
+            stackView.addArrangedSubview(autoScrollButton)
             stackView.addArrangedSubview(makeHUDButton(title: session.strings.scrollingScreenshotCancel, symbolName: "xmark", action: #selector(cancelButtonClicked)))
-            hudPanel?.setContentSize(Self.runningHUDPanelSize)
+            updateHUDNotice(
+                hudNotice(for: session),
+                baseSize: showsPermissionHelp ? CGSize(width: 312, height: Self.runningHUDPanelSize.height) : Self.runningHUDPanelSize
+            )
         case .finishing:
             return
         }
@@ -864,15 +923,67 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
         }
     }
 
-    private func makeHUDButton(title: String, symbolName: String, action: Selector) -> NSButton {
+    private func updateHUDNotice(_ message: String?, baseSize: CGSize) {
+        guard let label = hudNoticeLabel else { return }
+        hudActionsWidth?.constant = baseSize.width - 12
+        label.stringValue = message ?? ""
+        label.isHidden = message == nil
+        guard let message else {
+            hudPanel?.setContentSize(baseSize)
+            return
+        }
+
+        let font = label.font ?? .systemFont(ofSize: 12)
+        let textWidth = ceil((message as NSString).size(withAttributes: [.font: font]).width)
+        let width = min(320, max(baseSize.width, textWidth + 24))
+        let height: CGFloat = textWidth > width - 24 ? 36 : 23
+        hudPanel?.setContentSize(CGSize(width: width, height: baseSize.height + height))
+    }
+
+    func hudNoticeForTesting() -> String? {
+        activeSession.flatMap(hudNotice)
+    }
+
+    private func hudNotice(for session: ScrollingScreenshotSession) -> String? {
+        if session.showsAutoScrollPermissionHelp,
+           session.notice != .captureLimit,
+           session.notice != .automaticLimit {
+            return session.strings.autoScrollPermissionMessage
+        }
+        return session.notice?.message(strings: session.strings)
+    }
+
+    @objc func openAutoScrollSettings() {
+        guard var session = activeSession, session.showsAutoScrollPermissionHelp else { return }
+        session.showsAutoScrollPermissionHelp = false
+        activeSession = session
+        updateHUDControls()
+        openAccessibilitySettings()
+    }
+
+    private func makeHUDButton(
+        title: String,
+        symbolName: String,
+        action: Selector,
+        showsTitle: Bool = false
+    ) -> NSButton {
         let button = ScrollingScreenshotHUDButton(
             image: NSImage(systemSymbolName: symbolName, accessibilityDescription: title) ?? NSImage(),
             target: self,
             action: action
         )
         button.identifier = NSUserInterfaceItemIdentifier(symbolName)
-        button.title = ""
-        button.imagePosition = .imageOnly
+        button.title = showsTitle ? title : ""
+        button.imagePosition = showsTitle ? .noImage : .imageOnly
+        if showsTitle {
+            button.image = nil
+            let font = NSFont.systemFont(ofSize: 12, weight: .semibold)
+            button.font = font
+            button.attributedTitle = NSAttributedString(
+                string: title,
+                attributes: [.foregroundColor: HUDChromePalette.deepGlassForegroundColor, .font: font]
+            )
+        }
         button.imageScaling = .scaleNone
         button.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
         button.bezelStyle = .regularSquare
@@ -1236,8 +1347,8 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
         scrollWheelDelta(for: rect)
     }
 
-    private static let waitingHUDPanelSize = CGSize(width: 92, height: 42)
-    private static let runningHUDPanelSize = CGSize(width: 132, height: 42)
+    private static let waitingHUDPanelSize = CGSize(width: 154, height: 42)
+    private static let runningHUDPanelSize = CGSize(width: 200, height: 42)
     private nonisolated static let previewMaximumPixelWidth = 440
 }
 
@@ -1295,6 +1406,37 @@ private struct ScrollingScreenshotSession {
     var isAutoScrollingEnabled = false
     var consecutiveAutoScrollNoProgressSamples = 0
     var autoScrollFraction: CGFloat = 0.16
+    var notice: ScrollingScreenshotNotice?
+    var showsAutoScrollPermissionHelp = false
+}
+
+private enum ScrollingScreenshotNotice {
+    case manualHint
+    case noNewContent
+    case earlierContent
+    case unmatched
+    case captureFailure
+    case captureLimit
+    case automaticLimit
+
+    func message(strings: AppStrings) -> String {
+        switch (strings.language, self) {
+        case (.zhHans, .manualHint): "请缓慢滚动"
+        case (.zhHans, .noNewContent): "没有检测到新内容"
+        case (.zhHans, .earlierContent): "已回到截过的位置。向下滚动或点「完成」。"
+        case (.zhHans, .unmatched): "后续内容未接上。往回滚一点，再慢慢往下滚；也可点「完成」。"
+        case (.zhHans, .captureFailure): "捕获未能继续。可以点「完成」保留已捕获部分。"
+        case (.zhHans, .captureLimit): "已达到长截图上限。点「完成」保留已捕获部分。"
+        case (.zhHans, .automaticLimit): "已达到自动滚动上限。可手动继续或点「完成」。"
+        case (.en, .manualHint): "Scroll slowly"
+        case (.en, .noNewContent): "No new content detected"
+        case (.en, .earlierContent): "Earlier content detected. Scroll down or choose Finish."
+        case (.en, .unmatched): "Couldn't stitch the next part. Scroll back and retry slowly, or choose Finish."
+        case (.en, .captureFailure): "Capture stopped. Choose Finish to keep what was captured."
+        case (.en, .captureLimit): "Capture limit reached. Choose Finish to keep what was captured."
+        case (.en, .automaticLimit): "Auto-scroll limit reached. Scroll manually or choose Finish."
+        }
+    }
 }
 
 private enum ScrollingScreenshotSessionPhase {

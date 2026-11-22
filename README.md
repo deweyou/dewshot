@@ -25,8 +25,15 @@ your screenshots or recordings.
 Frame lives in the menu bar instead of opening a large window. After each
 screenshot or recording, a small preview appears in the corner of your screen.
 From there you can copy it, save it, edit it, keep it visible, or close it.
+By default, Frame also copies the finished screenshot or recording to the clipboard.
+You can turn this off in Settings → Capture.
+Corner previews close after 30 seconds by default once the capture has been
+copied or saved in history. Change the delay in the same settings pane.
 The menu keeps Capture Screenshot and Record Screen as separate direct actions
 and shows each configured shortcut beside its action.
+Record Screen defaults to `Command+Shift+R`.
+Customize these shortcuts in General settings with Command, Option, or Control
+and a letter or number. Frame checks for known conflicts before saving.
 
 The goal is simple: capture what you need, then get back to what you were doing.
 
@@ -38,8 +45,8 @@ The goal is simple: capture what you need, then get back to what you were doing.
 - Capture a window.
 - Capture long content by scrolling, with a fixed side preview that follows
   successfully stitched progress while capture is running, fast Finish without
-  restitching the whole capture, and automatic scrolling that waits for each
-  frame and stops at the bottom or when matching becomes unreliable.
+  restitching the whole capture. Automatic scrolling waits for each frame.
+  Frame explains when scrolling stops and lets you finish with the captured portion.
 - Use Frame on multiple displays.
 - Save screenshots as PNG files.
 
@@ -50,29 +57,44 @@ The goal is simple: capture what you need, then get back to what you were doing.
 - Drag a screenshot into another app.
 - Open a larger preview.
 - Pin an image so it stays visible while you work.
+- Recognize text and copy it from a selectable full-text or block view.
 
 ### Edit
 
-- Add text, arrows, shapes, highlights, brush marks, or blur sensitive details.
-- Move things after adding them.
-- Resize or delete them.
-- Change color and size from a contextual header style control.
-- Use canvas shortcuts or double-click an object to return to its editing tool.
-- Undo and redo.
-- Save the edited result.
+- Open a screenshot, a local image, or an image from the clipboard.
+- Adjust the current tool or selected object in a collapsible right inspector.
+- Crop on the canvas, resize in pixels or percent, rotate, and flip. See the
+  current pixel dimensions and switch between Fit and 100% zoom.
+- Edit shapes, arrows, text, highlights, and brush marks. Add numbered stamps,
+  a spotlight, and other images. Use mosaic, blur, or solid redaction.
+- Adjust exposure, contrast, and saturation. Extend the canvas or remove the
+  background.
+- Undo image adjustments and annotations together. Save a local editable
+  project to reopen the current image and its annotations.
+- Copy or export PNG, JPEG, HEIC, or TIFF from the editor. Use Save Current
+  to replace the history image or keep the original and save a new one.
 
 ### Record
 
 - Record a selected area as MP4 or GIF.
 - Choose whether to show the cursor, clicks, and pressed keys.
 - Stop, restart, or delete a recording.
-- Trim MP4 recordings and export faster or slower versions.
+- Trim MP4 recordings and export faster or slower versions. Longer recordings
+  show a few preview frames in the timeline.
 
 ### Find Recent Items
 
-- Open recent screenshots and recordings.
+- Double-click a recent screenshot to edit it or a recording to play it.
+- Replace a history screenshot with its edited version or save a separate copy.
 - Bring an older item back into the corner preview.
 - Choose how long Frame keeps recent items.
+
+### Appearance
+
+- Requires macOS 26 or later.
+- In Settings → General, choose Follow System, Light, or Dark. The screenshot
+  toolbar uses Liquid Glass and follows the selected appearance. The Capture pane
+  groups screenshot, recording, and text recognition settings.
 
 ### Start Automatically
 

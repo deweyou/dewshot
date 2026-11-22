@@ -79,61 +79,32 @@ final class SelectionOverlayCompletionTests: XCTestCase {
 
         XCTAssertEqual(
             window.hudButtonImageDescriptionsForTesting(),
-            ["crop", "display", "timer", "scroll", "character.textbox", "record.circle"]
+            ["crop", "display", "timer", "arrow.up.and.down.text.horizontal", "character.textbox", "record.circle"]
         )
     }
 
     @MainActor
-    func testSelectionHUDUsesDeepGlassChromeWithWhiteIcons() throws {
+    func testSelectionHUDUsesUntintedRegularGlassAndUpdatesIconsWhenAppearanceChanges() throws {
         let window = try makeOverlayWindowForTesting()
-        let chromeColors = window.hudChromeColorsForTesting()
-
-        XCTAssertTrue(window.hudHasDrawnChromeFillForTesting())
-        XCTAssertLessThan(chromeColors.background.relativeLuminanceForTesting, 0.08)
-        XCTAssertGreaterThanOrEqual(chromeColors.background.relativeAlphaForTesting, 0.88)
-        XCTAssertGreaterThan(chromeColors.foreground.relativeLuminanceForTesting, 0.8)
-        XCTAssertGreaterThan(chromeColors.border.relativeLuminanceForTesting, 0.8)
-        XCTAssertGreaterThanOrEqual(chromeColors.border.relativeAlphaForTesting, 0.28)
-        XCTAssertGreaterThan(chromeColors.hover.relativeLuminanceForTesting, 0.8)
-        XCTAssertLessThanOrEqual(chromeColors.hover.relativeAlphaForTesting, 0.16)
-
-        let tintColors = window.hudButtonTintColorsForTesting()
-        for label in ["区域截图", "全屏截图", "延迟截图", "滚动长截图", "Recognize Text", "录屏"] {
-            let tintColor = try XCTUnwrap(tintColors[label])
-            XCTAssertGreaterThan(tintColor.relativeLuminanceForTesting, 0.8)
-        }
-    }
-
-    @MainActor
-    func testSelectionHUDUsesSameDeepGlassChromeInDarkAppearance() throws {
         let darkAppearance = try XCTUnwrap(NSAppearance(named: .darkAqua))
-        var darkAppearanceWindow: SelectionOverlayWindow?
-        var creationError: Error?
-        darkAppearance.performAsCurrentDrawingAppearance {
-            do {
-                darkAppearanceWindow = try makeOverlayWindowForTesting()
-            } catch {
-                creationError = error
-            }
-        }
-        if let creationError {
-            throw creationError
-        }
-        let window = try XCTUnwrap(darkAppearanceWindow)
-        let chromeColors = window.hudChromeColorsForTesting()
+        let lightAppearance = try XCTUnwrap(NSAppearance(named: .aqua))
 
-        XCTAssertLessThan(chromeColors.background.relativeLuminanceForTesting, 0.08)
-        XCTAssertGreaterThanOrEqual(chromeColors.background.relativeAlphaForTesting, 0.88)
-        XCTAssertGreaterThan(chromeColors.foreground.relativeLuminanceForTesting, 0.8)
-        XCTAssertGreaterThan(chromeColors.border.relativeLuminanceForTesting, 0.8)
-        XCTAssertGreaterThanOrEqual(chromeColors.border.relativeAlphaForTesting, 0.28)
-        XCTAssertGreaterThan(chromeColors.hover.relativeLuminanceForTesting, 0.8)
-
-        let tintColors = window.hudButtonTintColorsForTesting()
-        for label in ["区域截图", "全屏截图", "延迟截图", "滚动长截图", "Recognize Text", "录屏"] {
-            let tintColor = try XCTUnwrap(tintColors[label])
-            XCTAssertGreaterThan(tintColor.relativeLuminanceForTesting, 0.8)
+        if #available(macOS 26.0, *) {
+            XCTAssertTrue(window.hudUsesUntintedRegularGlassForTesting())
         }
+
+        window.setAppearanceForTesting(darkAppearance)
+        let darkIcons = window.hudButtonTintColorsForTesting()
+        XCTAssertEqual(darkIcons.count, 6)
+        XCTAssertTrue(darkIcons.values.allSatisfy { (0.84...0.96).contains($0.relativeLuminanceForTesting) })
+
+        window.setAppearanceForTesting(lightAppearance)
+        let lightIcons = window.hudButtonTintColorsForTesting()
+        XCTAssertEqual(lightIcons.count, 6)
+        XCTAssertTrue(lightIcons.values.allSatisfy { (0.16...0.28).contains($0.relativeLuminanceForTesting) })
+
+        window.setAppearanceForTesting(darkAppearance)
+        XCTAssertEqual(window.hudButtonTintColorsForTesting(), darkIcons)
     }
 
     @MainActor
@@ -144,7 +115,21 @@ final class SelectionOverlayCompletionTests: XCTestCase {
         XCTAssertEqual(metrics.buttonWidth, 36)
         XCTAssertEqual(metrics.hoverDiameter, metrics.buttonWidth)
         XCTAssertEqual(metrics.screenshotModeWidth, 222)
-        XCTAssertEqual(metrics.screenshotModeWidth - metrics.buttonWidth * 6, 6)
+        XCTAssertTrue(window.hudButtonVisibleTitlesForTesting().isEmpty)
+    }
+
+    @MainActor
+    func testScreenshotHUDStaysAboveANarrowSelectionAtTheBottomEdge() throws {
+        _ = NSApplication.shared
+        let screen = try XCTUnwrap(NSScreen.screens.first)
+        let selection = CGRect(x: screen.frame.minX + 18, y: screen.frame.minY + 18, width: 120, height: 75)
+        let window = try makeOverlayWindowForTesting(initialGlobalRect: selection)
+
+        let hudFrame = window.recordingHUDFrameForTesting()
+        XCTAssertEqual(hudFrame.height, 42)
+        XCTAssertGreaterThan(hudFrame.minY, 93)
+        XCTAssertGreaterThanOrEqual(hudFrame.minX, 12)
+        XCTAssertLessThanOrEqual(hudFrame.maxX, screen.frame.width - 12)
     }
 
     @MainActor
@@ -216,6 +201,38 @@ final class SelectionOverlayCompletionTests: XCTestCase {
         XCTAssertEqual(hudFrame.midX, selectionRect.midX, accuracy: 1)
         XCTAssertEqual(hudFrame.midY, selectionRect.midY, accuracy: 1)
         XCTAssertTrue(window.startRecordingButtonIsPrimaryForTesting())
+    }
+
+    @MainActor
+    func testRecordingSetupRendersWhiteTitleOnTheRedStartButton() throws {
+        _ = NSApplication.shared
+        let screen = try XCTUnwrap(NSScreen.screens.first)
+        let selection = CGRect(x: screen.frame.midX - 210, y: screen.frame.midY - 120, width: 420, height: 240)
+        let existingWindows = Set(NSApp.windows.map(ObjectIdentifier.init))
+        let overlay = try makeOverlayWindowForTesting(initialGlobalRect: selection, initialMode: .recordingSetup)
+        defer { overlay.close() }
+        overlay.orderFrontRegardless()
+        overlay.makeKey()
+
+        let window = try XCTUnwrap(NSApp.windows.first { !existingWindows.contains(ObjectIdentifier($0)) && $0.isVisible })
+        let view = try XCTUnwrap(window.contentView)
+        view.layoutSubtreeIfNeeded()
+        window.displayIfNeeded()
+
+        // Backdrop compositing happens outside the AppKit view cache.
+        let bitmap = try XCTUnwrap(overlay.startRecordingButtonSnapshotForTesting())
+        var whitePixels = 0
+        for y in 0..<bitmap.pixelsHigh {
+            for x in 0..<bitmap.pixelsWide {
+                if let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB),
+                   color.alphaComponent > 0.9, color.redComponent > 0.85,
+                   color.greenComponent > 0.85, color.blueComponent > 0.85 {
+                    whitePixels += 1
+                }
+            }
+        }
+
+        XCTAssertGreaterThan(whitePixels, 16, "The red Start Recording button should contain its white title")
     }
 
     @MainActor
@@ -763,6 +780,39 @@ final class SelectionOverlayCompletionTests: XCTestCase {
     }
 
     @MainActor
+    func testMissingInputMonitoringOffersSettingsAndRecordingStillStarts() throws {
+        let previousOptions = SettingsStore.recordingOptions()
+        SettingsStore.setRecordingOptions(.defaults)
+        defer { SettingsStore.setRecordingOptions(previousOptions) }
+
+        var hasPermission = false
+        var didShowPermissionHelp = false
+        var startedOptions: RecordingOptions?
+        let screen = try XCTUnwrap(NSScreen.screens.first)
+        let window = try makeOverlayWindowForTesting(
+            initialGlobalRect: CGRect(x: screen.frame.minX + 20, y: screen.frame.minY + 20, width: 240, height: 160),
+            initialMode: .recordingSetup,
+            onStartRecording: { _, options in startedOptions = options },
+            hasKeyboardHintsPermission: { hasPermission },
+            showKeyboardHintsPermissionHelp: { _, _ in
+                didShowPermissionHelp = true
+                return false
+            }
+        )
+
+        XCTAssertEqual(window.hudButtonSlashStatesForTesting()["显示键盘提示"], true)
+        XCTAssertTrue(window.performHUDActionForTesting(accessibilityLabel: "显示键盘提示"))
+        XCTAssertTrue(didShowPermissionHelp)
+        XCTAssertTrue(window.performHUDActionForTesting(accessibilityLabel: "开始录制"))
+        XCTAssertEqual(startedOptions?.showsKeyboardHints, false)
+        XCTAssertTrue(SettingsStore.recordingOptions().showsKeyboardHints)
+
+        hasPermission = true
+        NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: nil)
+        XCTAssertEqual(window.hudButtonSlashStatesForTesting()["显示键盘提示"], false)
+    }
+
+    @MainActor
     private func makeOverlayWindowForTesting(
         initialGlobalRect: CGRect? = nil,
         initialWindowCandidate: WindowCandidate? = nil,
@@ -770,7 +820,9 @@ final class SelectionOverlayCompletionTests: XCTestCase {
         delayCountdownNanoseconds: UInt64 = 5_000_000_000,
         onComplete: @escaping (SelectionOverlayCompletion?) -> Void = { _ in },
         onStartRecording: @escaping (SelectionCapture, RecordingOptions) -> Void = { _, _ in },
-        onWindowSelectionRequested: @escaping (CGPoint, Int?) -> WindowCandidate? = { _, _ in nil }
+        onWindowSelectionRequested: @escaping (CGPoint, Int?) -> WindowCandidate? = { _, _ in nil },
+        hasKeyboardHintsPermission: @escaping @MainActor () -> Bool = { true },
+        showKeyboardHintsPermissionHelp: @escaping @MainActor (AppStrings, NSWindow?) -> Bool = { _, _ in false }
     ) throws -> SelectionOverlayWindow {
         _ = NSApplication.shared
         let screen = try XCTUnwrap(NSScreen.screens.first)
@@ -783,6 +835,8 @@ final class SelectionOverlayCompletionTests: XCTestCase {
             placeholderText: "Drag to select an area",
             ocrActionText: "Recognize Text",
             delayCountdownNanoseconds: delayCountdownNanoseconds,
+            hasKeyboardHintsPermission: hasKeyboardHintsPermission,
+            showKeyboardHintsPermissionHelp: showKeyboardHintsPermissionHelp,
             onInteraction: {},
             onWindowSelectionRequested: onWindowSelectionRequested,
             onStartRecording: onStartRecording,

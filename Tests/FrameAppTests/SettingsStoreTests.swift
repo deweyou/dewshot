@@ -29,6 +29,40 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(SettingsStore.appLanguage(defaults: defaults), .en)
     }
 
+    func testThemeDefaultsToSystemForMissingOrUnknownPreference() {
+        XCTAssertEqual(SettingsStore.appTheme(defaults: defaults), .system)
+
+        defaults.set("unknown", forKey: SettingsStore.appThemeKey)
+        XCTAssertEqual(SettingsStore.appTheme(defaults: defaults), .system)
+    }
+
+    func testThemePersistsEachAppearanceChoice() {
+        for theme in AppTheme.allCases {
+            SettingsStore.setAppTheme(theme, defaults: defaults)
+            XCTAssertEqual(SettingsStore.appTheme(defaults: defaults), theme)
+        }
+    }
+
+    func testAutomaticallyCopiesCapturesDefaultsOnAndPersistsChanges() {
+        XCTAssertTrue(SettingsStore.automaticallyCopiesCaptures(defaults: defaults))
+
+        SettingsStore.setAutomaticallyCopiesCaptures(false, defaults: defaults)
+        XCTAssertFalse(SettingsStore.automaticallyCopiesCaptures(defaults: defaults))
+
+        SettingsStore.setAutomaticallyCopiesCaptures(true, defaults: defaults)
+        XCTAssertTrue(SettingsStore.automaticallyCopiesCaptures(defaults: defaults))
+    }
+
+    func testQuickAccessDismissalDefaultsToThirtySecondsAndPersistsChoices() {
+        XCTAssertEqual(SettingsStore.quickAccessDismissal(defaults: defaults), .thirtySeconds)
+        XCTAssertEqual(QuickAccessDismissal.allCases.map(\.delay), [10, 30, 60, nil])
+
+        for dismissal in QuickAccessDismissal.allCases {
+            SettingsStore.setQuickAccessDismissal(dismissal, defaults: defaults)
+            XCTAssertEqual(SettingsStore.quickAccessDismissal(defaults: defaults), dismissal)
+        }
+    }
+
     func testScreenshotShortcutPersistsCustomStorageValue() {
         let shortcut = ScreenshotShortcut(key: .number("7"), modifiers: [.command, .option])
 
@@ -57,8 +91,16 @@ final class SettingsStoreTests: XCTestCase {
         )
     }
 
-    func testRecordingShortcutDefaultsToEmpty() {
+    func testRecordingShortcutDefaultsToCommandShiftR() {
+        XCTAssertFalse(SettingsStore.hasSavedRecordingShortcut(defaults: defaults))
+        XCTAssertEqual(SettingsStore.recordingShortcut(defaults: defaults), .defaultRecording)
+    }
+
+    func testDefaultRecordingShortcutDoesNotDuplicateExistingScreenshotShortcut() {
+        SettingsStore.setScreenshotShortcut(.defaultRecording, defaults: defaults)
+
         XCTAssertNil(SettingsStore.recordingShortcut(defaults: defaults))
+        XCTAssertEqual(SettingsStore.screenshotShortcut(defaults: defaults), .defaultRecording)
     }
 
     func testRecordingShortcutPersistsCustomStorageValue() {
@@ -78,7 +120,7 @@ final class SettingsStoreTests: XCTestCase {
 
         SettingsStore.setRecordingShortcut(nil, defaults: defaults)
 
-        XCTAssertNil(defaults.string(forKey: SettingsStore.recordingShortcutKey))
+        XCTAssertTrue(SettingsStore.hasSavedRecordingShortcut(defaults: defaults))
         XCTAssertNil(SettingsStore.recordingShortcut(defaults: defaults))
     }
 

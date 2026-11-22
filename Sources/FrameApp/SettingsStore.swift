@@ -1,14 +1,30 @@
 import Foundation
 import FrameCore
 
+enum QuickAccessDismissal: Int, CaseIterable, Identifiable {
+    case tenSeconds = 10
+    case thirtySeconds = 30
+    case oneMinute = 60
+    case never = 0
+
+    var id: Int { rawValue }
+
+    var delay: TimeInterval? {
+        self == .never ? nil : TimeInterval(rawValue)
+    }
+}
+
 enum SettingsStore {
     static let screenshotShortcutKey = "screenshotShortcut"
     static let recordingShortcutKey = "recordingShortcut"
     static let appLanguageKey = "appLanguage"
+    static let appThemeKey = "appTheme"
     static let screenshotDirectoryKey = "screenshotDirectory"
     static let windowScreenshotDecorationStyleKey = "windowScreenshotDecorationStyle"
     static let rememberedSelectionKey = "rememberedWindowSelection"
     static let imageWorkspaceSaveCurrentBehaviorKey = "imageWorkspaceSaveCurrentBehavior"
+    static let automaticallyCopiesCapturesKey = "automaticallyCopiesCaptures"
+    static let quickAccessDismissalKey = "quickAccessDismissal"
     static let ocrRecognitionLanguagesKey = "ocrRecognitionLanguages"
     static let captureHistoryEnabledKey = "captureHistoryEnabled"
     static let captureHistoryRetentionKey = "captureHistoryRetention"
@@ -24,6 +40,8 @@ enum SettingsStore {
     static let imageAnnotationStrokeColorKey = "imageAnnotationStrokeColor"
     static let imageAnnotationLineWidthKey = "imageAnnotationLineWidth"
     static let imageAnnotationFontSizeKey = "imageAnnotationFontSize"
+    private static let imageAnnotationDetailedStyleKey = "imageAnnotationDetailedStyle"
+    private static let disabledRecordingShortcut = ""
 
     static func screenshotShortcut(defaults: UserDefaults = .standard) -> ScreenshotShortcut {
         ScreenshotShortcut.persistedValue(for: defaults.string(forKey: screenshotShortcutKey))
@@ -38,7 +56,7 @@ enum SettingsStore {
 
     static func recordingShortcut(defaults: UserDefaults = .standard) -> ScreenshotShortcut? {
         guard let rawValue = defaults.string(forKey: recordingShortcutKey) else {
-            return nil
+            return screenshotShortcut(defaults: defaults) == .defaultRecording ? nil : .defaultRecording
         }
 
         return ScreenshotShortcut.shortcut(storageValue: rawValue, reservedShortcuts: [])
@@ -48,12 +66,11 @@ enum SettingsStore {
         _ shortcut: ScreenshotShortcut?,
         defaults: UserDefaults = .standard
     ) {
-        guard let shortcut else {
-            defaults.removeObject(forKey: recordingShortcutKey)
-            return
-        }
+        defaults.set(shortcut?.storageValue ?? disabledRecordingShortcut, forKey: recordingShortcutKey)
+    }
 
-        defaults.set(shortcut.storageValue, forKey: recordingShortcutKey)
+    static func hasSavedRecordingShortcut(defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: recordingShortcutKey) != nil
     }
 
     static func appLanguage(defaults: UserDefaults = .standard) -> AppLanguage {
@@ -65,6 +82,14 @@ enum SettingsStore {
         defaults: UserDefaults = .standard
     ) {
         defaults.set(language.rawValue, forKey: appLanguageKey)
+    }
+
+    static func appTheme(defaults: UserDefaults = .standard) -> AppTheme {
+        AppTheme(rawValue: defaults.string(forKey: appThemeKey) ?? "") ?? .system
+    }
+
+    static func setAppTheme(_ theme: AppTheme, defaults: UserDefaults = .standard) {
+        defaults.set(theme.rawValue, forKey: appThemeKey)
     }
 
     static func ocrRecognitionLanguages(defaults: UserDefaults = .standard) -> [String] {
@@ -175,6 +200,27 @@ enum SettingsStore {
         defaults.set(behavior.rawValue, forKey: imageWorkspaceSaveCurrentBehaviorKey)
     }
 
+    static func automaticallyCopiesCaptures(defaults: UserDefaults = .standard) -> Bool {
+        guard defaults.object(forKey: automaticallyCopiesCapturesKey) != nil else {
+            return true
+        }
+
+        return defaults.bool(forKey: automaticallyCopiesCapturesKey)
+    }
+
+    static func setAutomaticallyCopiesCaptures(_ isEnabled: Bool, defaults: UserDefaults = .standard) {
+        defaults.set(isEnabled, forKey: automaticallyCopiesCapturesKey)
+    }
+
+    static func quickAccessDismissal(defaults: UserDefaults = .standard) -> QuickAccessDismissal {
+        (defaults.object(forKey: quickAccessDismissalKey) as? Int)
+            .flatMap(QuickAccessDismissal.init(rawValue:)) ?? .thirtySeconds
+    }
+
+    static func setQuickAccessDismissal(_ dismissal: QuickAccessDismissal, defaults: UserDefaults = .standard) {
+        defaults.set(dismissal.rawValue, forKey: quickAccessDismissalKey)
+    }
+
     static func isCaptureHistoryEnabled(defaults: UserDefaults = .standard) -> Bool {
         guard defaults.object(forKey: captureHistoryEnabledKey) != nil else {
             return true
@@ -262,6 +308,11 @@ enum SettingsStore {
         options.style.strokeColor = ImageAnnotationColor(storageValue: defaults.string(forKey: imageAnnotationStrokeColorKey))
             ?? options.style.strokeColor
 
+        if let data = defaults.data(forKey: imageAnnotationDetailedStyleKey),
+           let style = try? JSONDecoder().decode(ImageAnnotationStyle.self, from: data) {
+            options.style = style
+        }
+
         let lineWidth = CGFloat(defaults.double(forKey: imageAnnotationLineWidthKey))
         if Self.imageAnnotationLineWidths.contains(lineWidth) {
             options.style.lineWidth = lineWidth
@@ -284,6 +335,9 @@ enum SettingsStore {
         defaults.set(options.style.strokeColor.storageValue, forKey: imageAnnotationStrokeColorKey)
         defaults.set(Double(options.style.lineWidth), forKey: imageAnnotationLineWidthKey)
         defaults.set(Double(options.style.fontSize), forKey: imageAnnotationFontSizeKey)
+        if let style = try? JSONEncoder().encode(options.style) {
+            defaults.set(style, forKey: imageAnnotationDetailedStyleKey)
+        }
     }
 
     private static let imageAnnotationLineWidths: [CGFloat] = [1, 2, 4, 8, 12, 16, 24]
@@ -326,6 +380,10 @@ private extension ImageAnnotationMosaicMode {
             self = .rectangle
         case "brush":
             self = .brush
+        case "blur":
+            self = .blur
+        case "redact":
+            self = .redact
         default:
             return nil
         }
@@ -337,6 +395,10 @@ private extension ImageAnnotationMosaicMode {
             "rectangle"
         case .brush:
             "brush"
+        case .blur:
+            "blur"
+        case .redact:
+            "redact"
         }
     }
 }

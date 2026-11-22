@@ -78,7 +78,7 @@ final class ZFrameCoreTests: XCTestCase {
 
     func testScreenshotShortcutRejectsUnsafeCombinations() {
         XCTAssertEqual(
-            ScreenshotShortcut.validate(key: .letter("A"), modifiers: [.command]),
+            ScreenshotShortcut.validate(key: .letter("A"), modifiers: []),
             .invalid(.insufficientModifiers)
         )
         XCTAssertEqual(
@@ -93,6 +93,17 @@ final class ZFrameCoreTests: XCTestCase {
             ScreenshotShortcut.validate(key: .letter("R"), modifiers: [.command, .shift]),
             .valid(ScreenshotShortcut(key: .letter("R"), modifiers: [.command, .shift]))
         )
+    }
+
+    func testShortcutSupportsAndRoundTripsOneModifier() {
+        for modifier in [ScreenshotShortcutModifier.command, .option, .control] {
+            let shortcut = ScreenshotShortcut(key: .letter("A"), modifiers: [modifier])
+            XCTAssertEqual(ScreenshotShortcut.validate(key: .letter("A"), modifiers: [modifier]), .valid(shortcut))
+            XCTAssertEqual(ScreenshotShortcut.persistedValue(for: shortcut.storageValue), shortcut)
+        }
+
+        XCTAssertNil(ScreenshotShortcut.shortcut(storageValue: "cmd+cmd+a", reservedShortcuts: []))
+        XCTAssertNil(ScreenshotShortcut.shortcut(storageValue: "cmd++a", reservedShortcuts: []))
     }
 
     func testShortcutValidationRejectsDuplicateShortcutWhenProvided() {
@@ -515,7 +526,8 @@ final class ZFrameCoreTests: XCTestCase {
 
         XCTAssertEqual(document.elements.count, 1)
         XCTAssertEqual(document.selectedElementID, element.id)
-        XCTAssertEqual(document.topmostElementID(at: CGPoint(x: 20, y: 30)), element.id)
+        XCTAssertNil(document.topmostElementID(at: CGPoint(x: 20, y: 30)))
+        XCTAssertEqual(document.topmostElementID(at: CGPoint(x: 10, y: 30)), element.id)
 
         document.moveSelected(by: CGSize(width: 5, height: -10))
         XCTAssertEqual(document.elements[0].bounds, CGRect(x: 15, y: 10, width: 80, height: 40))
@@ -611,12 +623,17 @@ final class ZFrameCoreTests: XCTestCase {
 
         document.markCurrentRenditionSaved()
 
-        XCTAssertTrue(document.elements.isEmpty)
-        XCTAssertNil(document.selectedElementID)
-        XCTAssertFalse(document.canUndo)
+        XCTAssertEqual(document.elements.count, 1)
+        XCTAssertEqual(document.selectedElementID, document.elements.first?.id)
+        XCTAssertTrue(document.canUndo)
         XCTAssertFalse(document.canRedo)
         XCTAssertFalse(document.hasUncommittedEdits)
         XCTAssertEqual(document.selectedTool, .mosaic)
+        document.undo()
+        XCTAssertTrue(document.elements.isEmpty)
+        XCTAssertTrue(document.hasUncommittedEdits)
+        document.redo()
+        XCTAssertFalse(document.hasUncommittedEdits)
     }
 
     func testImageAnnotationDocumentReplacesSelectedText() {

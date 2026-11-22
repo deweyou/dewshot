@@ -66,9 +66,9 @@ final class ScrollingScreenshotSessionControllerTests: XCTestCase {
 
         let buttons = controller.hudButtonAttributesForTesting()
         XCTAssertEqual(buttons.map(\.label), ["开始", "取消"])
+        XCTAssertEqual(buttons.map(\.imagePosition), [.noImage, .imageOnly])
         for button in buttons {
             XCTAssertEqual(colorComponents(try XCTUnwrap(button.tintColor)), colorComponents(HUDChromePalette.deepGlassForegroundColor))
-            XCTAssertEqual(button.imagePosition, .imageOnly)
             XCTAssertEqual(button.bezelStyle, .regularSquare)
         }
 
@@ -97,11 +97,14 @@ final class ScrollingScreenshotSessionControllerTests: XCTestCase {
             onFailure: { error in XCTFail("Unexpected failure: \(error)") }
         )
         controller.beginScrolling()
+        XCTAssertEqual(controller.hudNoticeForTesting(), "请缓慢滚动")
+        XCTAssertEqual(controller.hudButtonAttributesForTesting().map(\.imagePosition), [.noImage, .imageOnly, .imageOnly])
 
         XCTAssertEqual(controller.hudButtonAttributesForTesting().map(\.label), ["完成", "自动滚动", "取消"])
         XCTAssertEqual(controller.hudButtonAttributesForTesting().map(\.symbolName), ["checkmark", "arrow.down.circle.fill", "xmark"])
 
         controller.toggleAutoScroll()
+        XCTAssertNil(controller.hudNoticeForTesting())
 
         XCTAssertEqual(controller.hudButtonAttributesForTesting().map(\.label), ["完成", "停止滚动", "取消"])
         XCTAssertEqual(controller.hudButtonAttributesForTesting().map(\.symbolName), ["checkmark", "stop.circle.fill", "xmark"])
@@ -109,7 +112,7 @@ final class ScrollingScreenshotSessionControllerTests: XCTestCase {
         controller.cancel()
     }
 
-    func testAutoScrollRequestsAccessibilityBeforeEnabling() throws {
+    func testMissingAccessibilityOffersSettingsAndKeepsManualScrollingAvailable() throws {
         let screenFrame = try XCTUnwrap(NSScreen.screens.first?.frame)
         let selectionRect = CGRect(
             x: screenFrame.minX + 40,
@@ -117,14 +120,15 @@ final class ScrollingScreenshotSessionControllerTests: XCTestCase {
             width: min(120, screenFrame.width - 80),
             height: min(90, screenFrame.height - 100)
         )
-        var didRequestPermission = false
+        var hasAccess = false
+        var didOpenSettings = false
         var didScroll = false
         let controller = ScrollingScreenshotSessionController(
             captureRegion: { rect in self.makeCapturedScreenshot(size: rect.size, rect: rect) },
             scrollRegion: { _ in didScroll = true },
             scheduleStep: { _, _ in },
-            canAutoScroll: { false },
-            requestAutoScrollPermission: { didRequestPermission = true }
+            canAutoScroll: { hasAccess },
+            openAccessibilitySettings: { didOpenSettings = true }
         )
 
         controller.start(
@@ -137,9 +141,21 @@ final class ScrollingScreenshotSessionControllerTests: XCTestCase {
         controller.beginScrolling()
         controller.toggleAutoScroll()
 
-        XCTAssertTrue(didRequestPermission)
+        XCTAssertFalse(didOpenSettings)
         XCTAssertFalse(didScroll)
         XCTAssertFalse(controller.isAutoScrollingEnabledForTesting())
+        XCTAssertTrue(controller.isActive)
+        XCTAssertEqual(controller.hudNoticeForTesting(), AppStrings(language: .en).autoScrollPermissionMessage)
+        XCTAssertEqual(controller.hudButtonAttributesForTesting().map(\.label), ["Finish", "Open Settings", "Cancel"])
+
+        controller.openAutoScrollSettings()
+        XCTAssertTrue(didOpenSettings)
+        XCTAssertEqual(controller.hudNoticeForTesting(), "Scroll slowly")
+
+        hasAccess = true
+        controller.toggleAutoScroll()
+        XCTAssertTrue(didScroll)
+        XCTAssertTrue(controller.isAutoScrollingEnabledForTesting())
         controller.cancel()
     }
 
@@ -896,6 +912,7 @@ final class ScrollingScreenshotSessionControllerTests: XCTestCase {
 
         XCTAssertTrue(controller.isActive)
         XCTAssertEqual(scrolledCount, 2)
+        XCTAssertTrue(controller.hudNoticeForTesting()?.contains("自动滚动上限") == true)
         controller.cancel()
     }
 
@@ -941,6 +958,7 @@ final class ScrollingScreenshotSessionControllerTests: XCTestCase {
         XCTAssertEqual(scrolledCount, 4)
         pendingStep?()
         XCTAssertEqual(scrolledCount, 4)
+        XCTAssertEqual(controller.hudNoticeForTesting(), "没有检测到新内容")
         XCTAssertTrue(controller.isActive)
         controller.cancel()
     }

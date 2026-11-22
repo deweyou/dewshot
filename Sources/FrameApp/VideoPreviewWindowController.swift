@@ -48,6 +48,8 @@ final class VideoPreviewWindowController: NSObject, NSWindowDelegate {
         window.title = recording.fileURL.lastPathComponent
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
+        window.minSize = NSSize(width: 420, height: 300)
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.isReleasedWhenClosed = false
         window.delegate = self
@@ -58,6 +60,9 @@ final class VideoPreviewWindowController: NSObject, NSWindowDelegate {
         mediaView.translatesAutoresizingMaskIntoConstraints = false
         let editingState = recording.format == .mp4 ? try? VideoEditingState(sourceDuration: recording.duration) : nil
         let editorBar = editingState.map { VideoEditorBarView(state: $0, strings: strings) }
+        if let asset = media.player?.currentItem?.asset {
+            editorBar?.loadTimelineThumbnails(from: asset)
+        }
         let playerTimeObserver = media.player.map { player in
             player.addPeriodicTimeObserver(
                 forInterval: CMTime(seconds: 0.05, preferredTimescale: 600),
@@ -142,7 +147,8 @@ final class VideoPreviewWindowController: NSObject, NSWindowDelegate {
         outputGroup.heightAnchor.constraint(equalToConstant: 28).isActive = true
         toolbar.addArrangedSubview(outputGroup)
 
-        let header = makeHeaderView()
+        let header = MediaWindowHeaderView()
+        header.identifier = NSUserInterfaceItemIdentifier("VideoPreviewOutputHeader")
         header.addSubview(toolbar)
 
         let root = NSView()
@@ -156,7 +162,7 @@ final class VideoPreviewWindowController: NSObject, NSWindowDelegate {
             header.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             header.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             header.topAnchor.constraint(equalTo: root.topAnchor),
-            header.heightAnchor.constraint(equalToConstant: 32),
+            header.heightAnchor.constraint(equalToConstant: 36),
             toolbar.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 88),
             toolbar.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -6),
             toolbar.topAnchor.constraint(equalTo: header.topAnchor, constant: 2),
@@ -427,15 +433,6 @@ final class VideoPreviewWindowController: NSObject, NSWindowDelegate {
         button.setAccessibilityLabel(title)
         configureActionButton(button)
         return button
-    }
-
-    private func makeHeaderView() -> NSVisualEffectView {
-        let header = NSVisualEffectView()
-        header.identifier = NSUserInterfaceItemIdentifier("VideoPreviewOutputHeader")
-        header.alphaValue = 1
-        FrameHUDChrome.configure(header, surface: .toolbar, cornerRadius: 16)
-        header.translatesAutoresizingMaskIntoConstraints = false
-        return header
     }
 
     private func makeDisabledButton(title: String, symbolName: String) -> NSButton {

@@ -36,6 +36,33 @@ final class HotKeyControllerTests: XCTestCase {
         XCTAssertNil(controller.recordingShortcut)
     }
 
+    func testOnlyExactEnabledSystemShortcutIsAConflict() {
+        let shortcut = ScreenshotShortcut(key: .number("4"), modifiers: [.command, .shift])
+        let enabled: [String: NSNumber] = [
+            "kHISymbolicHotKeyCode": NSNumber(value: kVK_ANSI_4),
+            "kHISymbolicHotKeyModifiers": NSNumber(value: cmdKey | shiftKey),
+            "kHISymbolicHotKeyEnabled": true,
+        ]
+        var disabled = enabled
+        disabled["kHISymbolicHotKeyEnabled"] = false
+
+        XCTAssertTrue(HotKeyController.containsEnabledSystemShortcut(shortcut, in: [enabled]))
+        XCTAssertFalse(HotKeyController.containsEnabledSystemShortcut(shortcut, in: [disabled]))
+        XCTAssertFalse(HotKeyController.containsEnabledSystemShortcut(
+            ScreenshotShortcut(key: .number("4"), modifiers: [.command]),
+            in: [enabled]
+        ))
+    }
+
+    func testWarnsForCommonCommandCombinationsWithoutRejectingOtherSingleModifiers() {
+        XCTAssertTrue(HotKeyController.overlapsCommonAppShortcut(
+            ScreenshotShortcut(key: .letter("A"), modifiers: [.command])
+        ))
+        XCTAssertFalse(HotKeyController.overlapsCommonAppShortcut(
+            ScreenshotShortcut(key: .letter("A"), modifiers: [.control])
+        ))
+    }
+
     func testRegisteredHotKeyIDsSkipEmptyRecordingShortcut() throws {
         let controller = HotKeyController(recordingShortcut: nil)
 

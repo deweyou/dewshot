@@ -87,6 +87,7 @@ struct WindowCandidateProvider {
     private static let transientCurrentProcessWindowNames: Set<String> = [
         QuickAccessPanelController.previewWindowTitle,
         QuickAccessPanelController.hoverPreviewWindowTitle,
+        QuickAccessPanelController.deliveryFeedbackWindowTitle,
     ]
 
     static func cocoaRect(forWindowInfo windowInfo: [String: Any]) -> CGRect? {

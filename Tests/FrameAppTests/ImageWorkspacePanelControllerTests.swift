@@ -1,4 +1,5 @@
 import AppKit
+import UniformTypeIdentifiers
 import XCTest
 @testable import FrameApp
 @testable import FrameCore
@@ -168,11 +169,11 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         )
         canvas.frame = NSRect(x: 0, y: 0, width: 32, height: 32)
 
-        XCTAssertEqual(try pixelColor(in: canvas, x: 4, y: 4), try pixelColor(in: canvas, x: 12, y: 12))
+        XCTAssertEqual(try pixelColor(in: canvas, x: 8, y: 8), try pixelColor(in: canvas, x: 12, y: 12))
         XCTAssertNotEqual(try pixelColor(in: screenshot.pngData, x: 4, y: 4), try pixelColor(in: screenshot.pngData, x: 12, y: 12))
     }
 
-    func testImageAnnotationCanvasDefersRectangleMosaicPixelationUntilMouseUp() throws {
+    func testImageAnnotationCanvasPreviewsRectangleMosaicDuringDrag() throws {
         let screenshot = try makeGradientScreenshot(size: CGSize(width: 32, height: 32))
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 32, height: 32),
@@ -196,11 +197,11 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         canvas.mouseDown(with: try makeMouseButtonEvent(type: .leftMouseDown, point: NSPoint(x: 0, y: 0), panel: panel))
         canvas.mouseDragged(with: try makeMouseButtonEvent(type: .leftMouseDragged, point: NSPoint(x: 31, y: 31), panel: panel))
 
-        XCTAssertNotEqual(try pixelColor(in: canvas, x: 4, y: 4), try pixelColor(in: canvas, x: 12, y: 12))
+        XCTAssertEqual(try pixelColor(in: canvas, x: 8, y: 8), try pixelColor(in: canvas, x: 12, y: 12))
 
         canvas.mouseUp(with: try makeMouseButtonEvent(type: .leftMouseUp, point: NSPoint(x: 31, y: 31), panel: panel))
 
-        XCTAssertEqual(try pixelColor(in: canvas, x: 4, y: 4), try pixelColor(in: canvas, x: 12, y: 12))
+        XCTAssertEqual(try pixelColor(in: canvas, x: 8, y: 8), try pixelColor(in: canvas, x: 12, y: 12))
     }
 
     func testImageAnnotationCanvasDrawsScaledShapeDraftUnderMouse() throws {
@@ -908,10 +909,8 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
 
         canvas.selectTool(.text)
         canvas.mouseDown(with: try makeMouseButtonEvent(type: .leftMouseDown, point: NSPoint(x: 180, y: 120), panel: panel))
-        XCTAssertNil(canvas.documentForTesting.selectedElementID)
-        XCTAssertEqual(canvas.documentForTesting.elements.count, 2)
-
-        canvas.mouseDown(with: try makeMouseButtonEvent(type: .leftMouseDown, point: NSPoint(x: 180, y: 120), panel: panel))
+        XCTAssertTrue(canvas.isEditingTextForTesting)
+        XCTAssertEqual(canvas.documentForTesting.elements.count, 3)
         canvas.commitActiveTextForTesting("Second")
 
         let textValues = canvas.documentForTesting.elements.compactMap { element -> String? in
@@ -1002,7 +1001,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         XCTAssertTrue(canvas.subviews.compactMap { $0 as? NSTextView }.isEmpty)
     }
 
-    func testImageAnnotationTextToolBlankClickClearsSelectedTextWithoutCreatingAnotherText() throws {
+    func testImageAnnotationTextToolBlankClickStartsAnotherText() throws {
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 320, height: 240),
             styleMask: [.titled],
@@ -1029,10 +1028,10 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
 
         canvas.mouseDown(with: try makeMouseButtonEvent(type: .leftMouseDown, point: NSPoint(x: 240, y: 190), panel: panel))
 
-        XCTAssertEqual(canvas.documentForTesting.elements.count, 1)
+        XCTAssertEqual(canvas.documentForTesting.elements.count, 2)
         XCTAssertEqual(canvas.documentForTesting.elements.first?.id, textElementID)
-        XCTAssertNil(canvas.documentForTesting.selectedElementID)
-        XCTAssertFalse(canvas.isEditingTextForTesting)
+        XCTAssertNotNil(canvas.documentForTesting.selectedElementID)
+        XCTAssertTrue(canvas.isEditingTextForTesting)
     }
 
     func testImageAnnotationTextToolSingleClickMovesSelectedText() throws {
@@ -1188,7 +1187,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         XCTAssertNil(findSlider(in: contentView, accessibilityLabel: "Thickness"))
         XCTAssertTrue(styleControl.isHidden)
         XCTAssertEqual(mosaicOptionsButton.menu?.items.map(\.title), [
-            "Region", "Brush",
+            "Region", "Brush", "Blur", "Solid redaction",
         ])
         XCTAssertEqual(mosaicOptionsButton.menu?.item(withTitle: "Region")?.state, .on)
         XCTAssertEqual(mosaicOptionsButton.menu?.item(withTitle: "Brush")?.state, .off)
@@ -1204,7 +1203,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         XCTAssertEqual(orderedButtonTitles(in: paletteView), Array(repeating: "", count: 6))
         XCTAssertEqual(orderedButtonAccessibilityLabels(in: paletteView), ["Red", "Yellow", "Blue", "Green", "White", "Black"])
         let thicknessSlider = try XCTUnwrap(findSlider(in: styleControl, accessibilityLabel: "Thickness"))
-        XCTAssertGreaterThan(thicknessSlider.frame.width, 100)
+        XCTAssertGreaterThanOrEqual(thicknessSlider.frame.width, 50)
         XCTAssertEqual(thicknessSlider.numberOfTickMarks, 7)
 
         XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(textButton.action), to: textButton.target, from: textButton))
@@ -1247,7 +1246,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         XCTAssertNil(findButton(in: contentView, accessibilityLabel: "形状选项"))
         XCTAssertNil(findButton(in: contentView, accessibilityLabel: "文本选项"))
         XCTAssertTrue([rectangleButton, ovalButton, lineButton, arrowButton].allSatisfy(\.isEnabled))
-        XCTAssertEqual(mosaicOptionsButton.menu?.items.map(\.title), ["区域", "画笔"])
+        XCTAssertEqual(mosaicOptionsButton.menu?.items.map(\.title), ["区域", "画笔", "模糊", "纯色遮挡"])
         XCTAssertTrue(styleControl.isHidden)
 
         XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(rectangleButton.action), to: rectangleButton.target, from: rectangleButton))
@@ -1460,7 +1459,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         XCTAssertEqual(colorSelector.toolTip, "Blue")
 
         let sizeSlider = try XCTUnwrap(findSlider(in: styleControl, accessibilityLabel: "Thickness"))
-        XCTAssertGreaterThan(sizeSlider.frame.width, 100)
+        XCTAssertGreaterThanOrEqual(sizeSlider.frame.width, 50)
         sizeSlider.doubleValue = 3
         XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(sizeSlider.action), to: sizeSlider.target, from: sizeSlider))
 
@@ -1645,7 +1644,113 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         XCTAssertFalse(redoButton.isEnabled)
     }
 
-    func testWorkspaceOutputUsesRenderedEditsAndSaveCurrentResetsDocument() throws {
+    func testWorkspaceCropAppliesOnReturnAndUndoRestoresRetinaImageAndObjects() throws {
+        let panel = try showWorkspace(copy: { true }, save: { true })
+        defer { closePanel(panel) }
+        let content = try XCTUnwrap(panel.contentView)
+        let canvas = try XCTUnwrap(findAnnotationCanvas(in: content))
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: 640, pixelsHigh: 480,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+        ))
+        let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+        let screenshot = try ImageWorkspaceRaster.screenshot(data: png, size: CGSize(width: 320, height: 240))
+        canvas.setBaseScreenshot(screenshot)
+        let arrow = ImageAnnotationElement(
+            kind: .shape(.arrow), bounds: CGRect(x: 50, y: 50, width: 100, height: 75),
+            points: [CGPoint(x: 50, y: 50), CGPoint(x: 150, y: 125)], style: .default
+        )
+        canvas.setDocument(ImageAnnotationDocument(elements: [arrow]))
+        let crop = try XCTUnwrap(findButton(in: content, accessibilityLabel: "Crop"))
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(crop.action), to: crop.target, from: crop))
+        canvas.selectCropRatio(1)
+        XCTAssertEqual(canvas.cropBounds, CGRect(x: 40, y: 0, width: 240, height: 240))
+        canvas.keyDown(with: try makeKeyEvent("\r", modifiers: [], panel: panel, keyCode: 36))
+        XCTAssertNil(canvas.cropBounds)
+        XCTAssertEqual(ImageWorkspaceRaster.pixelSize(canvas.currentImage), CGSize(width: 480, height: 480))
+        XCTAssertEqual(canvas.documentForTesting.elements.first?.points.first, CGPoint(x: 10, y: 50))
+
+        try canvas.applyRasterEdit(.rotate(clockwise: true))
+        XCTAssertEqual(canvas.documentForTesting.elements.first?.points.first, CGPoint(x: 50, y: 230))
+        canvas.undo()
+        canvas.undo()
+        XCTAssertEqual(ImageWorkspaceRaster.pixelSize(canvas.currentImage), CGSize(width: 640, height: 480))
+        XCTAssertEqual(canvas.documentForTesting.elements, [arrow])
+        canvas.redo()
+        XCTAssertEqual(ImageWorkspaceRaster.pixelSize(canvas.currentImage), CGSize(width: 480, height: 480))
+    }
+
+    func testWorkspaceRendersSolidRedactionAboveMosaicAndPreservesAlphaInExports() throws {
+        let source = try XCTUnwrap(NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: 40, pixelsHigh: 28,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+        ))
+        for y in 0..<source.pixelsHigh {
+            for x in 0..<20 { source.setColor(.red, atX: x, y: y) }
+        }
+        let screenshot = try ImageWorkspaceRaster.screenshot(data: XCTUnwrap(source.representation(using: .png, properties: [:])))
+        let bounds = CGRect(x: 2, y: 3, width: 16, height: 14)
+        let document = ImageAnnotationDocument(elements: [
+            ImageAnnotationElement(kind: .mosaic(.redact), bounds: bounds, style: .default),
+            ImageAnnotationElement(kind: .mosaic(.rectangle), bounds: bounds, style: .default),
+        ])
+        let rendered = try ImageAnnotationRenderer().render(screenshot: screenshot, document: document, preservingID: true)
+        XCTAssertEqual(try pixelColor(in: rendered.pngData, x: 10, y: 10), [0, 0, 0, 255])
+        XCTAssertEqual(try pixelColor(in: rendered.pngData, x: 30, y: 10)[3], 0)
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        for format: UTType in [.png, .jpeg, .heic, .tiff] {
+            let url = folder.appendingPathComponent("result").appendingPathExtension(try XCTUnwrap(format.preferredFilenameExtension))
+            try ImageWorkspaceRaster.export(rendered, to: url, type: format, quality: 0.9)
+            let data = try Data(contentsOf: url)
+            let image = try ImageWorkspaceRaster.screenshot(data: data)
+            XCTAssertEqual(ImageWorkspaceRaster.pixelSize(image.image), CGSize(width: 40, height: 28))
+            if format == .jpeg {
+                XCTAssertGreaterThan(try pixelColor(in: image.pngData, x: 34, y: 10)[0], 235)
+            }
+        }
+        let project = ImageWorkspaceProject(imagePNG: screenshot.pngData, imageSize: screenshot.image.size, elements: document.elements)
+        let projectURL = folder.appendingPathComponent("result.frameimage")
+        try JSONEncoder().encode(project).write(to: projectURL)
+        let reopenedProject = try ImageWorkspaceRaster.project(at: projectURL)
+        XCTAssertEqual(reopenedProject.elements, document.elements)
+        XCTAssertEqual(try ImageWorkspaceRaster.pixelSize(reopenedProject.screenshot().image), CGSize(width: 40, height: 28))
+    }
+
+    func testWorkspaceInlineTextEscapeRestoresPreviousTextAndArrowHandleMovesEndpoint() throws {
+        let panel = try showWorkspace(copy: { true }, save: { true })
+        defer { closePanel(panel) }
+        let canvas = try XCTUnwrap(findAnnotationCanvas(in: XCTUnwrap(panel.contentView)))
+        let text = ImageAnnotationElement(kind: .text("Before"), bounds: CGRect(x: 150, y: 150, width: 80, height: 24), style: .default)
+        let arrow = ImageAnnotationElement(
+            kind: .shape(.arrow), bounds: CGRect(x: 20, y: 25, width: 110, height: 75),
+            points: [CGPoint(x: 20, y: 25), CGPoint(x: 130, y: 100)], style: .default
+        )
+        canvas.setDocument(ImageAnnotationDocument(elements: [arrow, text], selectedElementID: arrow.id))
+        let endpoint = imageWindowPoint(in: canvas, imagePoint: CGPoint(x: 130, y: 100))
+        let newEndpoint = imageWindowPoint(in: canvas, imagePoint: CGPoint(x: 100, y: 80))
+        canvas.mouseDown(with: try makeMouseButtonEvent(type: .leftMouseDown, point: endpoint, panel: panel))
+        canvas.mouseDragged(with: try makeMouseButtonEvent(type: .leftMouseDragged, point: newEndpoint, panel: panel))
+        canvas.mouseUp(with: try makeMouseButtonEvent(type: .leftMouseUp, point: newEndpoint, panel: panel))
+        let moved = try XCTUnwrap(canvas.documentForTesting.elements.first?.points.last)
+        XCTAssertEqual(moved.x, 100, accuracy: 0.1)
+        XCTAssertEqual(moved.y, 80, accuracy: 0.1)
+
+        let click = imageWindowPoint(in: canvas, imagePoint: CGPoint(x: 160, y: 155))
+        canvas.mouseDown(with: try makeMouseButtonEvent(type: .leftMouseDown, point: click, panel: panel, clickCount: 2))
+        let editor = try XCTUnwrap(canvas.subviews.compactMap { $0 as? NSTextView }.first)
+        canvas.editActiveTextForTesting("Temporary replacement")
+        editor.keyDown(with: try makeKeyEvent("\u{1b}", modifiers: [], panel: panel, keyCode: 53))
+        XCTAssertFalse(canvas.isEditingTextForTesting)
+        XCTAssertEqual(canvas.documentForTesting.elements.last, text)
+        canvas.undo()
+        XCTAssertEqual(canvas.documentForTesting.elements.first, arrow)
+    }
+
+    func testWorkspaceOutputUsesRenderedEditsAndSaveCurrentKeepsDocument() throws {
         var copiedScreenshot: CapturedScreenshot?
         var savedScreenshot: CapturedScreenshot?
         var replacedScreenshot: CapturedScreenshot?
@@ -1684,9 +1789,10 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         let replaceCurrentItem = try XCTUnwrap(saveCurrentButton.menu?.item(withTitle: "Replace Current"))
         XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(replaceCurrentItem.action), to: replaceCurrentItem.target, from: replaceCurrentItem))
         XCTAssertTrue(panel.isVisible)
-        XCTAssertTrue(canvas.documentForTesting.elements.isEmpty)
-        XCTAssertNotEqual(canvas.currentScreenshotForTesting.pngData, originalPNGData)
-        XCTAssertEqual(replacedScreenshot?.pngData, canvas.currentScreenshotForTesting.pngData)
+        XCTAssertEqual(canvas.documentForTesting.elements.count, 1)
+        XCTAssertTrue(canvas.documentForTesting.canUndo)
+        XCTAssertEqual(canvas.currentScreenshotForTesting.pngData, originalPNGData)
+        XCTAssertNotEqual(replacedScreenshot?.pngData, originalPNGData)
         XCTAssertNil(savedScreenshot)
         let committedContextMenu = try XCTUnwrap(contentView.menu(for: try makeRightClickEvent(windowNumber: panel.windowNumber)))
         let committedSaveMenuItem = try XCTUnwrap(committedContextMenu.item(withTitle: "Save Current"))
@@ -1741,6 +1847,33 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         XCTAssertTrue(canvas.documentForTesting.hasUncommittedEdits)
     }
 
+    func testCancelledSaveKeepsTheEditorOpenAndDirty() throws {
+        var attempts = 0
+        let panel = try showWorkspace(
+            copy: { _ in true }, save: { _ in true },
+            replaceCurrent: { _ in
+                attempts += 1
+                throw CocoaError(.userCancelled)
+            },
+            closeSaveChoice: { .save }
+        )
+        defer { closePanel(panel) }
+        let content = try XCTUnwrap(panel.contentView)
+        let canvas = try XCTUnwrap(findAnnotationCanvas(in: content))
+        var document = canvas.documentForTesting
+        document.add(ImageAnnotationElement(kind: .shape(.rectangle),
+                                            bounds: CGRect(x: 20, y: 20, width: 80, height: 40), style: .default))
+        canvas.setDocument(document)
+        let save = try XCTUnwrap(findButton(in: content, accessibilityLabel: "Save Current"))
+        save.performClick(nil)
+        XCTAssertEqual(attempts, 1)
+        XCTAssertTrue(canvas.documentForTesting.hasUncommittedEdits)
+        panel.close()
+        XCTAssertEqual(attempts, 2)
+        XCTAssertTrue(panel.isVisible)
+        XCTAssertTrue(save.isEnabled)
+    }
+
     func testWorkspaceSaveCurrentPrimaryClickReplacesCurrentWhenConfigured() throws {
         var replacedScreenshot: CapturedScreenshot?
         var newPreviewScreenshot: CapturedScreenshot?
@@ -1774,8 +1907,10 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
 
         XCTAssertNotNil(replacedScreenshot)
         XCTAssertNil(newPreviewScreenshot)
-        XCTAssertNotEqual(canvas.currentScreenshotForTesting.pngData, originalPNGData)
-        XCTAssertTrue(canvas.documentForTesting.elements.isEmpty)
+        XCTAssertEqual(canvas.currentScreenshotForTesting.pngData, originalPNGData)
+        XCTAssertNotEqual(replacedScreenshot?.pngData, originalPNGData)
+        XCTAssertEqual(canvas.documentForTesting.elements.count, 1)
+        XCTAssertFalse(canvas.documentForTesting.hasUncommittedEdits)
         XCTAssertTrue(panel.isVisible)
     }
 
@@ -1970,7 +2105,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testTemporaryWorkspaceReusesExistingWindowForSameScreenshot() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
 
@@ -1999,7 +2134,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         XCTAssertTrue(firstPanel.isVisible)
     }
 
-    func testWorkspaceOutputButtonsCloseWindowAfterSuccess() throws {
+    func testWorkspaceOutputButtonsKeepWindowOpenAfterSuccess() throws {
         let copyPanel = try showWorkspace(copy: { true }, save: { false })
         defer {
             closePanel(copyPanel)
@@ -2007,22 +2142,22 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         let copyButton = try XCTUnwrap(findButton(in: try XCTUnwrap(copyPanel.contentView), accessibilityLabel: "Copy"))
 
         XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(copyButton.action), to: copyButton.target, from: copyButton))
-        XCTAssertFalse(copyPanel.isVisible)
+        XCTAssertTrue(copyPanel.isVisible)
 
         let downloadPanel = try showWorkspace(copy: { false }, save: { true })
         defer {
             closePanel(downloadPanel)
         }
-        let downloadButton = try XCTUnwrap(findButton(in: try XCTUnwrap(downloadPanel.contentView), accessibilityLabel: "Download"))
+        let downloadButton = try XCTUnwrap(findButton(in: try XCTUnwrap(downloadPanel.contentView), accessibilityLabel: "Export…"))
 
         XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(downloadButton.action), to: downloadButton.target, from: downloadButton))
-        XCTAssertFalse(downloadPanel.isVisible)
+        XCTAssertTrue(downloadPanel.isVisible)
     }
 
     func testPinnedWorkspaceIsImageOnlyWithoutToolbar() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
 
         XCTAssertTrue(controller.show(
@@ -2055,7 +2190,9 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         XCTAssertEqual(imageContainer.frame.maxX, contentView.bounds.maxX, accuracy: 0.5)
         XCTAssertEqual(imageContainer.frame.maxY, contentView.bounds.maxY, accuracy: 0.5)
         XCTAssertGreaterThanOrEqual(closeFrame.minX, imageContainer.frame.minX)
-        XCTAssertLessThanOrEqual(closeFrame.maxY, imageContainer.frame.maxY)
+        XCTAssertFalse(panel.titlebarAppearsTransparent)
+        XCTAssertFalse(panel.styleMask.contains(.fullSizeContentView))
+        XCTAssertGreaterThanOrEqual(closeFrame.minY, imageContainer.frame.maxY)
         XCTAssertLessThan(closeFrame.midX, imageContainer.frame.minX + 80)
         XCTAssertGreaterThan(closeFrame.midY, imageContainer.frame.maxY - 40)
     }
@@ -2076,7 +2213,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testTemporaryWorkspaceOpensSmallImageAtOriginalDisplaySize() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
         let screenshot = try makeSolidScreenshot(color: .systemBlue, size: CGSize(width: 120, height: 80))
 
@@ -2105,7 +2242,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testPinnedWorkspaceOpensSmallImageAtOriginalDisplaySize() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
         let screenshot = try makeSolidScreenshot(color: .systemBlue, size: CGSize(width: 120, height: 80))
 
@@ -2141,7 +2278,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         )
 
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
         let screenshot = try makeSolidScreenshot(color: .systemBlue, size: sourceSize)
 
@@ -2172,7 +2309,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         let visibleFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let sourceSize = CGSize(width: 1_000, height: max(4_000, visibleFrame.height * 4))
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
 
         XCTAssertTrue(controller.show(
@@ -2216,7 +2353,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         )
 
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
         let screenshot = try makeSolidScreenshot(color: .systemBlue, size: sourceSize)
 
@@ -2245,7 +2382,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testTemporaryWorkspaceTrackpadMagnificationZoomsImageWithoutResizingWindow() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
 
         XCTAssertTrue(controller.show(
@@ -2293,7 +2430,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testTemporaryWorkspaceScrollWheelPansZoomedImageWithoutResizingWindow() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
 
         XCTAssertTrue(controller.show(
@@ -2334,7 +2471,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testPinnedWorkspaceTrackpadMagnificationZoomsImageWithoutResizingWindow() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
 
         XCTAssertTrue(controller.show(
@@ -2373,7 +2510,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testPinnedWorkspaceScrollWheelPansZoomedImageWithoutResizingWindow() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
 
         XCTAssertTrue(controller.show(
@@ -2407,7 +2544,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testPinnedWorkspaceContextMenuOutputsAndEditsWithoutClosingPin() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
         var copyCount = 0
         var saveCount = 0
@@ -2463,7 +2600,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testTemporaryWorkspaceStaysOpenOnFocusLossAndClosesOnEscape() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
 
         XCTAssertTrue(controller.show(
@@ -2485,10 +2622,101 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         XCTAssertFalse(panel.isVisible)
     }
 
+    func testWorkspaceInspectorOpensWithContextualToolsAndCanBeCollapsed() throws {
+        _ = NSApplication.shared
+        let windows = Set(NSApp.windows.map(ObjectIdentifier.init))
+        let controller = ImageWorkspacePanelController()
+        retainedControllers.append(controller)
+        XCTAssertTrue(controller.show(screenshot: try makeScreenshot(), kind: .temporaryPreview, copy: { true }, save: { true }))
+        let panel = try XCTUnwrap(workspacePanels(excluding: windows).first)
+        defer { closePanel(panel) }
+        let content = try XCTUnwrap(panel.contentView)
+        content.layoutSubtreeIfNeeded()
+        let inspector = try XCTUnwrap(findView(in: content, accessibilityLabel: "Image Workspace Inspector"))
+        let canvas = try XCTUnwrap(findAnnotationCanvas(in: content))
+        XCTAssertFalse(inspector.isHidden)
+        XCTAssertNil(findButton(in: content, accessibilityLabel: "Mosaic Options"))
+        let commandGroup = try XCTUnwrap(findView(in: inspector, identifier: "ImageWorkspaceInspectorImageCommands"))
+        for title in ["Crop", "Resize", "Transform…"] {
+            let button = try XCTUnwrap(findButton(in: commandGroup, accessibilityLabel: title))
+            XCTAssertFalse(button.isBordered)
+        }
+        let fit = try XCTUnwrap(findButton(in: inspector, accessibilityLabel: "Fit"))
+        XCTAssertFalse(fit.isBordered)
+        let toolbar = try XCTUnwrap(findView(in: content, accessibilityLabel: "Image Workspace Toolbar"))
+        let imageContainer = try XCTUnwrap(findView(in: content, accessibilityLabel: "Image Preview Container"))
+        XCTAssertEqual(imageContainer.frame.minX, 14, accuracy: 0.5)
+        XCTAssertEqual(inspector.frame.minX - imageContainer.frame.maxX, 14, accuracy: 0.5)
+        XCTAssertEqual(toolbar.frame.minY - imageContainer.frame.maxY, 14, accuracy: 0.5)
+        let expandedWidth = canvas.bounds.width
+        let windowSize = panel.frame.size
+
+        canvas.selectTool(.shape)
+        let width = try XCTUnwrap(findButton(in: inspector, accessibilityLabel: "Width") as? NSPopUpButton)
+        width.selectItem(at: 4)
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(width.action), to: width.target, from: width))
+        XCTAssertEqual(canvas.documentForTesting.editingOptions.style.lineWidth, 12)
+        XCTAssertNil(findButton(in: inspector, accessibilityLabel: "Font"))
+
+        canvas.selectTool(.text)
+        let font = try XCTUnwrap(findButton(in: inspector, accessibilityLabel: "Font") as? NSPopUpButton)
+        font.selectItem(withTitle: "Georgia")
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(font.action), to: font.target, from: font))
+        let traits = try XCTUnwrap(findView(in: inspector, accessibilityLabel: "Typeface style") as? NSSegmentedControl)
+        traits.setSelected(true, forSegment: 0)
+        traits.setSelected(true, forSegment: 1)
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(traits.action), to: traits.target, from: traits))
+        let style = canvas.documentForTesting.editingOptions.style
+        XCTAssertEqual(style.fontName, "Georgia")
+        XCTAssertEqual(style.fontWeight, .bold)
+        XCTAssertEqual(style.textItalic, true)
+        XCTAssertTrue(NSFontManager.shared.traits(of: ImageAnnotationTextStyle.font(for: style)).contains(.italicFontMask))
+        XCTAssertNil(findButton(in: inspector, accessibilityLabel: "Width"))
+
+        canvas.selectTool(.mosaic)
+        let blur = try XCTUnwrap(findButton(in: inspector, accessibilityLabel: "Blur"))
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(blur.action), to: blur.target, from: blur))
+        XCTAssertEqual(canvas.documentForTesting.editingOptions.mosaicMode, .blur)
+        var document = canvas.documentForTesting
+        let mask = ImageAnnotationElement(kind: .mosaic(.rectangle), bounds: CGRect(x: 10, y: 10, width: 90, height: 45), style: .default)
+        document.add(mask)
+        canvas.setDocument(document)
+        let brush = try XCTUnwrap(findButton(in: inspector, accessibilityLabel: "Brush"))
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(brush.action), to: brush.target, from: brush))
+        XCTAssertEqual(canvas.documentForTesting.elements.last?.kind, .mosaic(.brush))
+        XCTAssertEqual(canvas.documentForTesting.elements.last?.points.count, 2)
+        canvas.undo()
+        XCTAssertEqual(canvas.documentForTesting.elements.last?.kind, .mosaic(.rectangle))
+
+        let crop = try XCTUnwrap(findButton(in: inspector, accessibilityLabel: "Crop"))
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(crop.action), to: crop.target, from: crop))
+        XCTAssertNotNil(findButton(in: inspector, accessibilityLabel: "Apply Crop"))
+        XCTAssertNotNil(findButton(in: inspector, accessibilityLabel: "Zoom Out"))
+        canvas.cancelCrop()
+
+        let toggle = try XCTUnwrap(findButton(in: content, accessibilityLabel: "Hide Inspector"))
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(toggle.action), to: toggle.target, from: toggle))
+        XCTAssertTrue(inspector.isHidden)
+        XCTAssertGreaterThan(canvas.bounds.width, expandedWidth)
+        XCTAssertEqual(panel.frame.size, windowSize)
+        XCTAssertNotNil(findButton(in: content, accessibilityLabel: "Mosaic Options"))
+        XCTAssertNotNil(findButton(in: content, accessibilityLabel: "Zoom Out"))
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(toggle.action), to: toggle.target, from: toggle))
+        XCTAssertFalse(inspector.isHidden)
+        XCTAssertEqual(canvas.bounds.width, expandedWidth, accuracy: 0.5)
+
+        canvas.selectTool(.text)
+        panel.setFrame(NSRect(origin: panel.frame.origin, size: CGSize(width: windowSize.width, height: 270)), display: false)
+        content.layoutSubtreeIfNeeded()
+        let scroll = try XCTUnwrap(inspector.subviews.compactMap { $0 as? NSScrollView }.first)
+        let scrollDocument = try XCTUnwrap(scroll.documentView)
+        XCTAssertGreaterThan(scrollDocument.bounds.height, scroll.contentView.bounds.height)
+    }
+
     func testWorkspaceUsesNativeCloseAndTopToolbarOutsideImage() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
         var copyCount = 0
         var saveCount = 0
@@ -2534,16 +2762,16 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         let mosaicButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Mosaic"))
         let mosaicOptionsButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Mosaic Options"))
         let mosaicSplitControl = try XCTUnwrap(findView(in: contentView, identifier: "ImageWorkspaceToolbarMosaicSplitControl"))
+        let markupCapsule = try XCTUnwrap(findView(in: contentView, identifier: "ImageWorkspaceMarkupCapsule"))
         let copyButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Copy"))
         let saveButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Save Current"))
-        let downloadButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Download"))
-        let historyToolsDivider = try XCTUnwrap(findView(in: contentView, identifier: "ImageWorkspaceToolbarHistoryToolsDivider"))
+        let downloadButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Export…"))
+        let editingToolbar = try XCTUnwrap(findView(in: contentView, accessibilityLabel: "Image Workspace Editing Toolbar"))
         let styleDivider = try XCTUnwrap(findView(in: contentView, identifier: "ImageWorkspaceToolbarStyleDivider"))
-        let outputDivider = try XCTUnwrap(findView(in: contentView, identifier: "ImageWorkspaceToolbarOutputDivider"))
         let menu = try XCTUnwrap(contentView.menu(for: try makeRightClickEvent(windowNumber: panel.windowNumber)))
         let copyMenuItem = try XCTUnwrap(menu.item(withTitle: "Copy"))
         let saveMenuItem = try XCTUnwrap(menu.item(withTitle: "Save Current"))
-        let downloadMenuItem = try XCTUnwrap(menu.item(withTitle: "Download"))
+        let downloadMenuItem = try XCTUnwrap(menu.item(withTitle: "Export…"))
         let mosaicMenuItem = try XCTUnwrap(menu.item(withTitle: "Mosaic"))
 
         let mosaicFrame = mosaicButton.convert(mosaicButton.bounds, to: contentView)
@@ -2557,36 +2785,41 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         let zoomFrame = zoomButton.convert(zoomButton.bounds, to: contentView)
 
         XCTAssertEqual(toolbar.alphaValue, 1, accuracy: 0.01)
-        XCTAssertEqual(toolbar.frame.height, 36, accuracy: 0.5)
-        XCTAssertEqual(toolbar.appearance?.name, .vibrantDark)
-        XCTAssertGreaterThanOrEqual(toolbar.layer?.backgroundColor?.alpha ?? 0, 0.5)
-        XCTAssertEqual(mosaicFrame.width, 28, accuracy: 0.5)
-        XCTAssertEqual(mosaicOptionsFrame.width, 20, accuracy: 0.5)
+        XCTAssertEqual(toolbar.frame.height, 40, accuracy: 0.5)
+        XCTAssertEqual(editingToolbar.frame.height, 42, accuracy: 0.5)
+        XCTAssertEqual(mosaicFrame.width, 36, accuracy: 0.5)
+        XCTAssertEqual(mosaicFrame.height, 36, accuracy: 0.5)
+        XCTAssertEqual(mosaicOptionsFrame.width, 24, accuracy: 0.5)
         XCTAssertEqual(mosaicSplitFrame.width, mosaicFrame.width + mosaicOptionsFrame.width, accuracy: 0.5)
         XCTAssertEqual(mosaicSplitFrame.minX, mosaicFrame.minX, accuracy: 0.5)
         XCTAssertEqual(mosaicSplitFrame.maxX, mosaicOptionsFrame.maxX, accuracy: 0.5)
         XCTAssertEqual(mosaicOptionsFrame.minX, mosaicFrame.maxX, accuracy: 0.5)
-        XCTAssertEqual(saveFrame.width, 28, accuracy: 0.5)
-        XCTAssertEqual(copyFrame.width, 28, accuracy: 0.5)
-        XCTAssertEqual(downloadFrame.width, 28, accuracy: 0.5)
-        XCTAssertEqual(copyFrame.minX - saveFrame.maxX, 2, accuracy: 0.5)
-        XCTAssertEqual(downloadFrame.minX - copyFrame.maxX, 2, accuracy: 0.5)
-        XCTAssertEqual(toolbar.layer?.cornerRadius ?? 0, toolbar.frame.height / 2, accuracy: 0.5)
-        XCTAssertEqual(toolbar.layer?.borderWidth ?? 0, 0.5, accuracy: 0.01)
+        let markupBackground = try XCTUnwrap(markupCapsule.layer?.sublayers?.first)
+        XCTAssertEqual(markupBackground.cornerRadius, markupBackground.bounds.height / 2, accuracy: 0.5)
+        XCTAssertGreaterThan(markupBackground.frame.minY, 0)
+        XCTAssertTrue(selectButton.isDescendant(of: markupCapsule))
+        for button in [saveButton, copyButton, downloadButton] {
+            XCTAssertGreaterThan(button.bounds.width, 28)
+            XCTAssertEqual(button.layer?.cornerRadius ?? 0, button.bounds.height / 2, accuracy: 0.5)
+        }
+        XCTAssertLessThanOrEqual(copyFrame.maxX, downloadFrame.minX)
+        XCTAssertLessThanOrEqual(downloadFrame.maxX, saveFrame.minX)
+        XCTAssertEqual(toolbar.layer?.cornerRadius ?? 0, 0, accuracy: 0.5)
+        XCTAssertEqual(toolbar.layer?.borderWidth ?? 0, 0, accuracy: 0.01)
         XCTAssertLessThanOrEqual(toolbar.frame.minX, closeFrame.minX - 2)
         XCTAssertEqual(toolbar.frame.maxX, imageContainer.frame.maxX, accuracy: 0.5)
         XCTAssertEqual(toolbar.frame.minX, imageContainer.frame.minX, accuracy: 0.5)
-        XCTAssertGreaterThanOrEqual(mosaicFrame.minX, zoomFrame.maxX + 8)
-        XCTAssertEqual(toolbar.frame.midY, closeFrame.midY, accuracy: 1.5)
-        XCTAssertEqual(toolbar.frame.midY, miniaturizeFrame.midY, accuracy: 1.5)
-        XCTAssertEqual(toolbar.frame.midY, zoomFrame.midY, accuracy: 1.5)
-        XCTAssertFalse(historyToolsDivider.isHidden)
+        for trafficLightFrame in [closeFrame, miniaturizeFrame, zoomFrame] {
+            XCTAssertGreaterThan(toolbar.frame.maxY, trafficLightFrame.midY)
+            XCTAssertLessThan(toolbar.frame.minY, trafficLightFrame.midY)
+        }
+        XCTAssertEqual(copyFrame.midY, toolbar.frame.midY, accuracy: 0.5)
+        XCTAssertEqual(mosaicFrame.midY, toolbar.frame.midY, accuracy: 0.5)
+        XCTAssertLessThan(mosaicSplitFrame.maxX, copyFrame.minX)
+        let cropButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Crop"))
+        XCTAssertEqual(cropButton.convert(cropButton.bounds, to: contentView).midY, editingToolbar.frame.midY, accuracy: 0.5)
         XCTAssertTrue(styleDivider.isHidden)
-        XCTAssertFalse(outputDivider.isHidden)
-        XCTAssertEqual(historyToolsDivider.frame.width, 1, accuracy: 0.5)
-        XCTAssertEqual(outputDivider.frame.width, 1, accuracy: 0.5)
-        assertCircularHoverLayer(in: mosaicButton)
-        for button in [selectButton, mosaicButton, saveButton, copyButton, downloadButton] {
+        for button in [selectButton, mosaicButton] {
             try assertToolbarIconViewCentered(in: button)
         }
         XCTAssertTrue(mosaicButton.isEnabled)
@@ -2595,27 +2828,23 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         XCTAssertTrue(downloadButton.isEnabled)
         let selectIcon = try XCTUnwrap(selectButton.subviews.compactMap { $0 as? NSImageView }.first)
         XCTAssertEqual(selectIcon.contentTintColor, NSColor.white)
-        XCTAssertEqual(copyButton.toolTip, "Save and Copy")
-        XCTAssertEqual(downloadButton.toolTip, "Save and Download")
 
         XCTAssertTrue(mosaicMenuItem.isEnabled)
         XCTAssertFalse(saveMenuItem.isEnabled)
         XCTAssertTrue(copyMenuItem.isEnabled)
         XCTAssertTrue(downloadMenuItem.isEnabled)
-        XCTAssertEqual(toolbar.frame.minY - imageContainer.frame.maxY, 6, accuracy: 0.5)
+        XCTAssertEqual(toolbar.frame.minY - imageContainer.frame.maxY, 48, accuracy: 0.5)
         XCTAssertEqual(imageContainer.frame.minX, toolbar.frame.minX, accuracy: 0.5)
-        XCTAssertEqual(imageContainer.frame.minY, contentView.bounds.minY, accuracy: 0.5)
+        XCTAssertEqual(imageContainer.frame.minY - contentView.bounds.minY, 32, accuracy: 0.5)
         XCTAssertEqual(
             imageContainer.frame.width / imageContainer.frame.height,
             320.0 / 240.0,
             accuracy: 0.01
         )
-        XCTAssertGreaterThan(saveFrame.minX, mosaicFrame.maxX)
-        XCTAssertGreaterThan(copyFrame.minX, saveFrame.maxX)
-        XCTAssertGreaterThan(downloadFrame.minX, copyFrame.maxX)
 
         let mosaicSplitBackground = try XCTUnwrap(mosaicSplitControl.layer?.sublayers?.first)
         XCTAssertEqual(mosaicSplitBackground.opacity, 0, accuracy: 0.01)
+        XCTAssertEqual(mosaicSplitBackground.cornerRadius, mosaicSplitBackground.bounds.height / 2, accuracy: 0.5)
         let hoverEvent = try makeMouseMoveEvent(point: mosaicSplitControl.convert(mosaicSplitControl.bounds.center, to: nil), panel: panel)
         mosaicSplitControl.mouseEntered(with: hoverEvent)
         XCTAssertEqual(mosaicSplitBackground.opacity, 1, accuracy: 0.01)
@@ -2627,19 +2856,44 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         contentView.layoutSubtreeIfNeeded()
         XCTAssertEqual(mosaicSplitBackground.opacity, 1, accuracy: 0.01)
 
+        let frameBeforeShowingStyle = panel.frame
         canvas.selectTool(.shape)
         contentView.layoutSubtreeIfNeeded()
         XCTAssertFalse(styleDivider.isHidden)
+        XCTAssertEqual(panel.frame.size, frameBeforeShowingStyle.size)
 
         panel.setFrame(NSRect(origin: panel.frame.origin, size: panel.minSize), display: false)
         contentView.layoutSubtreeIfNeeded()
 
         let minimumToolbar = try XCTUnwrap(findView(in: contentView, accessibilityLabel: "Image Workspace Toolbar"))
         let minimumImageContainer = try XCTUnwrap(findView(in: contentView, accessibilityLabel: "Image Preview Container"))
-        let minimumDownloadButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Download"))
+        let minimumDownloadButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Export…"))
         let minimumDownloadFrame = minimumDownloadButton.convert(minimumDownloadButton.bounds, to: contentView)
-        let minimumVerticalChromeHeight = minimumToolbar.frame.height + minimumToolbar.frame.minY - minimumImageContainer.frame.maxY
+        let minimumVerticalChromeHeight = contentView.bounds.height - minimumImageContainer.frame.height
         XCTAssertLessThanOrEqual(minimumDownloadFrame.maxX, minimumToolbar.frame.maxX - 5)
+        let styleButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Style"))
+        let transformButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Transform"))
+        XCTAssertLessThanOrEqual(styleButton.convert(styleButton.bounds, to: contentView).maxX, editingToolbar.frame.maxX + 0.5)
+        for button in [styleButton, transformButton] {
+            let label = try XCTUnwrap(findView(in: button, identifier: "ImageWorkspaceMenuButtonLabel") as? NSStackView)
+            let frame = label.convert(label.bounds, to: button)
+            XCTAssertEqual(frame.midX, button.bounds.midX, accuracy: 0.5)
+            XCTAssertGreaterThanOrEqual(frame.minX, 11.5)
+            XCTAssertLessThanOrEqual(frame.maxX, button.bounds.maxX - 11.5)
+            let title = try XCTUnwrap(label.arrangedSubviews.first as? NSTextField)
+            let chevron = try XCTUnwrap(label.arrangedSubviews.last as? NSImageView)
+            let titleAlignmentRect = title.alignmentRect(forFrame: title.frame)
+            XCTAssertEqual(chevron.frame.minX - titleAlignmentRect.maxX, 6, accuracy: 0.5)
+            XCTAssertNil(label.hitTest(frame.center))
+        }
+        let beforeCrop = mosaicButton.convert(mosaicButton.bounds, to: contentView)
+        cropButton.performClick(nil)
+        contentView.layoutSubtreeIfNeeded()
+        XCTAssertTrue(findButton(in: contentView, accessibilityLabel: "Mosaic Options") === mosaicOptionsButton)
+        XCTAssertEqual(mosaicButton.convert(mosaicButton.bounds, to: contentView), beforeCrop)
+        XCTAssertNotNil(findButton(in: contentView, accessibilityLabel: "Apply Crop"))
+        XCTAssertNotNil(findButton(in: contentView, accessibilityLabel: "Export…"))
+        canvas.cancelCrop()
         XCTAssertEqual(
             minimumImageContainer.frame.width / minimumImageContainer.frame.height,
             320.0 / 240.0,
@@ -2663,7 +2917,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testTemporaryWorkspaceAutomaticallyLoadsOCRTextOverlay() async throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
         var recognizeCount = 0
@@ -2734,7 +2988,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testOCRTextSelectionOverlayOnlyHitsTextWhenPointerToolIsActive() async throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
 
@@ -2954,7 +3208,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     private func assertLiveCornerResizeKeepsInitialResizeAxisStable(kind: ImageWorkspaceKind) throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
 
         XCTAssertTrue(controller.show(
@@ -3097,7 +3351,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         presentSaveCurrentMenu: @escaping (NSMenu, NSButton) -> Void = { _, _ in },
         copy: @escaping (CapturedScreenshot) -> Bool,
         save: @escaping (CapturedScreenshot) -> Bool,
-        replaceCurrent: ((CapturedScreenshot) -> Void)? = nil,
+        replaceCurrent: ((CapturedScreenshot) throws -> Void)? = nil,
         saveAsNew: ((CapturedScreenshot) -> Bool)? = nil,
         closeSaveChoice: (() -> ImageWorkspaceCloseSaveChoice)? = nil
     ) throws -> NSPanel {
@@ -3112,6 +3366,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
             controllerDefaults = UserDefaults(suiteName: suiteName)!
         }
         let controller = ImageWorkspacePanelController(
+            showsInspectorByDefault: false,
             editingOptionsProvider: {
                 SettingsStore.imageAnnotationEditingOptions(defaults: controllerDefaults)
             },
@@ -3308,27 +3563,19 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         panel.close()
     }
 
-    private func assertCircularHoverLayer(in button: NSButton) {
-        button.layoutSubtreeIfNeeded()
-        let hoverLayer = button.layer?.sublayers?.first
-        XCTAssertNotNil(hoverLayer)
-        XCTAssertEqual(hoverLayer?.bounds.width ?? 0, hoverLayer?.bounds.height ?? 1, accuracy: 0.5)
-        XCTAssertEqual(hoverLayer?.cornerRadius ?? 0, (hoverLayer?.bounds.height ?? 0) / 2, accuracy: 0.5)
-        XCTAssertEqual(hoverLayer?.opacity ?? 1, 0, accuracy: 0.01)
-    }
-
     private func assertToolbarIconViewCentered(in button: NSButton) throws {
         button.layoutSubtreeIfNeeded()
         let iconView = try XCTUnwrap(button.subviews.compactMap { $0 as? NSImageView }.first)
         XCTAssertEqual(iconView.imageScaling, .scaleProportionallyDown)
-        XCTAssertEqual(iconView.frame.width, 14, accuracy: 0.5)
-        XCTAssertEqual(iconView.frame.height, 14, accuracy: 0.5)
+        XCTAssertEqual(iconView.frame.width, 18, accuracy: 0.5)
+        XCTAssertEqual(iconView.frame.height, 18, accuracy: 0.5)
         XCTAssertEqual(iconView.frame.midX, button.bounds.midX, accuracy: 0.5)
         XCTAssertEqual(iconView.frame.midY, button.bounds.midY, accuracy: 0.5)
 
         let hoverLayer = try XCTUnwrap(button.layer?.sublayers?.first)
         XCTAssertEqual(iconView.frame.midX, hoverLayer.position.x, accuracy: 0.5)
         XCTAssertEqual(iconView.frame.midY, hoverLayer.position.y, accuracy: 0.5)
+        XCTAssertEqual(hoverLayer.cornerRadius, hoverLayer.bounds.height / 2, accuracy: 0.5)
     }
 
     private func makeRightClickEvent(windowNumber: Int) throws -> NSEvent {

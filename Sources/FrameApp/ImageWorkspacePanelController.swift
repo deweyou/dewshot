@@ -1,8 +1,10 @@
 import AppKit
 import FrameCore
+import UniformTypeIdentifiers
 
 @MainActor
 final class ImageWorkspacePanelController: NSObject {
+    private let showsInspectorByDefault: Bool
     private var workspaceItems: [ImageWorkspaceItem] = []
     private let editingOptionsProvider: () -> ImageAnnotationEditingOptions
     private let persistEditingOptions: (ImageAnnotationEditingOptions) -> Void
@@ -10,6 +12,7 @@ final class ImageWorkspacePanelController: NSObject {
     private let presentSaveCurrentMenu: (NSMenu, NSButton) -> Void
 
     init(
+        showsInspectorByDefault: Bool = true,
         editingOptionsProvider: @escaping () -> ImageAnnotationEditingOptions = {
             SettingsStore.imageAnnotationEditingOptions()
         },
@@ -27,6 +30,7 @@ final class ImageWorkspacePanelController: NSObject {
             )
         }
     ) {
+        self.showsInspectorByDefault = showsInspectorByDefault
         self.editingOptionsProvider = editingOptionsProvider
         self.persistEditingOptions = persistEditingOptions
         self.saveCurrentBehaviorProvider = saveCurrentBehaviorProvider
@@ -42,9 +46,10 @@ final class ImageWorkspacePanelController: NSObject {
         save: @escaping () -> Bool,
         recognizeText: ((CapturedScreenshot) async throws -> RecognizedTextLayout)? = nil,
         copyRecognizedText: ((String) -> Bool)? = nil,
-        replaceCurrent: ((CapturedScreenshot) -> Void)? = nil,
+        replaceCurrent: ((CapturedScreenshot) throws -> Void)? = nil,
         saveAsNew: ((CapturedScreenshot) -> Bool)? = nil,
-        closeSaveChoice: (() -> ImageWorkspaceCloseSaveChoice)? = nil
+        closeSaveChoice: (() -> ImageWorkspaceCloseSaveChoice)? = nil,
+        initialElements: [ImageAnnotationElement] = []
     ) -> Bool {
         show(
             screenshot: screenshot,
@@ -56,7 +61,8 @@ final class ImageWorkspacePanelController: NSObject {
             copyRecognizedText: copyRecognizedText,
             replaceCurrent: replaceCurrent,
             saveAsNew: saveAsNew,
-            closeSaveChoice: closeSaveChoice
+            closeSaveChoice: closeSaveChoice,
+            initialElements: initialElements
         )
     }
 
@@ -68,9 +74,10 @@ final class ImageWorkspacePanelController: NSObject {
         save: @escaping (CapturedScreenshot) -> Bool,
         recognizeText: ((CapturedScreenshot) async throws -> RecognizedTextLayout)? = nil,
         copyRecognizedText: ((String) -> Bool)? = nil,
-        replaceCurrent: ((CapturedScreenshot) -> Void)? = nil,
+        replaceCurrent: ((CapturedScreenshot) throws -> Void)? = nil,
         saveAsNew: ((CapturedScreenshot) -> Bool)? = nil,
-        closeSaveChoice: (() -> ImageWorkspaceCloseSaveChoice)? = nil
+        closeSaveChoice: (() -> ImageWorkspaceCloseSaveChoice)? = nil,
+        initialElements: [ImageAnnotationElement] = []
     ) -> Bool {
         if kind == .temporaryPreview,
            let existingItem = workspaceItem(for: screenshot, kind: kind) {
@@ -78,7 +85,8 @@ final class ImageWorkspacePanelController: NSObject {
             return true
         }
 
-        let panel = makePanel(for: screenshot, kind: kind)
+        let inspectorVisible = kind == .temporaryPreview && showsInspectorByDefault
+        let panel = makePanel(for: screenshot, kind: kind, inspectorVisible: inspectorVisible)
         let item = ImageWorkspaceItem(
             state: ImageWorkspaceState(kind: kind),
             panel: panel,
@@ -90,11 +98,14 @@ final class ImageWorkspacePanelController: NSObject {
             copyRecognizedText: copyRecognizedText,
             replaceCurrent: replaceCurrent,
             saveAsNew: saveAsNew,
-            closeSaveChoice: closeSaveChoice
+            closeSaveChoice: closeSaveChoice,
+            initialElements: initialElements
         )
 
+        item.inspectorVisible = inspectorVisible
         panel.contentView = makeContentView(for: item)
         panel.contentView?.layoutSubtreeIfNeeded()
+        updateCanvasStatus(item)
         if panel.usesScrollableImageViewport,
            let annotationCanvas = item.annotationCanvas,
            let imageZoom = item.imageZoom {
@@ -105,6 +116,7 @@ final class ImageWorkspacePanelController: NSObject {
         startAutomaticOCRIfNeeded(for: item)
 
         activateWorkspace(item)
+        if let canvas = item.annotationCanvas { panel.makeFirstResponder(canvas) }
         return true
     }
 
@@ -114,10 +126,10 @@ final class ImageWorkspacePanelController: NSObject {
         item.panel.orderFrontRegardless()
     }
 
-    private func makePanel(for screenshot: CapturedScreenshot, kind: ImageWorkspaceKind) -> ImageWorkspacePanel {
+    private func makePanel(for screenshot: CapturedScreenshot, kind: ImageWorkspaceKind, inspectorVisible: Bool) -> ImageWorkspacePanel {
         let targetScreen = NSScreen.main ?? NSScreen.screens.first
         let visibleFrame = targetScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 900, height: 700)
-        let initialLayout = initialLayout(for: screenshot.image, in: visibleFrame, kind: kind)
+        let initialLayout = initialLayout(for: screenshot.image, in: visibleFrame, kind: kind, inspectorVisible: inspectorVisible)
         let contentSize = initialLayout.contentSize
         let imageAspectRatio = ImageWorkspaceLayout.imageAspectRatio(for: screenshot.image)
         let contentRect = NSRect(
@@ -141,14 +153,18 @@ final class ImageWorkspacePanelController: NSObject {
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
+        panel.titlebarSeparatorStyle = .none
+        panel.titlebarAppearsTransparent = kind != .pinned
+        if kind == .pinned {
+            panel.styleMask.remove(.fullSizeContentView)
+        }
         panel.isMovableByWindowBackground = true
-        panel.backgroundColor = .clear
+        panel.backgroundColor = kind == .pinned ? .windowBackgroundColor : .clear
         panel.hasShadow = true
-        panel.isOpaque = false
+        panel.isOpaque = kind == .pinned
         panel.configureResize(
             imageAspectRatio: initialLayout.usesScrollableViewport ? nil : imageAspectRatio,
-            metrics: ImageWorkspaceLayout.resizeMetrics(for: kind)
+            metrics: ImageWorkspaceLayout.resizeMetrics(for: kind, inspectorVisible: inspectorVisible)
         )
         panel.usesScrollableImageViewport = initialLayout.usesScrollableViewport
         panel.onEscape = { [weak self, weak panel] in
@@ -167,10 +183,11 @@ final class ImageWorkspacePanelController: NSObject {
     private func initialLayout(
         for image: NSImage,
         in visibleFrame: NSRect,
-        kind: ImageWorkspaceKind
+        kind: ImageWorkspaceKind,
+        inspectorVisible: Bool
     ) -> ImageWorkspaceInitialLayout {
         let aspectRatio = ImageWorkspaceLayout.imageAspectRatio(for: image)
-        let resizeMetrics = ImageWorkspaceLayout.resizeMetrics(for: kind)
+        let resizeMetrics = ImageWorkspaceLayout.resizeMetrics(for: kind, inspectorVisible: inspectorVisible)
         let maximumContentSize = CGSize(
             width: max(440, visibleFrame.width - ImageWorkspaceLayout.initialWindowScreenMargin),
             height: max(260, visibleFrame.height - ImageWorkspaceLayout.initialWindowScreenMargin)
@@ -224,8 +241,7 @@ final class ImageWorkspacePanelController: NSObject {
 
         let contentView = ImageWorkspaceContextMenuView()
         contentView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.wantsLayer = true
-        contentView.layer?.backgroundColor = NSColor.clear.cgColor
+        contentView.drawsEditorBackground = true
         contentView.menuProvider = contextMenuProvider
 
         let imageContainer = ImageWorkspaceContextMenuView()
@@ -237,12 +253,13 @@ final class ImageWorkspacePanelController: NSObject {
         imageContainer.layer?.backgroundColor = NSColor.black.cgColor
         imageContainer.menuProvider = contextMenuProvider
         imageContainer.setAccessibilityLabel("Image Preview Container")
+        item.canvasContainer = imageContainer
 
         let imageZoom = ImageWorkspaceImageZoom()
         item.imageZoom = imageZoom
         let annotationCanvas = ImageAnnotationCanvasView(
             image: item.screenshot.image,
-            document: ImageAnnotationDocument(editingOptions: editingOptionsProvider()),
+            document: ImageAnnotationDocument(elements: item.initialElements, editingOptions: editingOptionsProvider()),
             imageZoom: imageZoom
         ) { [weak self, weak item] document in
             guard let item else {
@@ -273,6 +290,9 @@ final class ImageWorkspacePanelController: NSObject {
         annotationCanvas.menuProvider = contextMenuProvider
         annotationCanvas.setBaseScreenshot(item.screenshot)
         item.annotationCanvas = annotationCanvas
+        annotationCanvas.onCopyOutput = { [weak self, weak item] in
+            if let item { self?.copyOutput(for: item) }
+        }
 
         let textSelectionOverlay = ImageWorkspaceTextSelectionOverlayView(
             imageSize: item.screenshot.image.size,
@@ -282,19 +302,23 @@ final class ImageWorkspacePanelController: NSObject {
         textSelectionOverlay.translatesAutoresizingMaskIntoConstraints = false
         textSelectionOverlay.isHidden = true
         textSelectionOverlay.menuProvider = contextMenuProvider
+        textSelectionOverlay.shouldPassThroughPoint = { [weak annotationCanvas] point in
+            annotationCanvas?.hasEditableObject(at: point) == true
+        }
         textSelectionOverlay.magnifyHandler = { [weak annotationCanvas] event in
             annotationCanvas?.magnify(with: event)
         }
         textSelectionOverlay.scrollWheelHandler = { [weak annotationCanvas] event in
             annotationCanvas?.scrollWheel(with: event)
         }
-        imageZoom.onViewportChange = { [weak annotationCanvas, weak textSelectionOverlay] in
+        imageZoom.onViewportChange = { [weak self, weak item, weak annotationCanvas, weak textSelectionOverlay] in
             annotationCanvas?.imageZoomDidChange()
             textSelectionOverlay?.imageZoomDidChange()
+            if let item { self?.updateCanvasStatus(item) }
         }
         item.textSelectionOverlay = textSelectionOverlay
 
-        let toolbar = ImageWorkspaceToolbarView()
+        let toolbar = NSView()
         toolbar.translatesAutoresizingMaskIntoConstraints = false
         toolbar.setAccessibilityLabel("Image Workspace Toolbar")
 
@@ -333,15 +357,13 @@ final class ImageWorkspacePanelController: NSObject {
         )
         for button in [undoButton, redoButton] {
             button.isEnabled = false
-            button.contentTintColor = FrameHUDChrome.disabledIcon
+            button.contentTintColor = .disabledControlTextColor
             button.widthAnchor.constraint(equalToConstant: ImageWorkspaceLayout.editingToolSize).isActive = true
             button.heightAnchor.constraint(equalToConstant: ImageWorkspaceLayout.editingToolSize).isActive = true
             historyStack.addArrangedSubview(button)
         }
         item.undoButton = undoButton
         item.redoButton = redoButton
-
-        let historyToolsDivider = makeToolbarDivider(identifier: "ImageWorkspaceToolbarHistoryToolsDivider")
 
         for toolbarItem in ImageWorkspaceToolbarToolOrder.items {
             let button = makeIconButton(
@@ -384,76 +406,159 @@ final class ImageWorkspacePanelController: NSObject {
                 optionsButton: optionsButton
             )
             splitControl.identifier = NSUserInterfaceItemIdentifier("ImageWorkspaceToolbarMosaicSplitControl")
+            item.mosaicSplitControl = splitControl
             toolStack.addArrangedSubview(splitControl)
         }
 
+        let moreMarkup = makeMenuButton("") { [weak self, weak item] in
+            guard let item else { return NSMenu() }
+            return self?.makeMoreMarkupMenu(for: item) ?? NSMenu()
+        }
+        let moreTitle = item.strings.editorLabel("更多标注工具", "More Markup Tools")
+        configureCapsuleCommand(moreMarkup, symbol: "ellipsis", capsule: .quiet)
+        moreMarkup.setAccessibilityLabel(moreTitle)
+        moreMarkup.toolTip = moreTitle
+        moreMarkup.widthAnchor.constraint(equalToConstant: ImageWorkspaceLayout.editingToolSize).isActive = true
+        toolStack.addArrangedSubview(moreMarkup)
+        let markupCapsule = ImageWorkspaceMarkupCapsule(contents: toolStack)
+
         let styleControl = makeHeaderStyleControl(for: item)
         item.styleControl = styleControl
-        let styleDivider = makeToolbarDivider(identifier: "ImageWorkspaceToolbarStyleDivider")
-        styleDivider.isHidden = true
-        item.styleDivider = styleDivider
+        let status = makeCanvasStatus(for: item)
+        let cropButton = makeCommandButton(item.strings.editorLabel("裁剪", "Crop")) { [weak annotationCanvas] in
+            annotationCanvas?.startCrop()
+        }
+        let resizeButton = makeCommandButton(item.strings.editorLabel("调整大小", "Resize")) { [weak self, weak item] in
+            guard let item else { return }
+            self?.requestResize(for: item)
+        }
+        let transformButton = makeMenuButton(item.strings.editorLabel("变换", "Transform")) { [weak self, weak item] in
+            guard let item else { return NSMenu() }
+            return self?.makeTransformMenu(for: item) ?? NSMenu()
+        }
+        configureCapsuleCommand(cropButton)
+        configureCapsuleCommand(resizeButton)
+        configureCapsuleCommand(transformButton, symbol: "chevron.down")
+        let geometryStack = makeRow([cropButton, resizeButton, transformButton], spacing: 3)
+        let parameters = makeParameterRow(for: item, imageCommands: geometryStack, styleControl: styleControl)
+        let inspector = ImageWorkspaceInspector(strings: item.strings) { [weak self, weak item] action in
+            guard let item else { return }
+            self?.performInspectorAction(action, for: item)
+        }
+        item.inspector = inspector
+        let toggle = makeCommandButton("") { [weak self, weak item] in
+            guard let item else { return }
+            item.inspectorVisible.toggle()
+            self?.updateInspectorLayout(for: item, updatingWindow: true)
+        }
+        toggle.setButtonType(.toggle)
+        configureCapsuleCommand(toggle, symbol: "sidebar.right", capsule: .quiet)
+        toggle.widthAnchor.constraint(equalToConstant: 32).isActive = true
+        item.inspectorToggle = toggle
+        item.parameters = parameters
 
-        let spacer = NSView()
-        spacer.translatesAutoresizingMaskIntoConstraints = false
+        annotationCanvas.onCanvasResize = { [weak self, weak item] in
+            if let item { self?.updateCanvasStatus(item) }
+        }
+        annotationCanvas.onCropChanged = { [weak self, weak item] in
+            if let item { self?.updateCropControls(item) }
+        }
+        annotationCanvas.onCropCommit = { [weak self, weak item] in
+            guard let self, let item else { return }
+            self.performEdit(for: item) { try item.annotationCanvas?.applyCrop() }
+        }
+        let originalSize = item.screenshot.image.size
+        annotationCanvas.onImageChanged = { [weak self, weak item] in
+            guard let self, let item else { return }
+            item.ocrTask?.cancel()
+            if item.annotationCanvas?.currentImage.size != originalSize {
+                item.panel.configureResize(imageAspectRatio: nil, metrics: ImageWorkspaceLayout.resizeMetrics(for: .temporaryPreview, inspectorVisible: item.inspectorVisible))
+            }
+            if let image = item.annotationCanvas?.currentImage {
+                item.textSelectionOverlay?.resetImageSize(image.size)
+            }
+            self.updateCanvasStatus(item)
+            self.startAutomaticOCRIfNeeded(for: item)
+        }
+        annotationCanvas.onDropImage = { [weak annotationCanvas] image in annotationCanvas?.addImage(image) }
 
-        let saveEditedButton = makeIconButton(
-            title: item.strings.workspaceSaveCurrent,
-            symbolName: "checkmark.circle",
-            action: #selector(saveEditedButtonClicked),
-            buttonType: .momentaryPushIn
-        )
-        let copyButton = makeIconButton(
-            title: item.strings.workspaceCopy,
-            toolTip: item.strings.workspaceSaveAndCopy,
-            symbolName: "doc.on.doc",
-            action: #selector(copyButtonClicked),
-            buttonType: .momentaryPushIn
-        )
-        let downloadButton = makeIconButton(
-            title: item.strings.workspaceDownload,
-            toolTip: item.strings.workspaceSaveAndDownload,
-            symbolName: "square.and.arrow.down",
-            action: #selector(downloadButtonClicked),
-            buttonType: .momentaryPushIn
-        )
+        let leadingToolSpace = NSView()
+        let trailingToolSpace = NSView()
+        for space in [leadingToolSpace, trailingToolSpace] {
+            space.translatesAutoresizingMaskIntoConstraints = false
+        }
+
+        let saveEditedButton = ImageWorkspaceCommandButton(title: item.strings.workspaceSaveCurrent, target: self, selector: #selector(saveEditedButtonClicked))
+        let copyButton = ImageWorkspaceCommandButton(title: item.strings.workspaceCopy, target: self, selector: #selector(copyButtonClicked))
+        let downloadButton = ImageWorkspaceCommandButton(title: item.strings.editorLabel("导出…", "Export…"), target: self, selector: #selector(downloadButtonClicked))
+        let saveOptionsButton = makeMenuButton("") { [weak self, weak item] in
+            guard let item else { return NSMenu() }
+            return self?.makeSaveCurrentMenu(for: item) ?? NSMenu()
+        }
+        configureCapsuleCommand(copyButton, capsule: .quiet)
+        configureCapsuleCommand(downloadButton, capsule: .quiet)
+        configureCapsuleCommand(saveOptionsButton, symbol: "chevron.down", capsule: .quiet)
+        saveOptionsButton.widthAnchor.constraint(equalToConstant: 28).isActive = true
+        saveOptionsButton.setAccessibilityLabel(item.strings.editorLabel("保存选项", "Save Options"))
+        configureCapsuleCommand(saveEditedButton, capsule: .primary)
         saveEditedButton.isEnabled = false
-        saveEditedButton.contentTintColor = FrameHUDChrome.disabledIcon
         saveEditedButton.menu = makeSaveCurrentMenu(for: item)
         item.saveCurrentButton = saveEditedButton
-        saveEditedButton.widthAnchor.constraint(equalToConstant: ImageWorkspaceLayout.outputButtonSize).isActive = true
-        saveEditedButton.heightAnchor.constraint(equalToConstant: ImageWorkspaceLayout.editingToolSize).isActive = true
-        copyButton.widthAnchor.constraint(equalToConstant: ImageWorkspaceLayout.outputButtonSize).isActive = true
-        copyButton.heightAnchor.constraint(equalToConstant: ImageWorkspaceLayout.editingToolSize).isActive = true
-        downloadButton.widthAnchor.constraint(equalToConstant: ImageWorkspaceLayout.outputButtonSize).isActive = true
-        downloadButton.heightAnchor.constraint(equalToConstant: ImageWorkspaceLayout.editingToolSize).isActive = true
+        item.saveOptionsButton = saveOptionsButton
 
-        let outputStack = NSStackView(views: [saveEditedButton, copyButton, downloadButton])
+        let outputStack = NSStackView(views: [copyButton, downloadButton, saveEditedButton, saveOptionsButton, toggle])
         outputStack.orientation = .horizontal
         outputStack.alignment = .centerY
         outputStack.distribution = .fill
         outputStack.spacing = ImageWorkspaceLayout.outputButtonSpacing
         outputStack.translatesAutoresizingMaskIntoConstraints = false
-        let outputDivider = makeToolbarDivider(identifier: "ImageWorkspaceToolbarOutputDivider")
+
+        let rowDivider = NSBox()
+        rowDivider.boxType = .separator
+        rowDivider.translatesAutoresizingMaskIntoConstraints = false
 
         contentView.addSubview(imageContainer)
         contentView.addSubview(toolbar)
+        contentView.addSubview(rowDivider)
+        contentView.addSubview(parameters)
+        contentView.addSubview(inspector)
+        contentView.addSubview(status)
         imageContainer.addSubview(annotationCanvas)
         imageContainer.addSubview(textSelectionOverlay)
         toolbar.addSubview(toolbarStack)
         toolbarStack.addArrangedSubview(historyStack)
-        toolbarStack.addArrangedSubview(historyToolsDivider)
-        toolbarStack.addArrangedSubview(toolStack)
-        toolbarStack.addArrangedSubview(styleDivider)
-        toolbarStack.addArrangedSubview(styleControl)
-        toolbarStack.addArrangedSubview(spacer)
-        toolbarStack.addArrangedSubview(outputDivider)
+        toolbarStack.addArrangedSubview(leadingToolSpace)
+        toolbarStack.addArrangedSubview(markupCapsule)
+        toolbarStack.addArrangedSubview(trailingToolSpace)
         toolbarStack.addArrangedSubview(outputStack)
 
+        item.parametersHeight = parameters.heightAnchor.constraint(equalToConstant: ImageWorkspaceLayout.parameterHeight)
+        item.fullCanvasWidth = imageContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor)
+        item.splitCanvasWidth = imageContainer.trailingAnchor.constraint(
+            equalTo: inspector.leadingAnchor, constant: -ImageWorkspaceLayout.canvasInset
+        )
+        let leading = imageContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor)
+        let top = imageContainer.topAnchor.constraint(equalTo: parameters.bottomAnchor)
+        let bottom = imageContainer.bottomAnchor.constraint(equalTo: status.topAnchor)
+        item.canvasLeadingInset = leading
+        item.canvasTopInset = top
+        item.canvasBottomInset = bottom
         NSLayoutConstraint.activate([
-            imageContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: ImageWorkspaceLayout.toolbarLeading),
-            imageContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -ImageWorkspaceLayout.toolbarTrailing),
-            imageContainer.topAnchor.constraint(equalTo: toolbar.bottomAnchor, constant: ImageWorkspaceLayout.imageTopSpacing),
-            imageContainer.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -ImageWorkspaceLayout.imageBottomInset),
+            leading,
+            top,
+            bottom,
+            inspector.topAnchor.constraint(equalTo: toolbar.bottomAnchor, constant: 1),
+            inspector.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            inspector.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            inspector.widthAnchor.constraint(equalToConstant: ImageWorkspaceLayout.inspectorWidth),
+            parameters.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 14),
+            parameters.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -14),
+            parameters.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
+            item.parametersHeight!,
+            status.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+            status.trailingAnchor.constraint(equalTo: imageContainer.trailingAnchor, constant: -12),
+            status.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            status.heightAnchor.constraint(equalToConstant: ImageWorkspaceLayout.statusHeight),
 
             annotationCanvas.leadingAnchor.constraint(equalTo: imageContainer.leadingAnchor),
             annotationCanvas.trailingAnchor.constraint(equalTo: imageContainer.trailingAnchor),
@@ -464,6 +569,11 @@ final class ImageWorkspacePanelController: NSObject {
             textSelectionOverlay.trailingAnchor.constraint(equalTo: imageContainer.trailingAnchor),
             textSelectionOverlay.topAnchor.constraint(equalTo: imageContainer.topAnchor),
             textSelectionOverlay.bottomAnchor.constraint(equalTo: imageContainer.bottomAnchor),
+
+            rowDivider.leadingAnchor.constraint(equalTo: toolbar.leadingAnchor, constant: 14),
+            rowDivider.trailingAnchor.constraint(equalTo: toolbar.trailingAnchor, constant: -14),
+            rowDivider.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
+            rowDivider.heightAnchor.constraint(equalToConstant: 1),
 
             toolbar.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: ImageWorkspaceLayout.toolbarLeading),
             toolbar.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -ImageWorkspaceLayout.toolbarTrailing),
@@ -478,14 +588,17 @@ final class ImageWorkspacePanelController: NSObject {
             toolbarStack.topAnchor.constraint(equalTo: toolbar.topAnchor, constant: 2),
             toolbarStack.bottomAnchor.constraint(equalTo: toolbar.bottomAnchor, constant: -2),
 
-            spacer.widthAnchor.constraint(greaterThanOrEqualToConstant: ImageWorkspaceLayout.minimumSpacerWidth),
+            leadingToolSpace.widthAnchor.constraint(greaterThanOrEqualToConstant: ImageWorkspaceLayout.minimumSpacerWidth),
+            trailingToolSpace.widthAnchor.constraint(equalTo: leadingToolSpace.widthAnchor),
         ])
 
+        updateInspectorLayout(for: item, updatingWindow: false)
         if let selectedTool = item.state.selectedTool {
             select(selectedTool, in: item)
         }
         updatePrimaryToolButtons(for: item)
         updateDocumentControls(for: item, document: annotationCanvas.documentForTesting)
+        updateCanvasStatus(item)
 
         return contentView
     }
@@ -511,6 +624,7 @@ final class ImageWorkspacePanelController: NSObject {
         imageContainer.wantsLayer = true
         imageContainer.layer?.cornerRadius = 10
         imageContainer.layer?.cornerCurve = .continuous
+        imageContainer.layer?.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         imageContainer.layer?.masksToBounds = true
         imageContainer.layer?.backgroundColor = NSColor.black.cgColor
         imageContainer.menuProvider = contextMenuProvider
@@ -554,7 +668,7 @@ final class ImageWorkspacePanelController: NSObject {
         )
         button.toolTip = toolTip ?? title
         button.symbolConfiguration = iconMetrics.symbolConfiguration
-        button.contentTintColor = FrameHUDChrome.primaryIcon
+        button.contentTintColor = .labelColor
         button.setButtonType(buttonType)
         button.setAccessibilityLabel(title)
         button.setAccessibilityHelp(title)
@@ -562,10 +676,9 @@ final class ImageWorkspacePanelController: NSObject {
     }
 
     private func makeToolbarDivider(identifier: String) -> NSView {
-        let divider = NSView()
+        let divider = NSBox()
         divider.identifier = NSUserInterfaceItemIdentifier(identifier)
-        divider.wantsLayer = true
-        divider.layer?.backgroundColor = FrameHUDChrome.divider.cgColor
+        divider.boxType = .separator
         divider.translatesAutoresizingMaskIntoConstraints = false
         divider.widthAnchor.constraint(equalToConstant: 1).isActive = true
         divider.heightAnchor.constraint(equalToConstant: 16).isActive = true
@@ -612,6 +725,14 @@ final class ImageWorkspacePanelController: NSObject {
     }
 
     private func installLifecycleCallbacks(for item: ImageWorkspaceItem) {
+        let closeOnEscape = item.panel.onEscape
+        item.panel.onEscape = { [weak item] in
+            if let canvas = item?.annotationCanvas, canvas.cropBounds != nil {
+                canvas.cancelCrop()
+                return
+            }
+            closeOnEscape?()
+        }
         item.panel.shouldClose = { [weak self, weak item] in
             guard let self,
                   let item else {
@@ -644,14 +765,14 @@ final class ImageWorkspacePanelController: NSObject {
             }
 
             do {
-                let layout = try await recognizeText(item.screenshot)
-                guard self.workspaceItems.contains(where: { $0 === item }) else {
+                let layout = try await recognizeText(item.annotationCanvas?.currentSnapshotImage ?? item.screenshot)
+                guard !Task.isCancelled, self.workspaceItems.contains(where: { $0 === item }) else {
                     return
                 }
 
                 textSelectionOverlay.setRecognizedTextLayout(layout)
             } catch {
-                guard self.workspaceItems.contains(where: { $0 === item }) else {
+                guard !Task.isCancelled, self.workspaceItems.contains(where: { $0 === item }) else {
                     return
                 }
 
@@ -664,7 +785,7 @@ final class ImageWorkspacePanelController: NSObject {
     private func makeContextMenu(for item: ImageWorkspaceItem) -> NSMenu {
         let menu = NSMenu()
         menu.addItem(makeMenuItem(title: item.strings.workspaceCopy, action: #selector(copyMenuItemClicked), representedObject: item))
-        menu.addItem(makeMenuItem(title: item.strings.workspaceDownload, action: #selector(downloadMenuItemClicked), representedObject: item))
+        menu.addItem(makeMenuItem(title: item.strings.editorLabel("导出…", "Export…"), action: #selector(downloadMenuItemClicked), representedObject: item))
         let saveEditedMenuItem = NSMenuItem(title: item.strings.workspaceSaveCurrent, action: nil, keyEquivalent: "")
         saveEditedMenuItem.submenu = makeSaveCurrentMenu(for: item)
         saveEditedMenuItem.isEnabled = item.annotationCanvas?.documentForTesting.hasUncommittedEdits ?? false
@@ -713,18 +834,12 @@ final class ImageWorkspacePanelController: NSObject {
 
     private func makeMosaicOptionsMenu(for item: ImageWorkspaceItem) -> NSMenu {
         let menu = NSMenu()
-        menu.addItem(makeToolOptionItem(
-            item.strings.workspaceMosaicModeTitle(.rectangle),
-            item: item,
-            option: .mosaicMode(.rectangle),
-            symbolName: symbolName(for: ImageAnnotationMosaicMode.rectangle)
-        ))
-        menu.addItem(makeToolOptionItem(
-            item.strings.workspaceMosaicModeTitle(.brush),
-            item: item,
-            option: .mosaicMode(.brush),
-            symbolName: symbolName(for: ImageAnnotationMosaicMode.brush)
-        ))
+        for mode in ImageAnnotationMosaicMode.allCases {
+            menu.addItem(makeToolOptionItem(
+                item.strings.workspaceMosaicModeTitle(mode), item: item, option: .mosaicMode(mode),
+                symbolName: symbolName(for: mode)
+            ))
+        }
         updateMenuStates(menu, for: item)
         return menu
     }
@@ -986,7 +1101,7 @@ final class ImageWorkspacePanelController: NSObject {
     private func select(_ tool: ImageAnnotationTool, in item: ImageWorkspaceItem) {
         item.state.select(tool)
         item.annotationCanvas?.selectTool(tool)
-        item.textSelectionOverlay?.setTextSelectionEnabled(tool == .select)
+        item.textSelectionOverlay?.setTextSelectionEnabled(tool == .select && item.annotationCanvas?.cropBounds == nil)
         updatePrimaryToolButtons(for: item)
         updateSelectionStates(for: item)
     }
@@ -1017,12 +1132,9 @@ final class ImageWorkspacePanelController: NSObject {
             return
         }
 
-        var style = canvas.documentForTesting.editingOptions.style
+        var style = canvas.selectedStyle
         style.strokeColor = color
         canvas.setStyle(style)
-        saveEditingOptions(for: item)
-        updatePrimaryToolButtons(for: item)
-        updateOptionMenuStates(for: item)
     }
 
     private func applyStyleControlSize(_ size: CGFloat, in item: ImageWorkspaceItem) {
@@ -1030,7 +1142,7 @@ final class ImageWorkspacePanelController: NSObject {
             return
         }
 
-        var style = canvas.documentForTesting.editingOptions.style
+        var style = canvas.selectedStyle
         switch styleControlMode(for: canvas.documentForTesting) {
         case .lineWidth:
             style.lineWidth = size
@@ -1041,9 +1153,6 @@ final class ImageWorkspacePanelController: NSObject {
         }
 
         canvas.setStyle(style)
-        saveEditingOptions(for: item)
-        updatePrimaryToolButtons(for: item)
-        updateOptionMenuStates(for: item)
     }
 
     private func saveEditingOptions(for item: ImageWorkspaceItem) {
@@ -1075,7 +1184,7 @@ final class ImageWorkspacePanelController: NSObject {
         button.state = isSelected ? .on : .off
         button.contentTintColor = isSelected
             ? FrameHUDChrome.selectedIcon
-            : FrameHUDChrome.primaryIcon
+            : .labelColor
         if let toolbarButton = button as? ImageWorkspaceToolbarButton {
             toolbarButton.isWorkspaceSelected = isSelected
         }
@@ -1108,12 +1217,16 @@ final class ImageWorkspacePanelController: NSObject {
         let sizeMode = styleControlMode(for: document)
         let isVisible = sizeMode != .disabled
         item.styleControl?.isHidden = !isVisible
-        item.styleDivider?.isHidden = !isVisible
-        item.styleControl?.update(
-            color: document.editingOptions.style.strokeColor,
-            sizeMode: sizeMode,
-            style: document.editingOptions.style
-        )
+        let style = item.annotationCanvas?.selectedStyle ?? document.editingOptions.style
+        item.styleControl?.update(color: style.strokeColor, sizeMode: sizeMode, style: style)
+        let selected = document.elements.first { $0.id == document.selectedElementID }
+        var showsOptions = isVisible || document.selectedTool == .mosaic
+        switch selected?.kind {
+        case .mosaic, .counter, .spotlight, .image: showsOptions = true
+        default: break
+        }
+        item.styleOptionsButton?.isHidden = !showsOptions
+        item.styleSeparator?.isHidden = !showsOptions
     }
 
     private func styleControlMode(for document: ImageAnnotationDocument) -> ImageWorkspaceStyleControlSizeMode {
@@ -1124,7 +1237,7 @@ final class ImageWorkspacePanelController: NSObject {
                 return .lineWidth
             case .text:
                 return .fontSize
-            case .mosaic:
+            case .mosaic, .counter, .spotlight, .image:
                 return .disabled
             }
         }
@@ -1140,20 +1253,22 @@ final class ImageWorkspacePanelController: NSObject {
     }
 
     private func updateDocumentControls(for item: ImageWorkspaceItem, document: ImageAnnotationDocument) {
+        item.textSelectionOverlay?.excludeText(in: document.elements.compactMap { element in
+            element.kind == .mosaic(.redact) ? element.bounds : nil
+        })
         item.saveCurrentButton?.isEnabled = document.hasUncommittedEdits
-        item.saveCurrentButton?.contentTintColor = document.hasUncommittedEdits
-            ? FrameHUDChrome.primaryIcon
-            : FrameHUDChrome.disabledIcon
+        item.saveOptionsButton?.isEnabled = document.hasUncommittedEdits
         updateHistoryButton(item.undoButton, isEnabled: document.canUndo)
         updateHistoryButton(item.redoButton, isEnabled: document.canRedo)
         updateHeaderStyleControl(for: item, document: document)
+        item.inspector?.update(document: document)
     }
 
     private func updateHistoryButton(_ button: NSButton?, isEnabled: Bool) {
         button?.isEnabled = isEnabled
         button?.contentTintColor = isEnabled
-            ? FrameHUDChrome.primaryIcon
-            : FrameHUDChrome.disabledIcon
+            ? .labelColor
+            : .disabledControlTextColor
     }
 
     private func toolButton(for tool: ImageAnnotationTool, in item: ImageWorkspaceItem) -> NSButton? {
@@ -1166,9 +1281,7 @@ final class ImageWorkspacePanelController: NSObject {
             return
         }
 
-        if item.state.kind == .temporaryPreview {
-            closeWorkspace(item, prompting: false)
-        }
+        showFeedback(item.strings.editorLabel("已复制图片", "Image copied"), for: item)
     }
 
     private func downloadOutput(for item: ImageWorkspaceItem) {
@@ -1177,9 +1290,7 @@ final class ImageWorkspacePanelController: NSObject {
             return
         }
 
-        if item.state.kind == .temporaryPreview {
-            closeWorkspace(item, prompting: false)
-        }
+        showFeedback(item.strings.editorLabel("已导出图片", "Image exported"), for: item)
     }
 
     @discardableResult
@@ -1188,12 +1299,15 @@ final class ImageWorkspacePanelController: NSObject {
             return false
         }
 
-        item.screenshot = screenshot
-        item.annotationCanvas?.setBaseScreenshot(screenshot)
+        do {
+            try item.replaceCurrent?(screenshot)
+        } catch {
+            return false
+        }
+
         item.annotationCanvas?.markCurrentRenditionSaved()
-        item.replaceCurrent?(screenshot)
+        showFeedback(item.strings.editorLabel("已保存当前稿", "Current edit saved"), for: item)
         item.saveCurrentButton?.isEnabled = false
-        item.saveCurrentButton?.contentTintColor = .disabledControlTextColor
         updateDocumentControls(for: item, document: item.annotationCanvas?.documentForTesting ?? ImageAnnotationDocument())
         return true
     }
@@ -1204,11 +1318,12 @@ final class ImageWorkspacePanelController: NSObject {
             return false
         }
 
-        if let saveAsNew = item.saveAsNew {
-            return saveAsNew(screenshot)
+        let saved = (item.saveAsNew ?? item.save)(screenshot)
+        if saved {
+            if let document = item.annotationCanvas?.documentForTesting { item.lastSeparatelySaved = .init(document: document) }
+            showFeedback(item.strings.editorLabel("已另存新图", "Saved as new image"), for: item)
         }
-
-        return item.save(screenshot)
+        return saved
     }
 
     private func renderedScreenshot(for item: ImageWorkspaceItem, preservingID: Bool = true) -> CapturedScreenshot? {
@@ -1216,9 +1331,10 @@ final class ImageWorkspacePanelController: NSObject {
             return item.screenshot
         }
 
+        canvas.finishTextEditing()
         do {
             return try ImageAnnotationRenderer().render(
-                screenshot: item.screenshot,
+                screenshot: canvas.currentSnapshotImage,
                 document: canvas.documentForTesting,
                 preservingID: preservingID
             )
@@ -1229,8 +1345,11 @@ final class ImageWorkspacePanelController: NSObject {
     }
 
     private func shouldCloseWorkspace(_ item: ImageWorkspaceItem) -> Bool {
+        item.annotationCanvas?.finishTextEditing()
         guard item.state.kind == .temporaryPreview,
-              item.annotationCanvas?.documentForTesting.hasUncommittedEdits == true else {
+              let document = item.annotationCanvas?.documentForTesting,
+              document.hasUncommittedEdits,
+              item.lastSeparatelySaved?.matches(document) != true else {
             return true
         }
 
@@ -1397,6 +1516,10 @@ final class ImageWorkspacePanelController: NSObject {
             "checkerboard.rectangle"
         case .brush:
             "paintbrush.pointed.fill"
+        case .blur:
+            "drop"
+        case .redact:
+            "rectangle.fill"
         }
     }
 
@@ -1487,7 +1610,7 @@ private final class ImageWorkspaceItem {
     let save: (CapturedScreenshot) -> Bool
     let recognizeText: ((CapturedScreenshot) async throws -> RecognizedTextLayout)?
     let copyRecognizedText: ((String) -> Bool)?
-    let replaceCurrent: ((CapturedScreenshot) -> Void)?
+    let replaceCurrent: ((CapturedScreenshot) throws -> Void)?
     let saveAsNew: ((CapturedScreenshot) -> Bool)?
     let closeSaveChoice: (() -> ImageWorkspaceCloseSaveChoice)?
     var notificationObservers: [NSObjectProtocol] = []
@@ -1497,7 +1620,33 @@ private final class ImageWorkspaceItem {
     var imageZoom: ImageWorkspaceImageZoom?
     weak var saveCurrentButton: NSButton?
     weak var styleControl: ImageWorkspaceHeaderStyleControlView?
-    weak var styleDivider: NSView?
+    let initialElements: [ImageAnnotationElement]
+    weak var saveOptionsButton: NSButton?
+    weak var styleOptionsButton: NSButton?
+    weak var styleSeparator: NSView?
+    weak var styleRow: NSView?
+    weak var cropRow: NSView?
+    weak var cropSizeLabel: NSTextField?
+    weak var cropApplyButton: NSButton?
+    weak var cropRatioPopup: NSPopUpButton?
+    weak var dimensionsLabel: NSTextField?
+    weak var zoomLabel: NSTextField?
+    var inspectorVisible = false
+    weak var inspector: ImageWorkspaceInspector?
+    weak var canvasContainer: ImageWorkspaceContextMenuView?
+    weak var inspectorToggle: NSButton?
+    weak var parameters: NSView?
+    weak var compactZoom: NSView?
+    weak var mosaicSplitControl: ImageWorkspaceSplitToolControl?
+    var parametersHeight: NSLayoutConstraint?
+    var fullCanvasWidth: NSLayoutConstraint?
+    var splitCanvasWidth: NSLayoutConstraint?
+    var canvasLeadingInset: NSLayoutConstraint?
+    var canvasTopInset: NSLayoutConstraint?
+    var canvasBottomInset: NSLayoutConstraint?
+    weak var feedbackLabel: NSTextField?
+    var feedbackTask: Task<Void, Never>?
+    var lastSeparatelySaved: ImageWorkspaceSavedVersion?
     weak var undoButton: NSButton?
     weak var redoButton: NSButton?
     weak var textSelectionOverlay: ImageWorkspaceTextSelectionOverlayView?
@@ -1512,9 +1661,10 @@ private final class ImageWorkspaceItem {
         save: @escaping (CapturedScreenshot) -> Bool,
         recognizeText: ((CapturedScreenshot) async throws -> RecognizedTextLayout)?,
         copyRecognizedText: ((String) -> Bool)?,
-        replaceCurrent: ((CapturedScreenshot) -> Void)?,
+        replaceCurrent: ((CapturedScreenshot) throws -> Void)?,
         saveAsNew: ((CapturedScreenshot) -> Bool)?,
-        closeSaveChoice: (() -> ImageWorkspaceCloseSaveChoice)?
+        closeSaveChoice: (() -> ImageWorkspaceCloseSaveChoice)?,
+        initialElements: [ImageAnnotationElement]
     ) {
         self.state = state
         self.panel = panel
@@ -1527,6 +1677,7 @@ private final class ImageWorkspaceItem {
         self.replaceCurrent = replaceCurrent
         self.saveAsNew = saveAsNew
         self.closeSaveChoice = closeSaveChoice
+        self.initialElements = initialElements
     }
 }
 
@@ -1603,8 +1754,8 @@ private final class ImageWorkspaceHeaderStyleControlView: NSView {
     private let colorMenuButton = NSButton()
     private let colorMenu = NSMenu()
     private var colorPaletteButtons: [(color: ImageAnnotationColor, button: NSButton)] = []
-    private let sizeIconView = NSImageView()
     private let sizeSlider = NSSlider()
+    private let sizeLabel = NSTextField(labelWithString: "")
 
     init(
         strings: AppStrings,
@@ -1681,7 +1832,7 @@ private final class ImageWorkspaceHeaderStyleControlView: NSView {
         colorMenuButton.action = #selector(colorMenuButtonClicked)
         colorMenuButton.imagePosition = .imageOnly
         colorMenuButton.wantsLayer = true
-        colorMenuButton.layer?.cornerRadius = 7
+        colorMenuButton.layer?.cornerRadius = ImageWorkspaceLayout.headerStyleControlHeight / 2
         colorMenuButton.layer?.cornerCurve = .continuous
         colorMenuButton.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.08).cgColor
         colorMenuButton.menu = colorMenu
@@ -1690,27 +1841,17 @@ private final class ImageWorkspaceHeaderStyleControlView: NSView {
         colorMenuButton.heightAnchor.constraint(equalToConstant: ImageWorkspaceLayout.headerStyleControlHeight).isActive = true
         stack.addArrangedSubview(colorMenuButton)
 
-        let divider = NSView()
-        divider.wantsLayer = true
-        divider.layer?.backgroundColor = NSColor.separatorColor.withAlphaComponent(0.3).cgColor
-        divider.translatesAutoresizingMaskIntoConstraints = false
-        divider.widthAnchor.constraint(equalToConstant: 1).isActive = true
-        divider.heightAnchor.constraint(equalToConstant: 18).isActive = true
-        stack.addArrangedSubview(divider)
-
-        sizeIconView.imageScaling = .scaleProportionallyDown
-        sizeIconView.contentTintColor = .secondaryLabelColor
-        sizeIconView.widthAnchor.constraint(equalToConstant: 16).isActive = true
-        sizeIconView.heightAnchor.constraint(equalToConstant: 16).isActive = true
-        stack.addArrangedSubview(sizeIconView)
-
         sizeSlider.controlSize = .small
         sizeSlider.target = self
         sizeSlider.action = #selector(sizeSliderChanged)
         sizeSlider.allowsTickMarkValuesOnly = true
         sizeSlider.isContinuous = true
-        sizeSlider.widthAnchor.constraint(equalToConstant: 122).isActive = true
+        sizeSlider.widthAnchor.constraint(equalToConstant: 55).isActive = true
         stack.addArrangedSubview(sizeSlider)
+        sizeLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        sizeLabel.textColor = .secondaryLabelColor
+        sizeLabel.widthAnchor.constraint(equalToConstant: 42).isActive = true
+        stack.addArrangedSubview(sizeLabel)
 
         NSLayoutConstraint.activate([
             widthAnchor.constraint(equalToConstant: ImageWorkspaceLayout.headerStyleControlWidth),
@@ -1823,29 +1964,21 @@ private final class ImageWorkspaceHeaderStyleControlView: NSView {
 
     private func updateSizeControlMetadata(value: CGFloat?) {
         let title: String
-        let symbolName: String
         let valueDescription: String?
         switch sizeMode {
         case .lineWidth:
             title = strings.workspaceThicknessOptions
-            symbolName = "lineweight"
             valueDescription = value.map { strings.workspaceLineWidth($0) }
         case .fontSize:
             title = strings.workspaceFontSizeOptions
-            symbolName = "textformat.size"
             valueDescription = value.map { strings.workspaceFontSize($0) }
         case .disabled:
             title = strings.workspaceThicknessOptions
-            symbolName = "lineweight"
             valueDescription = nil
         }
 
-        let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: title)
-        image?.isTemplate = true
-        sizeIconView.image = image
-        sizeIconView.contentTintColor = currentSizeValues.isEmpty ? .disabledControlTextColor : .secondaryLabelColor
-        sizeIconView.toolTip = title
         sizeSlider.setAccessibilityLabel(title)
+        sizeLabel.stringValue = valueDescription ?? ""
         sizeSlider.toolTip = valueDescription.map { "\(title): \($0)" } ?? title
     }
 
@@ -1920,40 +2053,43 @@ private enum ImageWorkspaceLayout {
     static let toolbarTrailing: CGFloat = 0
     static let toolbarTitlebarOverlap: CGFloat = 2
     static let toolbarStackLeadingInset: CGFloat = 88
-    static let toolbarStackTrailingInset: CGFloat = 6
-    static let toolbarStackSpacing: CGFloat = 8
-    static let toolbarHeight: CGFloat = 36
+    static let toolbarStackTrailingInset: CGFloat = 14
+    static let toolbarStackSpacing: CGFloat = 6
+    static let toolbarHeight: CGFloat = 40
     static let imageTopSpacing: CGFloat = 6
     static let imageBottomInset: CGFloat = 0
-    static let editingToolSize: CGFloat = 28
-    static let toolOptionsButtonWidth: CGFloat = 20
+    static let parameterHeight: CGFloat = 42
+    static let inspectorWidth: CGFloat = 248
+    static let canvasInset: CGFloat = 14
+    static let canvasFooterGap: CGFloat = 4
+    static let statusHeight: CGFloat = 32
+    static let editingToolSize: CGFloat = 36
+    static let toolOptionsButtonWidth: CGFloat = 24
     static let mosaicSplitControlWidth = editingToolSize + toolOptionsButtonWidth
-    static let editingToolSpacing: CGFloat = 4
-    static let outputButtonSize: CGFloat = 28
-    static let outputButtonSpacing: CGFloat = 2
-    static let minimumSpacerWidth: CGFloat = 12
-    static let headerStyleControlWidth: CGFloat = 191
+    static let editingToolSpacing: CGFloat = 2
+    static let outputButtonSpacing: CGFloat = 5
+    static let minimumSpacerWidth: CGFloat = 2
+    static let headerStyleControlWidth: CGFloat = 143
     static let headerStyleControlHeight: CGFloat = 28
-    static let baseMinimumContentWidth: CGFloat = 440
     static let pinnedMinimumContentWidth: CGFloat = 320
     static let initialWindowScreenMargin: CGFloat = 80
     static let minimumScrollableViewportHeight: CGFloat = 260
 
-    static var minimumContentWidth: CGFloat {
-        max(baseMinimumContentWidth, toolbarLeading + minimumToolbarWidth + toolbarTrailing)
-    }
+    // Leave room for the full markup group between history and localized output actions.
+    static let minimumContentWidth: CGFloat = 930
 
     static func imageAspectRatio(for image: NSImage) -> CGFloat {
         let imageSize = image.size.width > 0 && image.size.height > 0 ? image.size : fallbackImageSize
         return max(0.05, imageSize.width / imageSize.height)
     }
 
-    static func resizeMetrics(for kind: ImageWorkspaceKind) -> ImageWorkspaceResizeMetrics {
+    static func resizeMetrics(for kind: ImageWorkspaceKind, inspectorVisible: Bool = false) -> ImageWorkspaceResizeMetrics {
         switch kind {
         case .temporaryPreview:
             ImageWorkspaceResizeMetrics(
-                fixedVerticalChromeHeight: toolbarHeight - toolbarTitlebarOverlap + imageTopSpacing + imageBottomInset,
-                horizontalChromeWidth: toolbarLeading + toolbarTrailing,
+                fixedVerticalChromeHeight: toolbarHeight - toolbarTitlebarOverlap + statusHeight
+                    + (inspectorVisible ? canvasInset + canvasFooterGap : imageTopSpacing + imageBottomInset + parameterHeight),
+                horizontalChromeWidth: inspectorVisible ? inspectorWidth + 2 * canvasInset : 0,
                 minimumContentWidth: minimumContentWidth
             )
         case .pinned:
@@ -1965,29 +2101,7 @@ private enum ImageWorkspaceLayout {
         }
     }
 
-    private static var minimumToolbarWidth: CGFloat {
-        let toolbarItemCount = CGFloat(ImageWorkspaceToolbarToolOrder.items.count)
-        let historyButtonCount: CGFloat = 2
-        let historyWidth = editingToolSize * historyButtonCount
-            + editingToolSpacing * (historyButtonCount - 1)
-        let toolsWidth = editingToolSize * toolbarItemCount
-            + headerStyleControlWidth
-            + toolOptionsButtonWidth
-            + editingToolSpacing * (toolbarItemCount - 1)
-        let dividerCount: CGFloat = 3
-        let dividerWidth = dividerCount
-        let toolbarGroupGapCount: CGFloat = 7
-        let toolbarGroupSpacing = toolbarStackSpacing * toolbarGroupGapCount
-        let outputControlsWidth = outputButtonSize * 3 + outputButtonSpacing * 2
-        return toolbarStackLeadingInset
-            + toolbarStackTrailingInset
-            + historyWidth
-            + toolsWidth
-            + dividerWidth
-            + toolbarGroupSpacing
-            + minimumSpacerWidth
-            + outputControlsWidth
-    }
+
 }
 
 private struct ImageWorkspaceResizeMetrics {
@@ -1998,7 +2112,7 @@ private struct ImageWorkspaceResizeMetrics {
     func minimumContentSize(for imageAspectRatio: CGFloat) -> NSSize {
         NSSize(
             width: minimumContentWidth,
-            height: fixedVerticalChromeHeight + minimumContentWidth / imageAspectRatio
+            height: fixedVerticalChromeHeight + (minimumContentWidth - horizontalChromeWidth) / imageAspectRatio
         )
     }
 }
@@ -2198,7 +2312,34 @@ private final class ImageWorkspacePanel: NSPanel, NSWindowDelegate {
 }
 
 private class ImageWorkspaceContextMenuView: NSView {
+    var drawsEditorBackground = false
+    var drawsNeutralCanvas = false {
+        didSet { updateCanvasBackground() }
+    }
     var menuProvider: (() -> NSMenu)?
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard drawsEditorBackground else { return }
+        NSColor(white: usesDarkAppearance ? 0.13 : 0.955, alpha: 1).setFill()
+        dirtyRect.fill()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        if drawsEditorBackground { needsDisplay = true }
+        if drawsNeutralCanvas { updateCanvasBackground() }
+    }
+
+    private var usesDarkAppearance: Bool {
+        effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    }
+
+    private func updateCanvasBackground() {
+        layer?.backgroundColor = drawsNeutralCanvas
+            ? NSColor(white: usesDarkAppearance ? 0.10 : 0.91, alpha: 1).cgColor
+            : NSColor.black.cgColor
+    }
 
     override var mouseDownCanMoveWindow: Bool {
         true
@@ -2206,21 +2347,6 @@ private class ImageWorkspaceContextMenuView: NSView {
 
     override func menu(for event: NSEvent) -> NSMenu? {
         menuProvider?()
-    }
-}
-
-private final class ImageWorkspaceToolbarView: NSVisualEffectView {
-    private let toolbarHeight = ImageWorkspaceLayout.toolbarHeight
-
-    init() {
-        super.init(frame: .zero)
-        alphaValue = 1
-        FrameHUDChrome.configure(self, surface: .toolbar, cornerRadius: toolbarHeight / 2)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        nil
     }
 }
 
@@ -2241,15 +2367,15 @@ struct ImageWorkspaceToolbarIconMetrics {
     }
 
     static let primary = ImageWorkspaceToolbarIconMetrics(
-        pointSize: 12,
+        pointSize: 16,
         weight: .medium,
-        iconSide: 14,
+        iconSide: 18,
         imageScaling: .scaleProportionallyDown
     )
     static let auxiliary = ImageWorkspaceToolbarIconMetrics(
-        pointSize: 8,
+        pointSize: 10,
         weight: .semibold,
-        iconSide: 10,
+        iconSide: 12,
         imageScaling: .scaleProportionallyDown
     )
 }
@@ -2271,6 +2397,18 @@ private final class ImageWorkspaceSplitToolControl: NSView {
             updateAppearance()
         }
     }
+    private var widthConstraint: NSLayoutConstraint?
+    private var compactTrailing: NSLayoutConstraint?
+    private var expandedTrailing: NSLayoutConstraint?
+
+    func showOptions(_ visible: Bool) {
+        optionsButton.isHidden = !visible
+        widthConstraint?.constant = visible ? ImageWorkspaceLayout.mosaicSplitControlWidth : ImageWorkspaceLayout.editingToolSize
+        compactTrailing?.isActive = false
+        expandedTrailing?.isActive = false
+        if visible { expandedTrailing?.isActive = true } else { compactTrailing?.isActive = true }
+        dividerLayer.isHidden = !visible
+    }
 
     init(primaryButton: ImageWorkspaceToolbarButton, optionsButton: ImageWorkspaceToolbarButton) {
         self.primaryButton = primaryButton
@@ -2287,7 +2425,8 @@ private final class ImageWorkspaceSplitToolControl: NSView {
     override func layout() {
         super.layout()
 
-        backgroundLayer.frame = bounds
+        backgroundLayer.frame = bounds.insetBy(dx: 1, dy: 2)
+        backgroundLayer.cornerRadius = backgroundLayer.bounds.height / 2
         dividerLayer.frame = CGRect(
             x: ImageWorkspaceLayout.editingToolSize - 0.5,
             y: 5,
@@ -2330,7 +2469,6 @@ private final class ImageWorkspaceSplitToolControl: NSView {
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
         layer?.masksToBounds = false
-        backgroundLayer.cornerRadius = 8
         backgroundLayer.cornerCurve = .continuous
         backgroundLayer.opacity = 0
         dividerLayer.backgroundColor = FrameHUDChrome.divider.cgColor
@@ -2342,15 +2480,20 @@ private final class ImageWorkspaceSplitToolControl: NSView {
         optionsButton.splitToolControl = self
         addSubview(primaryButton)
         addSubview(optionsButton)
+        let width = widthAnchor.constraint(equalToConstant: ImageWorkspaceLayout.mosaicSplitControlWidth)
+        widthConstraint = width
+        compactTrailing = primaryButton.trailingAnchor.constraint(equalTo: trailingAnchor)
+        let trailing = optionsButton.trailingAnchor.constraint(equalTo: trailingAnchor)
+        expandedTrailing = trailing
         NSLayoutConstraint.activate([
-            widthAnchor.constraint(equalToConstant: ImageWorkspaceLayout.mosaicSplitControlWidth),
+            width,
             heightAnchor.constraint(equalToConstant: ImageWorkspaceLayout.editingToolSize),
             primaryButton.leadingAnchor.constraint(equalTo: leadingAnchor),
             primaryButton.topAnchor.constraint(equalTo: topAnchor),
             primaryButton.bottomAnchor.constraint(equalTo: bottomAnchor),
             optionsButton.leadingAnchor.constraint(equalTo: primaryButton.trailingAnchor),
             optionsButton.topAnchor.constraint(equalTo: topAnchor),
-            optionsButton.trailingAnchor.constraint(equalTo: trailingAnchor),
+            trailing,
             optionsButton.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
     }
@@ -2363,7 +2506,10 @@ private final class ImageWorkspaceSplitToolControl: NSView {
             return
         }
 
-        backgroundLayer.backgroundColor = FrameHUDChrome.hoverFill.cgColor
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            backgroundLayer.backgroundColor = NSColor.labelColor.withAlphaComponent(0.10).cgColor
+            dividerLayer.backgroundColor = NSColor.separatorColor.cgColor
+        }
         dividerLayer.opacity = isHovering ? 0.36 : 0.24
         animateBackground(opacity: isHovering ? 1 : 0)
     }
@@ -2473,8 +2619,9 @@ private final class ImageWorkspaceToolbarButton: NSButton {
     override func layout() {
         super.layout()
 
-        let hoverDiameter = min(bounds.width, bounds.height, 22)
+        let hoverDiameter = min(bounds.width, bounds.height, 32)
         hoverLayer.cornerRadius = hoverDiameter / 2
+        hoverLayer.cornerCurve = .continuous
         hoverLayer.bounds = CGRect(x: 0, y: 0, width: hoverDiameter, height: hoverDiameter)
         hoverLayer.position = CGPoint(x: bounds.midX, y: bounds.midY)
 
@@ -2591,7 +2738,9 @@ private final class ImageWorkspaceToolbarButton: NSButton {
             return
         }
 
-        hoverLayer.backgroundColor = hoverBackgroundColor.cgColor
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            hoverLayer.backgroundColor = hoverBackgroundColor.cgColor
+        }
         animateHoverLayer(opacity: isHovering || isWorkspaceSelected ? 1 : 0)
     }
 
@@ -2600,7 +2749,7 @@ private final class ImageWorkspaceToolbarButton: NSButton {
             return FrameHUDChrome.selectedFill
         }
 
-        return FrameHUDChrome.hoverFill
+        return NSColor.labelColor.withAlphaComponent(0.10)
     }
 
     private func animateHoverLayer(opacity: Float) {
@@ -2669,5 +2818,728 @@ private final class ImageWorkspaceImageView: ImageWorkspaceContextMenuView, Imag
 
     private func drawRectForCurrentBounds() -> CGRect {
         imageZoom.drawRect(imageSize: image.size, in: bounds)
+    }
+}
+
+@MainActor
+private extension ImageWorkspacePanelController {
+    func makeRow(_ views: [NSView], spacing: CGFloat = 8) -> NSStackView {
+        let row = NSStackView(views: views)
+        row.orientation = .horizontal
+        row.alignment = .centerY
+        row.spacing = spacing
+        row.translatesAutoresizingMaskIntoConstraints = false
+        return row
+    }
+
+    func configureCommandButton(_ button: NSButton) {
+        button.bezelStyle = .rounded
+        button.controlSize = .small
+        button.font = .systemFont(ofSize: 12, weight: .medium)
+        button.setAccessibilityLabel(button.title)
+        button.setContentCompressionResistancePriority(.required, for: .horizontal)
+    }
+
+    func configureCapsuleCommand(
+        _ button: ImageWorkspaceCommandButton,
+        symbol: String? = nil,
+        capsule: ImageWorkspaceCommandButton.Capsule = .standard,
+        height: CGFloat = 32
+    ) {
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.heightAnchor.constraint(equalToConstant: height).isActive = true
+        button.controlSize = height < 30 ? .small : .regular
+        button.font = .systemFont(ofSize: height < 30 ? 12 : 13, weight: capsule == .primary ? .semibold : .medium)
+        button.setAccessibilityLabel(button.title)
+        button.setContentCompressionResistancePriority(.required, for: .horizontal)
+        if symbol == "chevron.down", !button.title.isEmpty {
+            button.centerMenuLabel()
+        } else if let symbol {
+            button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+            button.symbolConfiguration = .init(pointSize: symbol == "chevron.down" ? 10 : 16, weight: .medium)
+            button.imagePosition = button.title.isEmpty ? .imageOnly : .imageRight
+        }
+        button.capsule = capsule
+    }
+
+    func makeCommandButton(_ title: String, action: @escaping () -> Void) -> ImageWorkspaceCommandButton {
+        let button = ImageWorkspaceCommandButton(title: title, action: action)
+        configureCommandButton(button)
+        return button
+    }
+
+    func makeMenuButton(_ title: String, menu: @escaping () -> NSMenu) -> ImageWorkspaceCommandButton {
+        let button = ImageWorkspaceCommandButton(title: title)
+        button.handler = { [weak button] in
+            guard let button else { return }
+            menu().popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.minY - 3), in: button)
+        }
+        configureCommandButton(button)
+        return button
+    }
+
+    func addCommand(_ title: String, to menu: NSMenu, action: @escaping () -> Void) {
+        menu.addItem(ImageWorkspaceCommandMenuItem(title: title, action: action))
+    }
+
+    func makeParameterRow(for item: ImageWorkspaceItem, imageCommands: NSView, styleControl: NSView) -> NSView {
+        let strings = item.strings
+        let options = makeMenuButton(strings.editorLabel("样式", "Style")) { [weak self, weak item] in
+            guard let item else { return NSMenu() }
+            return self?.makeStyleMenu(for: item) ?? NSMenu()
+        }
+        configureCapsuleCommand(options, symbol: "chevron.down")
+        let styleSeparator = makeToolbarDivider(identifier: "ImageWorkspaceToolbarStyleDivider")
+        let styleRow = makeRow([imageCommands, NSView(), styleSeparator, styleControl, options], spacing: 7)
+        item.styleOptionsButton = options
+        item.styleSeparator = styleSeparator
+        item.styleRow = styleRow
+
+        let size = NSTextField(labelWithString: "")
+        size.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+        size.textColor = .secondaryLabelColor
+        let ratio = NSPopUpButton(frame: .zero, pullsDown: false)
+        ratio.controlSize = .regular
+        ratio.setAccessibilityLabel(strings.editorLabel("裁剪比例", "Crop aspect ratio"))
+        ratio.addItems(withTitles: [
+            strings.editorLabel("自由比例", "Freeform"),
+            strings.editorLabel("原图比例", "Original"),
+            "1:1", "4:3", "16:9",
+        ])
+        ratio.target = self
+        ratio.action = #selector(cropRatioChanged)
+        let cancel = makeCommandButton(strings.editorLabel("取消", "Cancel")) { [weak item] in
+            item?.annotationCanvas?.cancelCrop()
+        }
+        let apply = makeCommandButton(strings.editorLabel("应用裁剪", "Apply Crop")) { [weak item] in
+            item?.annotationCanvas?.onCropCommit?()
+        }
+        configureCapsuleCommand(cancel)
+        configureCapsuleCommand(apply, capsule: .primary)
+        let cropTitle = NSTextField(labelWithString: strings.editorLabel("裁剪", "Crop"))
+        cropTitle.font = .systemFont(ofSize: 13, weight: .semibold)
+        let cropRow = makeRow([cropTitle, ratio, size, NSView(), cancel, apply], spacing: 12)
+        cropRow.isHidden = true
+        item.cropRow = cropRow
+        item.cropSizeLabel = size
+        item.cropApplyButton = apply
+        item.cropRatioPopup = ratio
+
+        let container = NSView()
+        container.setAccessibilityLabel("Image Workspace Editing Toolbar")
+        container.translatesAutoresizingMaskIntoConstraints = false
+        for row in [styleRow, cropRow] {
+            container.addSubview(row)
+            NSLayoutConstraint.activate([
+                row.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                row.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                row.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            ])
+        }
+        return container
+    }
+
+    @objc func cropRatioChanged(_ sender: NSPopUpButton) {
+        guard let item = workspaceItem(for: sender.window), let canvas = item.annotationCanvas else { return }
+        setCropRatio(at: sender.indexOfSelectedItem, canvas: canvas)
+    }
+
+    func setCropRatio(at index: Int, canvas: ImageAnnotationCanvasView) {
+        let size = canvas.currentImage.size
+        let ratios: [CGFloat?] = [nil, size.width / size.height, 1, 4.0 / 3.0, 16.0 / 9.0]
+        guard ratios.indices.contains(index) else { return }
+        canvas.selectCropRatio(ratios[index])
+    }
+
+    func updateCropControls(_ item: ImageWorkspaceItem) {
+        let bounds = item.annotationCanvas?.cropBounds
+        let active = bounds != nil
+        if item.cropRow?.isHidden == true && active { item.cropRatioPopup?.selectItem(at: 0) }
+        item.cropRow?.isHidden = !active
+        item.styleRow?.isHidden = active
+        item.textSelectionOverlay?.setTextSelectionEnabled(!active && item.state.selectedTool == .select)
+        if let bounds, let image = item.annotationCanvas?.currentImage {
+            let pixels = ImageWorkspaceRaster.pixelSize(image)
+            let rect = ImageWorkspaceRaster.cropPixelRect(bounds, logicalSize: image.size, pixelSize: pixels)
+            item.cropSizeLabel?.stringValue = "\(Int(rect.width)) × \(Int(rect.height)) px"
+            item.cropApplyButton?.isEnabled = rect.width >= 1 && rect.height >= 1
+            item.inspector?.updateCrop(size: rect.size, selectedRatio: item.cropRatioPopup?.indexOfSelectedItem ?? 0)
+        } else {
+            item.inspector?.updateCrop(size: nil, selectedRatio: 0)
+        }
+    }
+
+    func updateInspectorLayout(for item: ImageWorkspaceItem, updatingWindow: Bool) {
+        let visible = item.inspectorVisible
+        item.inspector?.isHidden = !visible
+        item.canvasContainer?.drawsNeutralCanvas = visible
+        item.parameters?.isHidden = visible
+        item.parametersHeight?.constant = visible ? 0 : ImageWorkspaceLayout.parameterHeight
+        item.canvasLeadingInset?.constant = visible ? ImageWorkspaceLayout.canvasInset : 0
+        item.canvasTopInset?.constant = visible ? ImageWorkspaceLayout.canvasInset : ImageWorkspaceLayout.imageTopSpacing
+        item.canvasBottomInset?.constant = visible ? -ImageWorkspaceLayout.canvasFooterGap : -ImageWorkspaceLayout.imageBottomInset
+        item.compactZoom?.isHidden = visible
+        item.fullCanvasWidth?.isActive = false
+        item.splitCanvasWidth?.isActive = false
+        if visible { item.splitCanvasWidth?.isActive = true } else { item.fullCanvasWidth?.isActive = true }
+        item.mosaicSplitControl?.showOptions(!visible)
+        item.inspectorToggle?.state = visible ? .on : .off
+        let title = visible ? item.strings.editorLabel("收起属性栏", "Hide Inspector") : item.strings.editorLabel("展开属性栏", "Show Inspector")
+        item.inspectorToggle?.setAccessibilityLabel(title)
+        item.inspectorToggle?.toolTip = title
+
+        if updatingWindow {
+            item.panel.configureResize(
+                imageAspectRatio: nil,
+                metrics: ImageWorkspaceLayout.resizeMetrics(for: .temporaryPreview, inspectorVisible: visible)
+            )
+            item.panel.contentView?.layoutSubtreeIfNeeded()
+            updateCanvasStatus(item)
+        }
+    }
+
+    func performInspectorAction(_ action: ImageWorkspaceInspector.Action, for item: ImageWorkspaceItem) {
+        guard let canvas = item.annotationCanvas else { return }
+        switch action {
+        case .crop: canvas.startCrop()
+        case .resize: requestResize(for: item)
+        case let .transform(sender):
+            makeTransformMenu(for: item).popUp(positioning: nil, at: NSPoint(x: 0, y: -3), in: sender)
+        case let .zoom(amount): canvas.zoom(by: amount)
+        case .fit: canvas.setZoom(actualPixels: false)
+        case .actualSize: canvas.setZoom(actualPixels: true)
+        case let .cropRatio(index):
+            item.cropRatioPopup?.selectItem(at: index)
+            setCropRatio(at: index, canvas: canvas)
+        case .cancelCrop: canvas.cancelCrop()
+        case .applyCrop: canvas.onCropCommit?()
+        case let .mosaic(mode): canvas.setInspectorMosaicMode(mode)
+        case let .style(update):
+            var style = canvas.selectedStyle
+            update(&style)
+            if style != canvas.selectedStyle { canvas.setStyle(style) }
+        case .duplicate: canvas.copyObject()
+        case let .reorder(forward): canvas.reorderObject(forward: forward)
+        }
+    }
+
+    func makeCanvasStatus(for item: ImageWorkspaceItem) -> NSView {
+        let strings = item.strings
+        let dimensions = NSTextField(labelWithString: "")
+        let feedback = NSTextField(labelWithString: "")
+        let zoom = NSTextField(labelWithString: "")
+        for label in [dimensions, feedback, zoom] {
+            label.textColor = .secondaryLabelColor
+            label.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+            label.setContentCompressionResistancePriority(.required, for: .horizontal)
+        }
+        zoom.widthAnchor.constraint(greaterThanOrEqualToConstant: 42).isActive = true
+        zoom.alignment = .center
+        let zoomOut = makeCommandButton("−") { [weak item] in item?.annotationCanvas?.zoom(by: -0.20) }
+        let zoomIn = makeCommandButton("+") { [weak item] in item?.annotationCanvas?.zoom(by: 0.25) }
+        let fit = makeCommandButton(strings.editorLabel("适合窗口", "Fit")) { [weak item] in
+            item?.annotationCanvas?.setZoom(actualPixels: false)
+        }
+        let actual = makeCommandButton("100%") { [weak item] in item?.annotationCanvas?.setZoom(actualPixels: true) }
+        for button in [zoomOut, zoomIn, fit, actual] { configureCapsuleCommand(button, height: 24) }
+        zoomOut.setAccessibilityLabel(strings.editorLabel("缩小画布", "Zoom Out"))
+        zoomIn.setAccessibilityLabel(strings.editorLabel("放大画布", "Zoom In"))
+        item.dimensionsLabel = dimensions
+        item.feedbackLabel = feedback
+        item.zoomLabel = zoom
+        let zoomControls = makeRow([zoomOut, zoom, zoomIn, fit, actual])
+        item.compactZoom = zoomControls
+        return makeRow([dimensions, feedback, NSView(), zoomControls])
+    }
+
+    func updateCanvasStatus(_ item: ImageWorkspaceItem) {
+        guard let canvas = item.annotationCanvas else { return }
+        let size = ImageWorkspaceRaster.pixelSize(canvas.currentImage)
+        item.dimensionsLabel?.stringValue = "\(Int(size.width)) × \(Int(size.height)) px"
+        let zoom = canvas.zoomPercentage
+        item.zoomLabel?.stringValue = "\(zoom)%"
+        item.inspector?.updateZoom(zoom)
+    }
+
+    func showFeedback(_ text: String, for item: ImageWorkspaceItem) {
+        item.feedbackTask?.cancel()
+        item.feedbackLabel?.stringValue = text
+        item.feedbackTask = Task { @MainActor [weak item] in
+            try? await Task.sleep(for: .seconds(3))
+            if !Task.isCancelled { item?.feedbackLabel?.stringValue = "" }
+        }
+    }
+
+    func performEdit(for item: ImageWorkspaceItem, operation: () throws -> Void) {
+        do {
+            try operation()
+        } catch {
+            ImageWorkspaceFileDialogs.showError(error, strings: item.strings, window: item.panel)
+        }
+    }
+
+    func requestResize(for item: ImageWorkspaceItem) {
+        guard let canvas = item.annotationCanvas else { return }
+        let size = ImageWorkspaceRaster.pixelSize(canvas.currentImage)
+        ImageWorkspaceFileDialogs.resize(size: size, strings: item.strings, window: item.panel) { [weak self, weak item] width, height in
+            guard let item else { return }
+            self?.performEdit(for: item) { try item.annotationCanvas?.applyRasterEdit(.resize(width: width, height: height)) }
+        }
+    }
+
+    func makeTransformMenu(for item: ImageWorkspaceItem) -> NSMenu {
+        let strings = item.strings
+        let menu = NSMenu()
+        let transforms: [(String, String, ImageWorkspaceRasterOperation)] = [
+            ("向左旋转 90°", "Rotate Left 90°", .rotate(clockwise: false)),
+            ("向右旋转 90°", "Rotate Right 90°", .rotate(clockwise: true)),
+            ("水平翻转", "Flip Horizontally", .flip(horizontal: true)),
+            ("垂直翻转", "Flip Vertically", .flip(horizontal: false)),
+        ]
+        for (chinese, english, operation) in transforms {
+            addCommand(strings.editorLabel(chinese, english), to: menu) { [weak self, weak item] in
+                guard let item else { return }
+                self?.performEdit(for: item) { try item.annotationCanvas?.applyRasterEdit(operation) }
+            }
+        }
+        menu.addItem(.separator())
+        for (chinese, english, action) in [
+            ("调整颜色…", "Adjust Color…", requestColorAdjustment),
+            ("扩展画布…", "Extend Canvas…", requestCanvasExtension),
+        ] {
+            addCommand(strings.editorLabel(chinese, english), to: menu) { [weak item] in
+                if let item { action(item) }
+            }
+        }
+        addCommand(strings.editorLabel("移除背景", "Remove Background"), to: menu) { [weak self, weak item] in
+            guard let self, let item else { return }
+            self.performEdit(for: item) { try item.annotationCanvas?.applyRasterEdit(.removeBackground) }
+        }
+        menu.addItem(.separator())
+        addCommand(strings.editorLabel("保存可编辑工程…", "Save Editable Project…"), to: menu) { [weak self, weak item] in
+            if let item { self?.saveProject(item) }
+        }
+        return menu
+    }
+
+    func makeMoreMarkupMenu(for item: ImageWorkspaceItem) -> NSMenu {
+        let strings = item.strings
+        let menu = NSMenu()
+        for (chinese, english, stamp): (String, String, ImageWorkspaceStamp) in [
+            ("编号", "Numbered Stamp", .counter), ("聚光", "Spotlight", .spotlight),
+        ] {
+            addCommand(strings.editorLabel(chinese, english), to: menu) { [weak item] in
+                item?.textSelectionOverlay?.setTextSelectionEnabled(false)
+                item?.annotationCanvas?.useStamp(stamp)
+            }
+        }
+        addCommand(strings.editorLabel("添加图片…", "Insert Image…"), to: menu) { [weak item] in
+            guard let item else { return }
+            ImageWorkspaceFileDialogs.open(strings: strings, window: item.panel, acceptsProjects: false) { url in
+                do {
+                    item.annotationCanvas?.addImage(try ImageWorkspaceRaster.screenshot(data: Data(contentsOf: url)))
+                } catch {
+                    ImageWorkspaceFileDialogs.showError(error, strings: strings, window: item.panel)
+                }
+            }
+        }
+        addCommand(strings.editorLabel("粘贴为图片对象", "Paste as Image"), to: menu) { [weak item] in
+            guard let item else { return }
+            do {
+                item.annotationCanvas?.addImage(try ImageWorkspaceRaster.pasteboardImage(.general))
+            } catch {
+                ImageWorkspaceFileDialogs.showError(error, strings: strings, window: item.panel)
+            }
+        }
+        return menu
+    }
+
+    func makeStyleMenu(for item: ImageWorkspaceItem) -> NSMenu {
+        let menu = NSMenu()
+        guard let canvas = item.annotationCanvas else { return menu }
+        let strings = item.strings
+        let document = canvas.documentForTesting
+        let element = document.elements.first { $0.id == document.selectedElementID }
+        let isMosaic: Bool
+        let isText: Bool
+        switch element?.kind {
+        case .mosaic: (isMosaic, isText) = (true, false)
+        case .text: (isMosaic, isText) = (false, true)
+        case nil: (isMosaic, isText) = (document.selectedTool == .mosaic, document.selectedTool == .text)
+        default: (isMosaic, isText) = (false, false)
+        }
+        func styleOption(_ title: String, selected: Bool = false, update: @escaping (inout ImageAnnotationStyle) -> Void) {
+            let option = ImageWorkspaceCommandMenuItem(title: title) { [weak canvas] in
+                guard let canvas else { return }
+                var style = canvas.selectedStyle
+                update(&style)
+                canvas.setStyle(style)
+            }
+            option.state = selected ? .on : .off
+            menu.addItem(option)
+        }
+        let style = canvas.selectedStyle
+        if isMosaic {
+            for intensity: CGFloat in [6, 12, 24, 40] {
+                let selected = style.mosaicBlockSize == intensity
+                styleOption("\(strings.editorLabel("块大小 / 模糊强度", "Block Size / Blur Strength")) · \(Int(intensity))", selected: selected) {
+                    $0.mosaicBlockSize = intensity
+                    $0.mosaicStrength = intensity
+                }
+            }
+            menu.addItem(.separator())
+            for width: CGFloat in [12, 24, 40, 64] {
+                styleOption("\(strings.editorLabel("笔刷宽度", "Brush Width")) · \(Int(width))", selected: style.mosaicBrushWidth == width) {
+                    $0.mosaicBrushWidth = width
+                }
+            }
+        } else if isText {
+            for (chinese, english, alignment): (String, String, ImageAnnotationTextAlignment) in [
+                ("左对齐", "Align Left", .left), ("居中", "Center", .center), ("右对齐", "Align Right", .right),
+            ] {
+                styleOption(strings.editorLabel(chinese, english), selected: style.textAlignment == alignment) { $0.textAlignment = alignment }
+            }
+            menu.addItem(.separator())
+            for (name, font) in [(strings.editorLabel("系统字体", "System Font"), nil), ("Menlo", "Menlo"), ("Georgia", "Georgia")] {
+                styleOption(name, selected: style.fontName == font) { $0.fontName = font }
+            }
+            styleOption(strings.editorLabel("粗体", "Bold"), selected: style.fontWeight == .bold) {
+                $0.fontWeight = $0.fontWeight == .bold ? .regular : .bold
+            }
+            styleOption(strings.editorLabel("斜体", "Italic"), selected: style.textItalic == true) {
+                $0.textItalic = $0.textItalic == true ? nil : true
+            }
+            styleOption(strings.editorLabel("自动宽度", "Automatic Width"), selected: style.textBoxWidth == nil) { $0.textBoxWidth = nil }
+        }
+        if isText {
+            menu.addItem(.separator())
+            styleOption(strings.editorLabel("纯文字", "Plain Text"), selected: style.fillColor == nil && style.textOutline == nil) {
+                $0.fillColor = nil
+                $0.textOutline = nil
+            }
+            styleOption(strings.editorLabel("深色底标签", "Dark Label"), selected: style.fillColor == .black) {
+                $0.strokeColor = .white
+                $0.fillColor = .black
+                $0.textOutline = nil
+            }
+            styleOption(strings.editorLabel("反差描边", "Contrast Outline"), selected: style.textOutline != nil) {
+                $0.strokeColor = .white
+                $0.fillColor = nil
+                $0.textOutline = .black
+            }
+        }
+        let currentShape: ImageAnnotationShapeKind?
+        if case let .shape(kind) = element?.kind {
+            currentShape = kind
+        } else {
+            currentShape = element == nil && document.selectedTool == .shape ? document.editingOptions.shapeKind : nil
+        }
+        if let currentShape {
+            if currentShape == .arrow {
+                for (chinese, english, arrow): (String, String, ImageAnnotationArrowStyle) in [
+                    ("楔形箭头", "Wedge Arrow", .wedge), ("线形箭头", "Open Arrow", .open), ("双向箭头", "Two-Headed Arrow", .doubleHeaded),
+                ] {
+                    styleOption(strings.editorLabel(chinese, english), selected: (style.arrowStyle ?? .wedge) == arrow) { $0.arrowStyle = arrow }
+                }
+            } else {
+                for (chinese, english, pattern): (String, String, ImageAnnotationLinePattern) in [
+                    ("实线", "Solid Line", .solid), ("虚线", "Dashed Line", .dashed), ("点线", "Dotted Line", .dotted),
+                ] {
+                    styleOption(strings.editorLabel(chinese, english), selected: (style.linePattern ?? .solid) == pattern) { $0.linePattern = pattern }
+                }
+            }
+            if currentShape == .rectangle || currentShape == .ellipse {
+                menu.addItem(.separator())
+                styleOption(strings.editorLabel("无填充", "No Fill"), selected: style.fillColor == nil) { $0.fillColor = nil }
+                for (chinese, english, color): (String, String, ImageAnnotationColor) in [
+                    ("半透明同色填充", "Translucent Stroke Color", style.strokeColor.withAlpha(0.25)),
+                    ("白色填充", "White Fill", .white), ("黑色填充", "Black Fill", .black),
+                ] {
+                    styleOption(strings.editorLabel(chinese, english), selected: style.fillColor == color) { $0.fillColor = color }
+                }
+            }
+        }
+        if element != nil {
+            menu.addItem(.separator())
+            addCommand(strings.editorLabel("复制对象", "Duplicate Object"), to: menu) { [weak canvas] in canvas?.copyObject() }
+            addCommand(strings.editorLabel("移到最前", "Bring to Front"), to: menu) { [weak canvas] in canvas?.reorderObject(forward: true) }
+            addCommand(strings.editorLabel("移到最后", "Send to Back"), to: menu) { [weak canvas] in canvas?.reorderObject(forward: false) }
+        }
+        return menu
+    }
+
+    func requestColorAdjustment(_ item: ImageWorkspaceItem) {
+        ImageWorkspaceFileDialogs.adjustColor(image: item.annotationCanvas?.currentImage, strings: item.strings, window: item.panel) { [weak self, weak item] operation in
+            guard let item else { return }
+            self?.performEdit(for: item) { try item.annotationCanvas?.applyRasterEdit(operation) }
+        }
+    }
+
+    func requestCanvasExtension(_ item: ImageWorkspaceItem) {
+        ImageWorkspaceFileDialogs.extendCanvas(strings: item.strings, window: item.panel) { [weak self, weak item] operation in
+            guard let item else { return }
+            self?.performEdit(for: item) { try item.annotationCanvas?.applyRasterEdit(operation) }
+        }
+    }
+
+    func saveProject(_ item: ImageWorkspaceItem) {
+        guard let canvas = item.annotationCanvas else { return }
+        canvas.finishTextEditing()
+        let project = ImageWorkspaceProject(imagePNG: canvas.currentSnapshotImage.pngData, imageSize: canvas.currentImage.size,
+                                            elements: canvas.documentForTesting.elements)
+        let savedVersion = ImageWorkspaceSavedVersion(document: canvas.documentForTesting)
+        ImageWorkspaceFileDialogs.saveProject(project, strings: item.strings, window: item.panel) { [weak self, weak item] in
+            guard let item else { return }
+            item.lastSeparatelySaved = savedVersion
+            self?.showFeedback(item.strings.editorLabel("已保存可编辑工程", "Editable project saved"), for: item)
+        }
+    }
+}
+
+@MainActor
+private final class ImageWorkspaceMarkupCapsule: NSView {
+    private let fillLayer = CALayer()
+
+    init(contents: NSView) {
+        super.init(frame: .zero)
+        identifier = NSUserInterfaceItemIdentifier("ImageWorkspaceMarkupCapsule")
+        translatesAutoresizingMaskIntoConstraints = false
+        wantsLayer = true
+        fillLayer.cornerCurve = .continuous
+        layer?.insertSublayer(fillLayer, at: 0)
+        addSubview(contents)
+        NSLayoutConstraint.activate([
+            contents.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            contents.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            contents.topAnchor.constraint(equalTo: topAnchor),
+            contents.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func layout() {
+        super.layout()
+        fillLayer.frame = bounds.insetBy(dx: 0, dy: 2)
+        fillLayer.cornerRadius = fillLayer.bounds.height / 2
+        updateBackground()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateBackground()
+    }
+
+    private func updateBackground() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            fillLayer.backgroundColor = NSColor.labelColor.withAlphaComponent(0.07).cgColor
+        }
+    }
+}
+
+@MainActor
+private final class ImageWorkspaceMenuButtonLabel: NSStackView {
+    private let titleLabel: NSTextField
+    private let chevron = NSImageView()
+
+    init(title: String, font: NSFont) {
+        titleLabel = NSTextField(labelWithString: title)
+        super.init(frame: .zero)
+
+        identifier = NSUserInterfaceItemIdentifier("ImageWorkspaceMenuButtonLabel")
+        translatesAutoresizingMaskIntoConstraints = false
+        setAccessibilityElement(false)
+        orientation = .horizontal
+        alignment = .centerY
+        spacing = 6
+
+        titleLabel.font = font
+        titleLabel.setAccessibilityElement(false)
+        chevron.image = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: nil)
+        chevron.symbolConfiguration = .init(pointSize: 9, weight: .semibold)
+        chevron.imageScaling = .scaleProportionallyDown
+        chevron.setAccessibilityElement(false)
+
+        addArrangedSubview(titleLabel)
+        addArrangedSubview(chevron)
+        NSLayoutConstraint.activate([
+            chevron.widthAnchor.constraint(equalToConstant: 10),
+            chevron.heightAnchor.constraint(equalToConstant: 10),
+        ])
+        updateTint(enabled: true)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    var preferredWidth: CGFloat { ceil(titleLabel.intrinsicContentSize.width) + spacing + 10 }
+
+    func updateTint(enabled: Bool) {
+        titleLabel.textColor = enabled ? .labelColor : .disabledControlTextColor
+        chevron.contentTintColor = enabled ? .secondaryLabelColor : .disabledControlTextColor
+    }
+}
+
+@MainActor
+private final class ImageWorkspaceCommandButton: NSButton {
+    enum Capsule {
+        case quiet
+        case standard
+        case primary
+    }
+
+    private var capsuleTrackingArea: NSTrackingArea?
+    private var isHoveringCapsule = false
+    private var menuLabel: ImageWorkspaceMenuButtonLabel?
+
+    var handler: (() -> Void)?
+    var capsule: Capsule? {
+        didSet {
+            isBordered = capsule == nil
+            wantsLayer = capsule != nil
+            layer?.cornerCurve = .continuous
+            invalidateIntrinsicContentSize()
+            updateCapsule()
+        }
+    }
+
+    override var isEnabled: Bool {
+        didSet { updateCapsule() }
+    }
+
+    override var state: NSControl.StateValue {
+        didSet { updateCapsule() }
+    }
+
+    override var intrinsicContentSize: NSSize {
+        var size = super.intrinsicContentSize
+        if let menuLabel {
+            size.width = menuLabel.preferredWidth + 24
+        } else if capsule != nil, !title.isEmpty {
+            size.width += 18
+        }
+        return size
+    }
+
+    func centerMenuLabel() {
+        let label = ImageWorkspaceMenuButtonLabel(title: title, font: font ?? .systemFont(ofSize: 13))
+        title = ""
+        menuLabel = label
+        addSubview(label)
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+        invalidateIntrinsicContentSize()
+    }
+
+    init(title: String, action: (() -> Void)? = nil) {
+        self.handler = action
+        super.init(frame: .zero)
+        self.title = title
+        target = self
+        self.action = #selector(invoke)
+    }
+
+    convenience init(title: String, target: AnyObject, selector: Selector) {
+        self.init(title: title)
+        self.target = target
+        action = selector
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func layout() {
+        super.layout()
+        if capsule != nil { layer?.cornerRadius = min(bounds.width, bounds.height) / 2 }
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let capsuleTrackingArea { removeTrackingArea(capsuleTrackingArea) }
+        guard capsule != nil else {
+            capsuleTrackingArea = nil
+            return
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.activeInKeyWindow, .mouseEnteredAndExited, .inVisibleRect],
+            owner: self
+        )
+        addTrackingArea(area)
+        capsuleTrackingArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        super.mouseEntered(with: event)
+        isHoveringCapsule = true
+        updateCapsule()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        isHoveringCapsule = false
+        updateCapsule()
+    }
+
+    override func highlight(_ flag: Bool) {
+        super.highlight(flag)
+        updateCapsule(pressed: flag)
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateCapsule()
+    }
+
+    private func updateCapsule(pressed: Bool = false) {
+        guard let capsule else { return }
+        menuLabel?.updateTint(enabled: isEnabled)
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            if capsule == .primary && isEnabled {
+                layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(pressed ? 0.75 : 1).cgColor
+                contentTintColor = .white
+            } else {
+                let restingAlpha: CGFloat = capsule == .quiet ? 0 : 0.09
+                let hoveredAlpha = isHoveringCapsule ? 0.10 : restingAlpha
+                let alpha = isEnabled ? (pressed ? 0.16 : hoveredAlpha) : (capsule == .quiet ? 0 : 0.045)
+                layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(alpha).cgColor
+                let foreground: NSColor = capsule == .quiet && state == .on ? .controlAccentColor : .labelColor
+                contentTintColor = isEnabled ? foreground : .disabledControlTextColor
+            }
+        }
+    }
+
+    @objc private func invoke() { handler?() }
+}
+
+@MainActor
+private final class ImageWorkspaceCommandMenuItem: NSMenuItem {
+    private let handler: () -> Void
+
+    init(title: String, action: @escaping () -> Void) {
+        self.handler = action
+        super.init(title: title, action: #selector(invoke), keyEquivalent: "")
+        target = self
+    }
+
+    required init(coder: NSCoder) { fatalError("init(coder:) is unavailable") }
+
+    @objc private func invoke() { handler() }
+}
+
+
+private struct ImageWorkspaceSavedVersion {
+    let imagePNG: Data?
+    let elements: [ImageAnnotationElement]
+
+    init(document: ImageAnnotationDocument) {
+        imagePNG = document.editedImagePNG
+        elements = document.elements
+    }
+
+    func matches(_ document: ImageAnnotationDocument) -> Bool {
+        imagePNG == document.editedImagePNG && elements == document.elements
     }
 }

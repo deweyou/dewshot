@@ -7,9 +7,14 @@ struct ClipboardWriter {
         self.pasteboard = pasteboard
     }
 
-    func write(image: NSImage) throws {
+    func write(image: NSImage, pngData: Data? = nil) throws {
+        let item = NSPasteboardItem()
+        if let pngData, pngData.starts(with: [137, 80, 78, 71, 13, 10, 26, 10]) { item.setData(pngData, forType: .png) }
+        if let tiff = image.tiffRepresentation { item.setData(tiff, forType: .tiff) }
+        guard !item.types.isEmpty else { throw ClipboardWriterError.writeFailed }
+
         pasteboard.clearContents()
-        guard pasteboard.writeObjects([image]) else {
+        guard pasteboard.writeObjects([item]) else {
             throw ClipboardWriterError.writeFailed
         }
     }

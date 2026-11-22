@@ -1,4 +1,5 @@
 import AppKit
+@preconcurrency import AVFoundation
 import FrameCore
 
 private enum VideoEditorBarMetrics {
@@ -18,6 +19,7 @@ final class VideoEditorBarView: NSView {
     private let speedLabel: NSTextField
     private let speedPopupButton = NSPopUpButton()
     private let timelineView: VideoTrimTimelineView
+    private var thumbnailTask: Task<Void, Never>?
     private(set) var state: VideoEditingState
     private var playbackTime: TimeInterval
     var onStateChanged: ((VideoEditingState) -> Void)?
@@ -38,6 +40,33 @@ final class VideoEditorBarView: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         nil
+    }
+
+    deinit {
+        thumbnailTask?.cancel()
+    }
+
+    func loadTimelineThumbnails(from asset: AVAsset) {
+        guard state.sourceDuration >= 8 else { return }
+        let duration = state.sourceDuration
+        thumbnailTask?.cancel()
+        thumbnailTask = Task { [weak self] in
+            let generator = AVAssetImageGenerator(asset: asset)
+            generator.appliesPreferredTrackTransform = true
+            generator.maximumSize = CGSize(width: 180, height: 100)
+
+            let sampleCount = 6
+            var images: [NSImage?] = []
+            for index in 0..<sampleCount {
+                guard !Task.isCancelled else { return }
+                let midpoint = (Double(index) + 0.5) / Double(sampleCount)
+                let time = CMTime(seconds: duration * midpoint, preferredTimescale: 600)
+                let frame = try? await generator.image(at: time)
+                images.append(frame.map { NSImage(cgImage: $0.image, size: .zero) })
+            }
+            guard !Task.isCancelled else { return }
+            self?.timelineView.setThumbnails(images)
+        }
     }
 
     func updateState(_ state: VideoEditingState) {
@@ -347,6 +376,12 @@ final class VideoTrimTimelineView: NSView {
     private var playbackTime: TimeInterval
     private var dragTarget: DragTarget?
     private var trackingArea: NSTrackingArea?
+    private var thumbnails: [NSImage?] = []
+
+    func setThumbnails(_ thumbnails: [NSImage?]) {
+        self.thumbnails = thumbnails
+        needsDisplay = true
+    }
 
     init(state: VideoEditingState) {
         self.state = state
@@ -391,6 +426,7 @@ final class VideoTrimTimelineView: NSView {
         let selectedRect = selectedRect
         NSGraphicsContext.saveGraphicsState()
         NSBezierPath(roundedRect: strip, xRadius: 9, yRadius: 9).addClip()
+        drawThumbnails(in: strip)
         NSColor.controlAccentColor.withAlphaComponent(0.16).setFill()
         NSBezierPath(rect: selectedRect).fill()
         NSGraphicsContext.restoreGraphicsState()
@@ -421,6 +457,24 @@ final class VideoTrimTimelineView: NSView {
         ), xRadius: 0.75, yRadius: 0.75)
         FrameHUDChrome.primaryIcon.withAlphaComponent(0.64).setFill()
         playheadPath.fill()
+    }
+
+    private func drawThumbnails(in strip: CGRect) {
+        guard !thumbnails.isEmpty else { return }
+        let cellWidth = strip.width / CGFloat(thumbnails.count)
+        for (index, thumbnail) in thumbnails.enumerated() {
+            guard let thumbnail, thumbnail.size.width > 0, thumbnail.size.height > 0 else { continue }
+            let cell = CGRect(x: strip.minX + CGFloat(index) * cellWidth, y: strip.minY,
+                              width: cellWidth, height: strip.height)
+            let scale = max(cell.width / thumbnail.size.width, cell.height / thumbnail.size.height)
+            let size = CGSize(width: thumbnail.size.width * scale, height: thumbnail.size.height * scale)
+            let destination = CGRect(x: cell.midX - size.width / 2, y: cell.midY - size.height / 2,
+                                     width: size.width, height: size.height)
+            NSGraphicsContext.saveGraphicsState()
+            NSBezierPath(rect: cell).addClip()
+            thumbnail.draw(in: destination, from: .zero, operation: .sourceOver, fraction: 0.23)
+            NSGraphicsContext.restoreGraphicsState()
+        }
     }
 
     override func layout() {

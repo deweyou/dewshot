@@ -70,15 +70,13 @@ final class VideoPreviewWindowControllerTests: XCTestCase {
         let miniaturizeFrame = miniaturizeButton.convert(miniaturizeButton.bounds, to: contentView)
         let zoomFrame = zoomButton.convert(zoomButton.bounds, to: contentView)
 
-        XCTAssertEqual(headerFrame.midY, closeFrame.midY, accuracy: 3)
-        XCTAssertEqual(headerFrame.midY, miniaturizeFrame.midY, accuracy: 3)
-        XCTAssertEqual(headerFrame.midY, zoomFrame.midY, accuracy: 3)
+        XCTAssertEqual(headerFrame.midY, closeFrame.midY, accuracy: 5)
+        XCTAssertEqual(headerFrame.midY, miniaturizeFrame.midY, accuracy: 5)
+        XCTAssertEqual(headerFrame.midY, zoomFrame.midY, accuracy: 5)
         XCTAssertEqual(header.appearance?.name, .vibrantDark)
-        XCTAssertEqual(header.material, .hudWindow)
-        XCTAssertGreaterThanOrEqual(
-            header.layer?.backgroundColor?.alpha ?? 0,
-            FrameHUDChrome.backgroundColor(for: .toolbar).alphaComponent
-        )
+        XCTAssertEqual(header.material, .titlebar)
+        XCTAssertEqual(header.layer?.cornerRadius, 0)
+        XCTAssertEqual(header.layer?.borderWidth, 0)
 
         let outputGroup = try XCTUnwrap(findSubview(identifier: "VideoPreviewOutputGroup", in: contentView))
         XCTAssertEqual(outputGroup.frame.width, 88, accuracy: 0.5)

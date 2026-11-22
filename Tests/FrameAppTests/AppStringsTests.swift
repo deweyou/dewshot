@@ -173,13 +173,13 @@ final class AppStringsTests: XCTestCase {
     func testShortcutRecorderStringsAreLocalized() {
         let english = AppStrings(language: .en)
         XCTAssertEqual(english.settingsShortcutRecorderPrompt, "Press shortcut")
-        XCTAssertEqual(english.settingsShortcutRecorderInsufficientModifiers, "Use at least two modifier keys")
+        XCTAssertEqual(english.settingsShortcutRecorderInsufficientModifiers, "Use at least one of Command, Option, or Control")
         XCTAssertEqual(english.settingsShortcutRecorderUnsupportedKey, "Use a letter or number key")
         XCTAssertEqual(english.settingsShortcutRecorderReservedShortcut, "This shortcut is reserved by Frame")
 
         let chinese = AppStrings(language: .zhHans)
         XCTAssertEqual(chinese.settingsShortcutRecorderPrompt, "按下快捷键")
-        XCTAssertEqual(chinese.settingsShortcutRecorderInsufficientModifiers, "请按下至少两个修饰键")
+        XCTAssertEqual(chinese.settingsShortcutRecorderInsufficientModifiers, "请使用 ⌘、⌥ 或 ⌃ 中的至少一个")
         XCTAssertEqual(chinese.settingsShortcutRecorderUnsupportedKey, "只支持字母或数字")
         XCTAssertEqual(chinese.settingsShortcutRecorderReservedShortcut, "这个快捷键已由 Frame 保留")
     }

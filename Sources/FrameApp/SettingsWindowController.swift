@@ -1,13 +1,13 @@
 import AppKit
 import Carbon
 import FrameCore
+import Observation
 import SwiftUI
 
 @MainActor
 final class SettingsWindowController {
     private var window: NSWindow?
     private var settingsViewController: SettingsContentViewController?
-    private weak var centeredTitleField: NSTextField?
     private let launchAtLoginService: any LaunchAtLoginServicing
 
     init(launchAtLoginService: any LaunchAtLoginServicing = LaunchAtLoginService()) {
@@ -19,7 +19,6 @@ final class SettingsWindowController {
         onShortcutChange: @escaping @MainActor (ScreenshotShortcut) -> Bool,
         onRecordingShortcutChange: @escaping @MainActor (ScreenshotShortcut?) -> Bool = { _ in true },
         onShortcutRecordingChange: @escaping @MainActor (Bool) -> Void = { _ in },
-        onCheckPermission: @escaping @MainActor () -> Void,
         onLanguageChange: @escaping @MainActor (AppLanguage) -> Void,
         onChooseScreenshotDirectory: @escaping @MainActor () -> URL?,
         onResetScreenshotDirectory: @escaping @MainActor () -> Void,
@@ -38,7 +37,6 @@ final class SettingsWindowController {
             onShortcutChange: onShortcutChange,
             onRecordingShortcutChange: onRecordingShortcutChange,
             onShortcutRecordingChange: onShortcutRecordingChange,
-            onCheckPermission: onCheckPermission,
             onLanguageChange: onLanguageChange,
             onChooseScreenshotDirectory: onChooseScreenshotDirectory,
             onResetScreenshotDirectory: onResetScreenshotDirectory,
@@ -48,18 +46,19 @@ final class SettingsWindowController {
 
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: SettingsWindowLayout.defaultSize),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = strings.settingsTitle
         window.titleVisibility = .hidden
-        window.titlebarAppearsTransparent = false
-        window.toolbarStyle = .automatic
+        window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
+        window.toolbar = NSToolbar(identifier: "FrameSettings")
+        window.toolbarStyle = .unifiedCompact
         window.minSize = SettingsWindowLayout.minimumSize
         window.isReleasedWhenClosed = false
         window.contentViewController = settingsViewController
-        installCenteredTitle(in: window, title: strings.settingsTitle)
         window.minSize = SettingsWindowLayout.minimumSize
         window.setFrame(NSRect(origin: window.frame.origin, size: SettingsWindowLayout.defaultSize), display: false)
         centerOnActiveScreen(window)
@@ -73,36 +72,11 @@ final class SettingsWindowController {
 
     func update(strings: AppStrings) {
         window?.title = strings.settingsTitle
-        centeredTitleField?.stringValue = strings.settingsTitle
         settingsViewController?.update(strings: strings)
     }
 
-    func refreshPermissions() {
-        settingsViewController?.refreshPermissions()
-    }
-
-    private func installCenteredTitle(in window: NSWindow, title: String) {
-        guard let titlebarView = window.standardWindowButton(.closeButton)?.superview,
-              let closeButton = window.standardWindowButton(.closeButton) else {
-            return
-        }
-
-        let titleField = NSTextField(labelWithString: title)
-        titleField.identifier = SettingsWindowLayout.centeredTitlebarTitleIdentifier
-        titleField.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .semibold)
-        titleField.textColor = .labelColor
-        titleField.alignment = .center
-        titleField.translatesAutoresizingMaskIntoConstraints = false
-        titleField.setContentCompressionResistancePriority(.required, for: .horizontal)
-        titleField.setContentHuggingPriority(.required, for: .horizontal)
-
-        titlebarView.addSubview(titleField)
-        NSLayoutConstraint.activate([
-            titleField.centerXAnchor.constraint(equalTo: titlebarView.centerXAnchor),
-            titleField.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
-        ])
-
-        centeredTitleField = titleField
+    func selectSection(_ section: SettingsSection) {
+        settingsViewController?.selectSection(section)
     }
 
     private func centerOnActiveScreen(_ window: NSWindow) {
@@ -124,11 +98,8 @@ final class SettingsWindowController {
 }
 
 enum SettingsWindowLayout {
-    static let defaultSize = CGSize(width: 620, height: 600)
-    static let minimumSize = CGSize(width: 560, height: 460)
-    static let usesSidebar = false
-    static let usesCenteredTitlebarLabel = true
-    static let centeredTitlebarTitleIdentifier = NSUserInterfaceItemIdentifier("FrameSettingsCenteredTitle")
+    static let defaultSize = CGSize(width: 752, height: 556)
+    static let minimumSize = CGSize(width: 688, height: 460)
 
     static func centeredFrame(windowSize: CGSize, visibleFrame: CGRect) -> CGRect {
         CGRect(
@@ -140,69 +111,92 @@ enum SettingsWindowLayout {
     }
 }
 
-enum SettingsSection: Int, CaseIterable {
+enum SettingsSection: String, CaseIterable, Identifiable {
     case general
-    case screenshot
-    case recording
-    case textRecognition
+    case capture
     case history
     case permissions
 
+    var id: String { rawValue }
+
     func title(strings: AppStrings) -> String {
         switch self {
-        case .general:
-            strings.settingsGeneral
-        case .screenshot:
-            strings.settingsScreenshot
-        case .recording:
-            strings.settingsRecording
-        case .textRecognition:
-            strings.settingsTextRecognition
-        case .history:
-            strings.settingsHistory
-        case .permissions:
-            strings.settingsPermissions
+        case .general: strings.settingsGeneral
+        case .capture: strings.settingsCapture
+        case .history: strings.settingsHistory
+        case .permissions: strings.settingsPermissions
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .general: "gearshape"
+        case .capture: "viewfinder"
+        case .history: "clock.arrow.circlepath"
+        case .permissions: "lock"
         }
     }
 }
 
 @MainActor
-private final class SettingsContentViewController: NSHostingController<AnyView> {
-    private let onShortcutChange: @MainActor (ScreenshotShortcut) -> Bool
-    private let onRecordingShortcutChange: @MainActor (ScreenshotShortcut?) -> Bool
-    private let onShortcutRecordingChange: @MainActor (Bool) -> Void
-    private let onCheckPermission: @MainActor () -> Void
-    private let onLanguageChange: @MainActor (AppLanguage) -> Void
-    private let onChooseScreenshotDirectory: @MainActor () -> URL?
-    private let onResetScreenshotDirectory: @MainActor () -> Void
-    private let onClearCaptureHistory: @MainActor () throws -> Void
-    private let launchAtLoginService: any LaunchAtLoginServicing
-    private var strings: AppStrings
+@Observable
+private final class SettingsPresentation {
+    var strings: AppStrings
+    var section: SettingsSection = .general
+
+    init(strings: AppStrings) {
+        self.strings = strings
+    }
+}
+
+@MainActor
+private final class SettingsContentViewController: NSSplitViewController {
+    private let presentation: SettingsPresentation
 
     init(
         strings: AppStrings,
         onShortcutChange: @escaping @MainActor (ScreenshotShortcut) -> Bool,
         onRecordingShortcutChange: @escaping @MainActor (ScreenshotShortcut?) -> Bool,
         onShortcutRecordingChange: @escaping @MainActor (Bool) -> Void,
-        onCheckPermission: @escaping @MainActor () -> Void,
         onLanguageChange: @escaping @MainActor (AppLanguage) -> Void,
         onChooseScreenshotDirectory: @escaping @MainActor () -> URL?,
         onResetScreenshotDirectory: @escaping @MainActor () -> Void,
         onClearCaptureHistory: @escaping @MainActor () throws -> Void,
         launchAtLoginService: any LaunchAtLoginServicing
     ) {
-        self.strings = strings
-        self.onShortcutChange = onShortcutChange
-        self.onRecordingShortcutChange = onRecordingShortcutChange
-        self.onShortcutRecordingChange = onShortcutRecordingChange
-        self.onCheckPermission = onCheckPermission
-        self.onLanguageChange = onLanguageChange
-        self.onChooseScreenshotDirectory = onChooseScreenshotDirectory
-        self.onResetScreenshotDirectory = onResetScreenshotDirectory
-        self.onClearCaptureHistory = onClearCaptureHistory
-        self.launchAtLoginService = launchAtLoginService
-        super.init(rootView: AnyView(EmptyView()))
-        updateRootView()
+        let presentation = SettingsPresentation(strings: strings)
+        self.presentation = presentation
+        super.init(nibName: nil, bundle: nil)
+
+        let sidebar = NSSplitViewItem(sidebarWithViewController: NSHostingController(
+            rootView: SettingsSidebar(presentation: presentation)
+        ))
+        sidebar.minimumThickness = 176
+        sidebar.maximumThickness = 200
+        sidebar.preferredThicknessFraction = 0.24
+        sidebar.canCollapse = false
+        sidebar.allowsFullHeightLayout = true
+
+        let detail = NSSplitViewItem(viewController: NSHostingController(
+            rootView: SettingsDetailView(
+                presentation: presentation,
+                onShortcutChange: onShortcutChange,
+                onRecordingShortcutChange: onRecordingShortcutChange,
+                onShortcutRecordingChange: onShortcutRecordingChange,
+                onLanguageChange: onLanguageChange,
+                onChooseScreenshotDirectory: onChooseScreenshotDirectory,
+                onResetScreenshotDirectory: onResetScreenshotDirectory,
+                onClearCaptureHistory: onClearCaptureHistory,
+                launchAtLoginService: launchAtLoginService
+            )
+        ))
+        if #available(macOS 26.0, *) {
+            detail.automaticallyAdjustsSafeAreaInsets = true
+        }
+        splitView.isVertical = true
+        splitView.dividerStyle = .thin
+        addSplitViewItem(sidebar)
+        addSplitViewItem(detail)
     }
 
     @available(*, unavailable)
@@ -210,81 +204,137 @@ private final class SettingsContentViewController: NSHostingController<AnyView> 
         nil
     }
 
+    func selectSection(_ section: SettingsSection) {
+        presentation.section = section
+    }
+
     func update(strings: AppStrings) {
-        self.strings = strings
-        updateRootView()
-    }
-
-    func refreshPermissions() {
-        updateRootView()
-    }
-
-    private func updateRootView() {
-        rootView = AnyView(
-            SettingsListView(
-                strings: strings,
-                onShortcutChange: onShortcutChange,
-                onRecordingShortcutChange: onRecordingShortcutChange,
-                onShortcutRecordingChange: onShortcutRecordingChange,
-                onCheckPermission: onCheckPermission,
-                onLanguageChange: onLanguageChange,
-                onChooseScreenshotDirectory: onChooseScreenshotDirectory,
-                onResetScreenshotDirectory: onResetScreenshotDirectory,
-                onClearCaptureHistory: onClearCaptureHistory,
-                launchAtLoginService: launchAtLoginService
-            )
-        )
+        presentation.strings = strings
     }
 }
 
-private struct SettingsListView: View {
-    let strings: AppStrings
+private struct SettingsDetailView: View {
+    let presentation: SettingsPresentation
     let onShortcutChange: @MainActor (ScreenshotShortcut) -> Bool
     let onRecordingShortcutChange: @MainActor (ScreenshotShortcut?) -> Bool
     let onShortcutRecordingChange: @MainActor (Bool) -> Void
-    let onCheckPermission: @MainActor () -> Void
     let onLanguageChange: @MainActor (AppLanguage) -> Void
     let onChooseScreenshotDirectory: @MainActor () -> URL?
     let onResetScreenshotDirectory: @MainActor () -> Void
     let onClearCaptureHistory: @MainActor () throws -> Void
     let launchAtLoginService: any LaunchAtLoginServicing
 
+    private var strings: AppStrings { presentation.strings }
+    @State private var automaticallyCopiesCaptures = SettingsStore.automaticallyCopiesCaptures()
+    @State private var quickAccessDismissal = SettingsStore.quickAccessDismissal()
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: SettingsListMetrics.sectionSpacing) {
-                GeneralSettingsView(
-                    strings: strings,
-                    onShortcutChange: onShortcutChange,
-                    onRecordingShortcutChange: onRecordingShortcutChange,
-                    onShortcutRecordingChange: onShortcutRecordingChange,
-                    onChooseScreenshotDirectory: onChooseScreenshotDirectory,
-                    onResetScreenshotDirectory: onResetScreenshotDirectory,
-                    onLanguageChange: onLanguageChange,
-                    launchAtLoginService: launchAtLoginService
-                )
+            VStack(alignment: .leading, spacing: 18) {
+                Text(presentation.section.title(strings: strings))
+                    .font(.system(size: 24, weight: .semibold))
+                    .accessibilityAddTraits(.isHeader)
 
-                ScreenshotSettingsView(strings: strings)
-
-                RecordingSettingsView(strings: strings)
-                TextRecognitionSettingsView(strings: strings)
-
-                HistorySettingsView(
-                    strings: strings,
-                    onClearCaptureHistory: onClearCaptureHistory
-                )
-
-                PermissionsSettingsView(
-                    strings: strings,
-                    onCheckPermission: onCheckPermission
-                )
-
-                SettingsAboutFooterView()
+                sectionContent
             }
-            .padding(SettingsListMetrics.contentPadding)
-            .frame(maxWidth: SettingsListMetrics.maxContentWidth, alignment: .topLeading)
+            .frame(maxWidth: 560, alignment: .leading)
+            .padding(.horizontal, 28)
+            .padding(.top, 16)
+            .padding(.bottom, 24)
             .frame(maxWidth: .infinity, alignment: .top)
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .id(presentation.section)
+        .background {
+            Color(nsColor: .textBackgroundColor).ignoresSafeArea()
+        }
+    }
+
+    @ViewBuilder
+    private var sectionContent: some View {
+        switch presentation.section {
+        case .general:
+            GeneralSettingsView(
+                strings: strings,
+                onShortcutChange: onShortcutChange,
+                onRecordingShortcutChange: onRecordingShortcutChange,
+                onShortcutRecordingChange: onShortcutRecordingChange,
+                onChooseScreenshotDirectory: onChooseScreenshotDirectory,
+                onResetScreenshotDirectory: onResetScreenshotDirectory,
+                onLanguageChange: onLanguageChange,
+                launchAtLoginService: launchAtLoginService
+            )
+        case .capture:
+            VStack(alignment: .leading, spacing: 18) {
+                SettingsControlGroup {
+                    SettingsControlRow(
+                        strings.settingsAutomaticallyCopyCaptures,
+                        subtitle: strings.settingsAutomaticallyCopyCapturesDescription
+                    ) {
+                        Toggle(strings.settingsAutomaticallyCopyCaptures, isOn: $automaticallyCopiesCaptures)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                            .onChange(of: automaticallyCopiesCaptures) { _, isEnabled in
+                                SettingsStore.setAutomaticallyCopiesCaptures(isEnabled)
+                            }
+                    }
+
+                    SettingsControlDivider()
+
+                    SettingsControlRow(strings.settingsQuickAccessDismissal) {
+                        SettingsMenuPicker(
+                            strings.settingsQuickAccessDismissal,
+                            value: strings.settingsQuickAccessDismissalOption(quickAccessDismissal),
+                            selection: $quickAccessDismissal
+                        ) {
+                            ForEach(QuickAccessDismissal.allCases) { dismissal in
+                                Text(strings.settingsQuickAccessDismissalOption(dismissal)).tag(dismissal)
+                            }
+                        }
+                        .onChange(of: quickAccessDismissal) { _, dismissal in
+                            SettingsStore.setQuickAccessDismissal(dismissal)
+                        }
+                    }
+                }
+                ScreenshotSettingsView(strings: strings)
+                RecordingSettingsView(strings: strings)
+                TextRecognitionSettingsView(strings: strings)
+            }
+        case .history:
+            HistorySettingsView(strings: strings, onClearCaptureHistory: onClearCaptureHistory)
+        case .permissions:
+            PermissionsSettingsView(strings: strings)
+        }
+    }
+}
+
+private struct SettingsSidebar: View {
+    @Bindable var presentation: SettingsPresentation
+
+    var body: some View {
+        List(selection: $presentation.section) {
+            ForEach(SettingsSection.allCases) { section in
+                Label {
+                    Text(section.title(strings: presentation.strings))
+                } icon: {
+                    Image(systemName: section.symbol)
+                        .font(.system(size: 13, weight: .medium))
+                        .frame(width: 18)
+                }
+                .padding(.vertical, 7)
+                .tag(section)
+                .accessibilityIdentifier("settings.section.\(section.rawValue)")
+            }
+        }
+        .listStyle(.sidebar)
+        .contentMargins(.top, 10, for: .scrollContent)
+        .scrollContentBackground(.hidden)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            SettingsAboutFooterView()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 17)
+                .padding(.vertical, 12)
+        }
     }
 }
 
@@ -299,6 +349,7 @@ private struct GeneralSettingsView: View {
     let launchAtLoginService: any LaunchAtLoginServicing
 
     @State private var selectedLanguage = SettingsStore.appLanguage()
+    @State private var selectedTheme = SettingsStore.appTheme()
     @State private var selectedShortcut = SettingsStore.screenshotShortcut()
     @State private var selectedRecordingShortcut = SettingsStore.recordingShortcut()
     @State private var shortcutErrorText: String?
@@ -330,136 +381,137 @@ private struct GeneralSettingsView: View {
     }
 
     var body: some View {
-        SettingsSectionGroup(title: strings.settingsGeneral) {
-            SettingsControlGroup {
-                SettingsControlRow(strings.settingsLanguage) {
-                    Picker("", selection: $selectedLanguage) {
-                        ForEach(AppLanguage.allCases) { language in
-                            Text(language.displayName(strings: strings))
-                                .tag(language)
+        VStack(alignment: .leading, spacing: 18) {
+            SettingsSectionGroup(title: strings.settingsAppearance) {
+                SettingsThemePicker(strings: strings, selection: $selectedTheme)
+                    .onChange(of: selectedTheme) { _, newTheme in
+                        SettingsStore.setAppTheme(newTheme)
+                        newTheme.apply(to: NSApp)
+                    }
+            }
+
+            SettingsSectionGroup(title: strings.settingsPreferences) {
+                SettingsControlGroup {
+                    SettingsControlRow(strings.settingsLanguage) {
+                        SettingsMenuPicker(
+                            strings.settingsLanguage,
+                            value: selectedLanguage.displayName(strings: strings),
+                            selection: $selectedLanguage
+                        ) {
+                            ForEach(AppLanguage.allCases) { language in
+                                Text(language.displayName(strings: strings))
+                                    .tag(language)
+                            }
+                        }
+                        .onChange(of: selectedLanguage) { _, newLanguage in
+                            SettingsStore.setAppLanguage(newLanguage)
+                            onLanguageChange(newLanguage)
                         }
                     }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .accessibilityLabel(strings.settingsLanguage)
-                    .onChange(of: selectedLanguage) { _, newLanguage in
-                        SettingsStore.setAppLanguage(newLanguage)
-                        onLanguageChange(newLanguage)
-                    }
-                }
 
-                SettingsControlDivider()
+                    SettingsControlDivider()
 
-                SettingsControlRow(
-                    strings.settingsLaunchAtLogin,
-                    verticalAlignment: .top,
-                    verticalPadding: 7
-                ) {
-                    VStack(alignment: .trailing, spacing: 5) {
-                        Toggle(
-                            "",
-                            isOn: Binding(
-                                get: { launchAtLoginState.isEnabled },
-                                set: { isEnabled in
-                                    updateLaunchAtLogin(isEnabled)
-                                }
+                    SettingsControlRow(strings.settingsLaunchAtLogin) {
+                        VStack(alignment: .trailing, spacing: 5) {
+                            Toggle(
+                                "",
+                                isOn: Binding(
+                                    get: { launchAtLoginState.isEnabled },
+                                    set: { isEnabled in
+                                        updateLaunchAtLogin(isEnabled)
+                                    }
+                                )
                             )
-                        )
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .accessibilityLabel(strings.settingsLaunchAtLogin)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                            .accessibilityLabel(strings.settingsLaunchAtLogin)
 
-                        if launchAtLoginState.status == .requiresApproval {
-                            Text(strings.settingsLaunchAtLoginRequiresApproval)
-                                .font(.system(size: SettingsTypographyMetrics.secondaryFontSize))
-                                .foregroundStyle(Color(nsColor: .secondaryLabelColor))
-                                .multilineTextAlignment(.trailing)
+                            if launchAtLoginState.status == .requiresApproval {
+                                Text(strings.settingsLaunchAtLoginRequiresApproval)
+                                    .font(.system(size: SettingsTypographyMetrics.secondaryFontSize))
+                                    .foregroundStyle(Color(nsColor: .secondaryLabelColor))
+                                    .multilineTextAlignment(.trailing)
+                            }
+
+                            if let errorDescription = launchAtLoginState.errorDescription {
+                                Text(strings.settingsLaunchAtLoginUpdateFailed(errorDescription: errorDescription))
+                                    .font(.system(size: SettingsTypographyMetrics.secondaryFontSize))
+                                    .foregroundStyle(Color(nsColor: .systemRed))
+                                    .multilineTextAlignment(.trailing)
+                            }
                         }
+                    }
 
-                        if let errorDescription = launchAtLoginState.errorDescription {
-                            Text(strings.settingsLaunchAtLoginUpdateFailed(errorDescription: errorDescription))
-                                .font(.system(size: SettingsTypographyMetrics.secondaryFontSize))
-                                .foregroundStyle(Color(nsColor: .systemRed))
-                                .multilineTextAlignment(.trailing)
+                    SettingsControlDivider()
+
+                    SettingsControlRow(
+                        strings.settingsSaveLocation,
+                        subtitle: saveLocation.path
+                    ) {
+                        HStack(spacing: 8) {
+                            if !saveLocation.isDefaultLocation {
+                                Button(strings.settingsRestoreDefaultFolder, action: resetScreenshotDirectory)
+                            }
+                            Button(strings.settingsChooseFolder, action: chooseScreenshotDirectory)
                         }
                     }
                 }
+            }
 
-                SettingsControlDivider()
+            SettingsSectionGroup(title: strings.settingsShortcuts) {
+                SettingsControlGroup {
+                    SettingsControlRow(strings.settingsScreenshotShortcut) {
+                        VStack(alignment: .trailing, spacing: 5) {
+                            ShortcutRecorderControl(
+                                strings: strings,
+                                accessibilityLabel: strings.settingsScreenshotShortcut,
+                                shortcut: selectedShortcut,
+                                allowsEmptyShortcut: false,
+                                reservedShortcuts: [],
+                                duplicateShortcut: selectedRecordingShortcut,
+                                onShortcutChange: { shortcut in
+                                    guard let shortcut else {
+                                        return false
+                                    }
 
-                SettingsControlRow(
-                    strings.settingsScreenshotShortcut,
-                    verticalAlignment: .top,
-                    verticalPadding: 5
-                ) {
-                    VStack(alignment: .trailing, spacing: 5) {
-                        ShortcutRecorderControl(
-                            strings: strings,
-                            accessibilityLabel: strings.settingsScreenshotShortcut,
-                            shortcut: selectedShortcut,
-                            allowsEmptyShortcut: false,
-                            reservedShortcuts: [],
-                            duplicateShortcut: selectedRecordingShortcut,
-                            onShortcutChange: { shortcut in
-                                guard let shortcut else {
-                                    return false
-                                }
+                                    return changeShortcut(shortcut)
+                                },
+                                onValidationFailure: updateShortcutValidationFailure,
+                                onRecordingChange: onShortcutRecordingChange
+                            )
 
-                                return changeShortcut(shortcut)
-                            },
-                            onValidationFailure: updateShortcutValidationFailure,
-                            onRecordingChange: onShortcutRecordingChange
-                        )
-
-                        if let shortcutErrorText {
-                            Text(shortcutErrorText)
-                                .font(.system(size: SettingsTypographyMetrics.secondaryFontSize))
-                                .foregroundStyle(Color(nsColor: .systemRed))
+                            if let shortcutErrorText {
+                                Text(shortcutErrorText)
+                                    .font(.system(size: SettingsTypographyMetrics.secondaryFontSize))
+                                    .foregroundStyle(Color(nsColor: .systemRed))
+                            }
                         }
                     }
-                }
 
-                SettingsControlDivider()
+                    SettingsControlDivider()
 
-                SettingsControlRow(
-                    strings.settingsRecordingShortcut,
-                    verticalAlignment: .top,
-                    verticalPadding: 5
-                ) {
-                    VStack(alignment: .trailing, spacing: 5) {
-                        ShortcutRecorderControl(
-                            strings: strings,
-                            accessibilityLabel: strings.settingsRecordingShortcut,
-                            shortcut: selectedRecordingShortcut,
-                            allowsEmptyShortcut: true,
-                            reservedShortcuts: [],
-                            duplicateShortcut: selectedShortcut,
-                            onShortcutChange: changeRecordingShortcut,
-                            onValidationFailure: updateRecordingShortcutValidationFailure,
-                            onRecordingChange: onShortcutRecordingChange
-                        )
+                    SettingsControlRow(strings.settingsRecordingShortcut) {
+                        VStack(alignment: .trailing, spacing: 5) {
+                            ShortcutRecorderControl(
+                                strings: strings,
+                                accessibilityLabel: strings.settingsRecordingShortcut,
+                                shortcut: selectedRecordingShortcut,
+                                allowsEmptyShortcut: true,
+                                reservedShortcuts: [],
+                                duplicateShortcut: selectedShortcut,
+                                onShortcutChange: changeRecordingShortcut,
+                                onValidationFailure: updateRecordingShortcutValidationFailure,
+                                onRecordingChange: onShortcutRecordingChange
+                            )
 
-                        if let recordingShortcutErrorText {
-                            Text(recordingShortcutErrorText)
-                                .font(.system(size: SettingsTypographyMetrics.secondaryFontSize))
-                                .foregroundStyle(Color(nsColor: .systemRed))
+                            if let recordingShortcutErrorText {
+                                Text(recordingShortcutErrorText)
+                                    .font(.system(size: SettingsTypographyMetrics.secondaryFontSize))
+                                    .foregroundStyle(Color(nsColor: .systemRed))
+                            }
                         }
                     }
-                }
-
-                SettingsControlDivider()
-
-                SettingsControlRow(
-                    strings.settingsSaveLocation,
-                    verticalAlignment: .center,
-                    verticalPadding: 7
-                ) {
-                    SettingsSaveLocationControl(
-                        summary: SettingsSaveLocationSummary(url: screenshotDirectoryURL),
-                        strings: strings,
-                        onChoose: chooseScreenshotDirectory,
-                        onReset: resetScreenshotDirectory
-                    )
                 }
             }
         }
@@ -500,6 +552,10 @@ private struct GeneralSettingsView: View {
         recordingShortcutErrorText = failure.map { strings.settingsShortcutRecorderError($0) }
     }
 
+    private var saveLocation: SettingsSaveLocationSummary {
+        SettingsSaveLocationSummary(url: screenshotDirectoryURL)
+    }
+
     private func chooseScreenshotDirectory() {
         guard let directory = onChooseScreenshotDirectory() else {
             return
@@ -519,14 +575,6 @@ private struct GeneralSettingsView: View {
     }
 }
 
-enum SettingsListMetrics {
-    static let maxContentWidth: CGFloat = 540
-    static let contentPadding: CGFloat = 30
-    static let sectionSpacing: CGFloat = 14
-    static let showsAboutAsSection = false
-    static let showsAboutFooter = true
-}
-
 enum SettingsGeneralMetrics {
     static let containsLaunchAtLogin = true
     static let containsScreenshotShortcut = true
@@ -541,28 +589,23 @@ enum SettingsScreenshotMetrics {
 }
 
 enum SettingsGroupMetrics {
-    static let usesVisibleGroupBackground = true
-    static let cornerRadius: CGFloat = 10
-    static let rowMinHeight: CGFloat = 36
-    static let containerPadding: CGFloat = 10
-    static let labelColumnWidth: CGFloat = 120
-    static let horizontalPadding: CGFloat = 12
-    static let controlSpacing: CGFloat = 14
-    static let borderOpacity: CGFloat = 0.38
+    static let cornerRadius: CGFloat = 12
+    static let rowMinHeight: CGFloat = 42
+    static let horizontalPadding: CGFloat = 14
+    static let controlSpacing: CGFloat = 12
 }
 
 enum SettingsTypographyMetrics {
     static let usesSystemFont = true
-    static let usesQuietSectionTitles = true
     static let usesMediumRowLabels = true
     static let sectionFontSize: CGFloat = 13
-    static let rowFontSize: CGFloat = 14
-    static let secondaryFontSize: CGFloat = 13
+    static let rowFontSize: CGFloat = 13
+    static let secondaryFontSize: CGFloat = 12
     static let footerFontSize: CGFloat = 11
 }
 
 enum SettingsSectionGroupMetrics {
-    static let titleSpacing: CGFloat = 6
+    static let titleSpacing: CGFloat = 8
 }
 
 enum SettingsShortcutRecorderMetrics {
@@ -580,7 +623,6 @@ enum SettingsSaveLocationMetrics {
     static let showsResetOnlyForCustomLocation = true
     static let usesNestedControlBackground = false
     static let usesSeparateRevealBox = false
-    static let summaryWidth: CGFloat = 180
 }
 
 enum SettingsOCRLanguageMetrics {
@@ -647,51 +689,83 @@ private struct SettingsControlGroup<Content: View>: View {
         VStack(spacing: 0) {
             content
         }
-        .padding(SettingsGroupMetrics.containerPadding)
-        .background(Color(nsColor: .controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: SettingsGroupMetrics.cornerRadius, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: SettingsGroupMetrics.cornerRadius, style: .continuous)
-                .stroke(Color(nsColor: .separatorColor).opacity(SettingsGroupMetrics.borderOpacity), lineWidth: 0.5)
-        }
+        .background(.primary.opacity(0.038), in: RoundedRectangle(cornerRadius: SettingsGroupMetrics.cornerRadius))
     }
 }
 
 private struct SettingsControlRow<Content: View>: View {
     let title: String
-    let verticalAlignment: VerticalAlignment
-    let verticalPadding: CGFloat
-    let controlAlignment: Alignment
+    let subtitle: String?
     @ViewBuilder let content: Content
 
-    init(
-        _ title: String,
-        verticalAlignment: VerticalAlignment = .center,
-        verticalPadding: CGFloat = 0,
-        controlAlignment: Alignment = .trailing,
-        @ViewBuilder content: () -> Content
-    ) {
+    init(_ title: String, subtitle: String? = nil, @ViewBuilder content: () -> Content) {
         self.title = title
-        self.verticalAlignment = verticalAlignment
-        self.verticalPadding = verticalPadding
-        self.controlAlignment = controlAlignment
+        self.subtitle = subtitle
         self.content = content()
     }
 
     var body: some View {
-        HStack(alignment: verticalAlignment, spacing: SettingsGroupMetrics.controlSpacing) {
-            Text(title)
-                .font(.system(size: SettingsTypographyMetrics.rowFontSize, weight: .medium))
-                .foregroundStyle(.primary)
-                .frame(width: SettingsGroupMetrics.labelColumnWidth, alignment: .leading)
+        HStack(spacing: SettingsGroupMetrics.controlSpacing) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: SettingsTypographyMetrics.rowFontSize, weight: .medium))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.system(size: SettingsTypographyMetrics.secondaryFontSize))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .help(subtitle)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             content
-                .font(.system(size: SettingsTypographyMetrics.rowFontSize))
-                .frame(maxWidth: .infinity, alignment: controlAlignment)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, SettingsGroupMetrics.horizontalPadding)
-        .padding(.vertical, verticalPadding)
+        .padding(.vertical, 7)
         .frame(minHeight: SettingsGroupMetrics.rowMinHeight)
+    }
+}
+
+private struct SettingsMenuPicker<Selection: Hashable, Options: View>: View {
+    let title: String
+    let value: String
+    @Binding var selection: Selection
+    @ViewBuilder let options: Options
+
+    init(
+        _ title: String,
+        value: String,
+        selection: Binding<Selection>,
+        @ViewBuilder options: () -> Options
+    ) {
+        self.title = title
+        self.value = value
+        _selection = selection
+        self.options = options()
+    }
+
+    var body: some View {
+        Menu {
+            Picker(title, selection: $selection) {
+                options
+            }
+            .pickerStyle(.inline)
+            .labelsHidden()
+        } label: {
+            Text("\(value)  \(settingsChevron("chevron.down"))")
+                .font(.system(size: SettingsTypographyMetrics.rowFontSize))
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .controlSize(.regular)
+        .fixedSize(horizontal: true, vertical: false)
+        .accessibilityLabel(title)
+        .accessibilityValue(value)
     }
 }
 
@@ -707,17 +781,15 @@ private struct SettingsButtonRow: View {
                 Text(title)
                     .font(.system(size: SettingsTypographyMetrics.rowFontSize, weight: .medium))
                     .foregroundStyle(.primary)
-                    .frame(width: SettingsGroupMetrics.labelColumnWidth, alignment: .leading)
+
+                Spacer(minLength: 8)
 
                 Text(value)
                     .font(.system(size: SettingsTypographyMetrics.secondaryFontSize, weight: .medium))
                     .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.trailing)
 
-                Spacer(minLength: 8)
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.secondary)
+                settingsChevron("chevron.right")
             }
             .padding(.horizontal, SettingsGroupMetrics.horizontalPadding)
             .frame(minHeight: SettingsGroupMetrics.rowMinHeight)
@@ -728,55 +800,17 @@ private struct SettingsButtonRow: View {
     }
 }
 
+private func settingsChevron(_ symbol: String) -> Text {
+    Text("\(Image(systemName: symbol))")
+        .font(.system(size: 10, weight: .semibold))
+        .foregroundStyle(.tertiary)
+}
+
 private struct SettingsControlDivider: View {
     var body: some View {
         Divider()
-            .padding(.leading, SettingsGroupMetrics.horizontalPadding)
-    }
-}
-
-private struct SettingsSaveLocationControl: View {
-    let summary: SettingsSaveLocationSummary
-    let strings: AppStrings
-    let onChoose: () -> Void
-    let onReset: () -> Void
-
-    var body: some View {
-        VStack(alignment: .trailing, spacing: 4) {
-            HStack(alignment: .center, spacing: 8) {
-                locationSummary
-                Button(strings.settingsChooseFolder, action: onChoose)
-                    .controlSize(.small)
-                    .help(strings.settingsChooseFolder)
-                    .accessibilityLabel(strings.settingsChooseFolder)
-            }
-
-            if !summary.isDefaultLocation {
-                Button(strings.settingsRestoreDefaultFolder, action: onReset)
-                    .buttonStyle(.plain)
-                    .font(.system(size: SettingsTypographyMetrics.secondaryFontSize))
-                    .foregroundStyle(.secondary)
-                    .help(strings.settingsRestoreDefaultFolder)
-                    .accessibilityLabel(strings.settingsRestoreDefaultFolder)
-            }
-        }
-    }
-
-    private var locationSummary: some View {
-        HStack(spacing: 7) {
-            Image(systemName: "folder")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.secondary)
-                .frame(width: 14)
-
-            Text(summary.path)
-                .font(.system(size: SettingsTypographyMetrics.secondaryFontSize, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-        }
-        .frame(width: SettingsSaveLocationMetrics.summaryWidth, alignment: .leading)
-        .accessibilityLabel("\(strings.settingsSaveLocation), \(summary.path)")
+            .opacity(0.65)
+            .padding(.horizontal, SettingsGroupMetrics.horizontalPadding)
     }
 }
 
@@ -790,15 +824,16 @@ private struct ScreenshotSettingsView: View {
         SettingsSectionGroup(title: strings.settingsScreenshot) {
             SettingsControlGroup {
                 SettingsControlRow(strings.settingsWindowScreenshotDecorationStyle) {
-                    Picker("", selection: $selectedWindowScreenshotDecorationStyle) {
+                    SettingsMenuPicker(
+                        strings.settingsWindowScreenshotDecorationStyle,
+                        value: selectedWindowScreenshotDecorationStyle.displayName(strings: strings),
+                        selection: $selectedWindowScreenshotDecorationStyle
+                    ) {
                         ForEach(WindowScreenshotDecorationStyle.allCases) { style in
                             Text(style.displayName(strings: strings))
                                 .tag(style)
                         }
                     }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .accessibilityLabel(strings.settingsWindowScreenshotDecorationStyle)
                     .onChange(of: selectedWindowScreenshotDecorationStyle) { _, style in
                         SettingsStore.setWindowScreenshotDecorationStyle(style)
                     }
@@ -807,15 +842,16 @@ private struct ScreenshotSettingsView: View {
                 SettingsControlDivider()
 
                 SettingsControlRow(strings.settingsImageWorkspaceSaveCurrentBehavior) {
-                    Picker("", selection: $selectedImageWorkspaceSaveCurrentBehavior) {
+                    SettingsMenuPicker(
+                        strings.settingsImageWorkspaceSaveCurrentBehavior,
+                        value: strings.imageWorkspaceSaveCurrentBehaviorName(selectedImageWorkspaceSaveCurrentBehavior),
+                        selection: $selectedImageWorkspaceSaveCurrentBehavior
+                    ) {
                         ForEach(ImageWorkspaceSaveCurrentBehavior.allCases, id: \.self) { behavior in
                             Text(strings.imageWorkspaceSaveCurrentBehaviorName(behavior))
                                 .tag(behavior)
                         }
                     }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .accessibilityLabel(strings.settingsImageWorkspaceSaveCurrentBehavior)
                     .onChange(of: selectedImageWorkspaceSaveCurrentBehavior) { _, behavior in
                         SettingsStore.setImageWorkspaceSaveCurrentBehavior(behavior)
                     }
@@ -916,7 +952,7 @@ final class ShortcutRecorderButton: NSButton {
         super.init(frame: frameRect)
         setButtonType(.momentaryChange)
         isBordered = false
-        focusRingType = .none
+        focusRingType = .default
         alignment = .center
         lineBreakMode = .byTruncatingTail
         translatesAutoresizingMaskIntoConstraints = false
@@ -1090,29 +1126,18 @@ final class ShortcutRecorderButton: NSButton {
     }
 
     private func updateAppearance() {
-        font = .systemFont(ofSize: 13, weight: .semibold)
-        contentTintColor = .labelColor
+        let hasShortcut = isRecording || shortcut != nil
+        font = .systemFont(ofSize: 12, weight: hasShortcut ? .medium : .regular)
+        contentTintColor = hasShortcut ? .labelColor : .secondaryLabelColor
         wantsLayer = true
         layer?.cornerRadius = SettingsShortcutRecorderMetrics.cornerRadius
-        layer?.backgroundColor = shortcutRecorderBackgroundColor.cgColor
-        layer?.borderWidth = isRecording ? 1 : 0.5
-        layer?.borderColor = shortcutRecorderBorderColor.cgColor
-    }
-
-    private var shortcutRecorderBackgroundColor: NSColor {
-        if isRecording {
-            return NSColor.controlAccentColor.withAlphaComponent(0.12)
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer?.backgroundColor = isRecording
+                ? NSColor.controlAccentColor.withAlphaComponent(0.12).cgColor
+                : NSColor.labelColor.withAlphaComponent(0.055).cgColor
+            layer?.borderWidth = isRecording ? 1 : 0
+            layer?.borderColor = NSColor.controlAccentColor.cgColor
         }
-
-        return .controlBackgroundColor
-    }
-
-    private var shortcutRecorderBorderColor: NSColor {
-        if isRecording {
-            return NSColor.controlAccentColor.withAlphaComponent(0.8)
-        }
-
-        return NSColor.separatorColor.withAlphaComponent(0.65)
     }
 }
 
@@ -1358,70 +1383,73 @@ private struct HistorySettingsView: View {
     @State private var clearStatusIsError = false
 
     var body: some View {
-        SettingsSectionGroup(title: strings.settingsCaptureHistory) {
-            SettingsControlGroup {
-                SettingsControlRow(strings.settingsCaptureHistoryEnabled) {
-                    Toggle("", isOn: $isCaptureHistoryEnabled)
-                        .labelsHidden()
-                        .accessibilityLabel(strings.settingsCaptureHistoryEnabled)
-                        .onChange(of: isCaptureHistoryEnabled) { _, isEnabled in
-                            SettingsStore.setCaptureHistoryEnabled(isEnabled)
-                        }
-                }
-
-                SettingsControlDivider()
-
-                SettingsControlRow(strings.settingsCaptureHistoryRetention) {
-                    Picker("", selection: $selectedCaptureHistoryRetention) {
-                        ForEach(CaptureHistoryRetention.allCases) { retention in
-                            Text(retention.displayName(strings: strings))
-                                .tag(retention)
-                        }
-                    }
+        SettingsControlGroup {
+            SettingsControlRow(strings.settingsCaptureHistoryEnabled) {
+                Toggle("", isOn: $isCaptureHistoryEnabled)
                     .labelsHidden()
-                    .pickerStyle(.menu)
-                    .disabled(!isCaptureHistoryEnabled)
-                    .accessibilityLabel(strings.settingsCaptureHistoryRetention)
-                    .onChange(of: selectedCaptureHistoryRetention) { _, retention in
-                        SettingsStore.setCaptureHistoryRetention(retention)
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                    .accessibilityLabel(strings.settingsCaptureHistoryEnabled)
+                    .onChange(of: isCaptureHistoryEnabled) { _, isEnabled in
+                        SettingsStore.setCaptureHistoryEnabled(isEnabled)
+                    }
+            }
+
+            SettingsControlDivider()
+
+            SettingsControlRow(strings.settingsCaptureHistoryRetention) {
+                SettingsMenuPicker(
+                    strings.settingsCaptureHistoryRetention,
+                    value: selectedCaptureHistoryRetention.displayName(strings: strings),
+                    selection: $selectedCaptureHistoryRetention
+                ) {
+                    ForEach(CaptureHistoryRetention.allCases) { retention in
+                        Text(retention.displayName(strings: strings))
+                            .tag(retention)
                     }
                 }
-
-                SettingsControlDivider()
-
-                SettingsControlRow(strings.settingsCaptureHistorySizeLimit) {
-                    Picker("", selection: $selectedCaptureHistorySizeLimit) {
-                        ForEach(CaptureHistorySizeLimit.settingsCases) { sizeLimit in
-                            Text(sizeLimit.displayName(strings: strings))
-                                .tag(sizeLimit)
-                        }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .disabled(!isCaptureHistoryEnabled)
-                    .accessibilityLabel(strings.settingsCaptureHistorySizeLimit)
-                    .onChange(of: selectedCaptureHistorySizeLimit) { _, sizeLimit in
-                        SettingsStore.setCaptureHistorySizeLimit(sizeLimit)
-                    }
-                }
-
-                SettingsControlDivider()
-
-                SettingsControlRow(strings.settingsCaptureHistoryClear) {
-                    Button(strings.settingsCaptureHistoryClear, role: .destructive) {
-                        isShowingClearConfirmation = true
-                    }
-                }
-
-                if let clearStatusMessage {
-                    SettingsControlDivider()
-
-                    SettingsControlRow("") {
-                        Text(clearStatusMessage)
-                            .foregroundStyle(clearStatusIsError ? .red : .secondary)
-                    }
+                .disabled(!isCaptureHistoryEnabled)
+                .onChange(of: selectedCaptureHistoryRetention) { _, retention in
+                    SettingsStore.setCaptureHistoryRetention(retention)
                 }
             }
+
+            SettingsControlDivider()
+
+            SettingsControlRow(strings.settingsCaptureHistorySizeLimit) {
+                SettingsMenuPicker(
+                    strings.settingsCaptureHistorySizeLimit,
+                    value: selectedCaptureHistorySizeLimit.displayName(strings: strings),
+                    selection: $selectedCaptureHistorySizeLimit
+                ) {
+                    ForEach(CaptureHistorySizeLimit.settingsCases) { sizeLimit in
+                        Text(sizeLimit.displayName(strings: strings))
+                            .tag(sizeLimit)
+                    }
+                }
+                .disabled(!isCaptureHistoryEnabled)
+                .onChange(of: selectedCaptureHistorySizeLimit) { _, sizeLimit in
+                    SettingsStore.setCaptureHistorySizeLimit(sizeLimit)
+                }
+            }
+
+            SettingsControlDivider()
+
+            HStack(spacing: 12) {
+                if let clearStatusMessage {
+                    Text(clearStatusMessage)
+                        .font(.system(size: SettingsTypographyMetrics.secondaryFontSize))
+                        .foregroundStyle(clearStatusIsError ? .red : .secondary)
+                }
+
+                Spacer()
+
+                Button(strings.settingsCaptureHistoryClear, role: .destructive) {
+                    isShowingClearConfirmation = true
+                }
+            }
+            .padding(.horizontal, SettingsGroupMetrics.horizontalPadding)
+            .frame(minHeight: SettingsGroupMetrics.rowMinHeight)
         }
         .alert(strings.settingsCaptureHistoryClearConfirmationTitle, isPresented: $isShowingClearConfirmation) {
             Button(strings.settingsCaptureHistoryClear, role: .destructive, action: clearCaptureHistory)
@@ -1445,87 +1473,71 @@ private struct HistorySettingsView: View {
 
 private struct PermissionsSettingsView: View {
     let strings: AppStrings
-    let onCheckPermission: @MainActor () -> Void
 
     @State private var hasScreenRecordingAccess = ScreenRecordingPermission.hasAccess
     @State private var hasAccessibilityAccess = AccessibilityPermission.hasAccess
     @State private var hasInputMonitoringAccess = InputMonitoringPermission.hasAccess
 
     var body: some View {
-        SettingsSectionGroup(title: strings.settingsPermissions) {
-            SettingsControlGroup {
-                SettingsControlRow(
-                    strings.settingsScreenRecordingPermission,
-                    verticalAlignment: .top,
-                    verticalPadding: 12
-                ) {
-                    VStack(alignment: .trailing, spacing: 8) {
-                        Text(hasScreenRecordingAccess ? strings.settingsPermissionGranted : strings.settingsPermissionMissing)
-                            .foregroundStyle(hasScreenRecordingAccess ? .green : .secondary)
+        SettingsControlGroup {
+            permissionRow(
+                strings.settingsScreenRecordingPermission,
+                purpose: strings.settingsScreenRecordingPurpose,
+                hasAccess: hasScreenRecordingAccess,
+                openSettings: ScreenRecordingPermission.openSettings
+            )
 
-                        HStack(spacing: 8) {
-                            Button(strings.settingsCheckPermission, action: checkPermission)
-                                .accessibilityLabel(strings.settingsCheckPermission)
-                            Button(strings.settingsOpenSystemSettings, action: ScreenRecordingPermission.openSettings)
-                                .accessibilityLabel(strings.settingsOpenSystemSettings)
-                        }
-                    }
+            SettingsControlDivider()
+
+            permissionRow(
+                strings.settingsAccessibilityPermission,
+                purpose: strings.settingsAccessibilityPurpose,
+                hasAccess: hasAccessibilityAccess,
+                openSettings: AccessibilityPermission.openSettings
+            )
+
+            SettingsControlDivider()
+
+            permissionRow(
+                strings.settingsInputMonitoringPermission,
+                purpose: strings.settingsInputMonitoringPurpose,
+                hasAccess: hasInputMonitoringAccess,
+                openSettings: InputMonitoringPermission.openSettings
+            )
+        }
+        .onAppear(perform: refreshPermissions)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            refreshPermissions()
+        }
+    }
+
+    private func permissionRow(
+        _ title: String,
+        purpose: String,
+        hasAccess: Bool,
+        openSettings: @escaping () -> Void
+    ) -> some View {
+        SettingsControlRow(title, subtitle: purpose) {
+            if hasAccess {
+                Label {
+                    Text(strings.settingsPermissionGranted)
+                        .foregroundStyle(.secondary)
+                } icon: {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
                 }
-
-                SettingsControlDivider()
-
-                SettingsControlRow(
-                    strings.settingsAccessibilityPermission,
-                    verticalAlignment: .top,
-                    verticalPadding: 12
-                ) {
-                    VStack(alignment: .trailing, spacing: 8) {
-                        Text(hasAccessibilityAccess ? strings.settingsPermissionGranted : strings.settingsPermissionMissing)
-                            .foregroundStyle(hasAccessibilityAccess ? .green : .secondary)
-
-                        HStack(spacing: 8) {
-                            Button(strings.settingsRequestPermission, action: requestAccessibilityPermission)
-                                .accessibilityLabel(strings.settingsRequestPermission)
-                            Button(strings.settingsOpenSystemSettings, action: AccessibilityPermission.openSettings)
-                                .accessibilityLabel(strings.settingsOpenSystemSettings)
-                        }
-                    }
-                }
-
-                SettingsControlDivider()
-
-                SettingsControlRow(
-                    strings.settingsInputMonitoringPermission,
-                    verticalAlignment: .top,
-                    verticalPadding: 12
-                ) {
-                    VStack(alignment: .trailing, spacing: 8) {
-                        Text(hasInputMonitoringAccess ? strings.settingsPermissionGranted : strings.settingsPermissionMissing)
-                            .foregroundStyle(hasInputMonitoringAccess ? .green : .secondary)
-
-                        HStack(spacing: 8) {
-                            Button(strings.settingsRequestPermission, action: requestInputMonitoringPermission)
-                                .accessibilityLabel(strings.settingsRequestPermission)
-                            Button(strings.settingsOpenSystemSettings, action: InputMonitoringPermission.openSettings)
-                                .accessibilityLabel(strings.settingsOpenSystemSettings)
-                        }
-                    }
-                }
+                .font(.system(size: SettingsTypographyMetrics.secondaryFontSize))
+            } else {
+                Button(strings.settingsOpenSystemSettings, action: openSettings)
+                    .accessibilityLabel("\(title), \(strings.settingsOpenSystemSettings)")
             }
         }
     }
 
-    private func checkPermission() {
-        onCheckPermission()
+    private func refreshPermissions() {
         hasScreenRecordingAccess = ScreenRecordingPermission.hasAccess
-    }
-
-    private func requestAccessibilityPermission() {
-        hasAccessibilityAccess = AccessibilityPermission.requestAccess()
-    }
-
-    private func requestInputMonitoringPermission() {
-        hasInputMonitoringAccess = InputMonitoringPermission.requestAccess()
+        hasAccessibilityAccess = AccessibilityPermission.hasAccess
+        hasInputMonitoringAccess = InputMonitoringPermission.hasAccess
     }
 }
 
@@ -1635,12 +1647,15 @@ private struct RecordingMouseHintColorSwatch: View {
 
 private struct SettingsAboutFooterView: View {
     var body: some View {
-        Text(SettingsAboutFooterText.value(appName: appName, version: versionText, build: buildText))
-            .font(.system(size: SettingsTypographyMetrics.footerFontSize))
-            .foregroundStyle(.tertiary)
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.top, 2)
-            .accessibilityLabel(SettingsAboutFooterText.value(appName: appName, version: versionText, build: buildText))
+        VStack(alignment: .leading, spacing: 3) {
+            Text(appName)
+                .font(.system(size: 12, weight: .semibold))
+            Text("\(versionText) (\(buildText))")
+                .font(.system(size: SettingsTypographyMetrics.footerFontSize, design: .monospaced))
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(SettingsAboutFooterText.value(appName: appName, version: versionText, build: buildText))
     }
 
     private var appName: String {
