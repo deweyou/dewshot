@@ -78,6 +78,7 @@ public struct ImageAnnotationStyle: Codable, Sendable, Equatable {
     public var textAlignment: ImageAnnotationTextAlignment
     public var textBoxWidth: CGFloat?
     public var fontName: String?
+    public var textItalic: Bool?
     public var linePattern: ImageAnnotationLinePattern?
     public var arrowStyle: ImageAnnotationArrowStyle?
     public var textOutline: ImageAnnotationColor?
@@ -230,6 +231,31 @@ public struct ImageAnnotationDocument: Sendable, Equatable {
 
     public mutating func setMosaicMode(_ mosaicMode: ImageAnnotationMosaicMode) {
         editingOptions.mosaicMode = mosaicMode
+    }
+
+    public mutating func changeSelectedMosaicMode(_ mode: ImageAnnotationMosaicMode) {
+        guard let index = selectedIndex,
+              case let .mosaic(previous) = elements[index].kind,
+              previous != mode else { return }
+
+        pushUndoSnapshot()
+        var element = elements[index]
+        element.kind = .mosaic(mode)
+        if mode == .brush && element.points.isEmpty {
+            element.points = [
+                CGPoint(x: element.bounds.minX, y: element.bounds.midY),
+                CGPoint(x: element.bounds.maxX, y: element.bounds.midY),
+            ]
+        } else if previous == .brush {
+            let style = element.style
+            let brushWidth = max(2, style.mosaicBrushWidth ?? max(max(4, style.mosaicBlockSize) * 2, style.lineWidth))
+            for point in element.points {
+                let coverage = CGRect(x: point.x - brushWidth / 2, y: point.y - brushWidth / 2,
+                                      width: brushWidth, height: brushWidth)
+                element.bounds = element.bounds.union(coverage)
+            }
+        }
+        elements[index] = element
     }
 
     public mutating func setStyle(_ style: ImageAnnotationStyle) {

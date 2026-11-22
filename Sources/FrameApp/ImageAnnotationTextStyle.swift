@@ -6,13 +6,14 @@ enum ImageAnnotationTextStyle {
 
     static func font(for style: ImageAnnotationStyle, scale: CGFloat = 1) -> NSFont {
         let size = pointSize(for: style, scale: scale)
-        if let name = style.fontName, let font = NSFont(name: name, size: size) {
-            return style.fontWeight == .bold ? NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask) : font
-        }
-        return NSFont.systemFont(
-            ofSize: size,
-            weight: style.fontWeight == .bold ? .bold : .regular
-        )
+        let manager = NSFontManager.shared
+        let baseFont = NSFont.systemFont(ofSize: size, weight: style.fontWeight == .bold ? .bold : .regular)
+        var font = style.fontName.flatMap { name in
+            manager.font(withFamily: name, traits: [], weight: 5, size: size) ?? NSFont(name: name, size: size)
+        } ?? baseFont
+        if style.fontWeight == .bold { font = manager.convert(font, toHaveTrait: .boldFontMask) }
+        if style.textItalic == true { font = manager.convert(font, toHaveTrait: .italicFontMask) }
+        return font
     }
 
     static func attributes(for style: ImageAnnotationStyle, scale: CGFloat = 1) -> [NSAttributedString.Key: Any] {

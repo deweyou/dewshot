@@ -62,6 +62,7 @@ The goal is simple: capture what you need, then get back to what you were doing.
 ### Edit
 
 - Open a screenshot, a local image, or an image from the clipboard.
+- Adjust the current tool or selected object in a collapsible right inspector.
 - Crop on the canvas, resize in pixels or percent, rotate, and flip. See the
   current pixel dimensions and switch between Fit and 100% zoom.
 - Edit shapes, arrows, text, highlights, and brush marks. Add numbered stamps,

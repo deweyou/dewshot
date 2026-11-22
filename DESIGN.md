@@ -161,9 +161,9 @@ system tool, not a branded dashboard.
   no pointer cursor, no hover fill, and disabled tint.
 - Use a circular or capsule-shaped highlight with an accent tint and a light
   glyph for selected tools. Use the same shape for pointer feedback.
-- The window action row extends behind the native traffic lights. The editing
-  row uses the width below it. Both rows share the same appearance-aware
-  titlebar surface. Keep a small gap between the toolbar and the image.
+- The window action row extends behind the native traffic lights. The
+  appearance-aware titlebar surface spans both rows when the compact editing
+  row is visible. Keep a small gap between the toolbar and the image.
 - Workspace windows should open with the image area matching the screenshot
   aspect ratio so the initial preview does not show letterbox/pillarbox edges.
 - Workspace resize keeps the image area at the screenshot aspect ratio while the
@@ -223,16 +223,18 @@ system tool, not a branded dashboard.
 - Undo and Redo sit beside the traffic lights. Center the markup group in the
   remaining space before Copy, Export, and Save Current. Use 36 pt targets
   and 18 pt glyph boxes for markup. Give Save Current the primary treatment.
-- The 42 pt editing row groups Crop, Resize, and Transform on the left. Show
-  color, numeric line width or font size, and the style menu on the right
-  when the selected object or tool has adjustable settings. Keep the window
-  size stable as these controls appear.
-- Crop keeps the markup group in place and uses the lower row to show the
-  ratio, output dimensions, Cancel,
-  and Apply. Return applies the crop. Escape cancels it. The canvas status
-  row shows actual pixel dimensions and zoom and provides Fit and 100%
-  controls. The canvas has an opaque work area and a checkerboard where the
-  image has transparent pixels.
+- Open the right inspector by default. The titlebar toggle hides it and
+  returns the width to the canvas. Selecting a tool or object changes the
+  inspector's controls. Give shapes a color, width, and line or fill controls.
+  Give text a font, size, bold and italic, alignment, and color. Show all four
+  redaction modes and the settings for the selected mode.
+- Put Crop, Resize, Transform, and zoom controls in the inspector when it is
+  expanded. Crop replaces the tool controls with aspect ratio, pixel dimensions,
+  Cancel, and Apply. When the inspector is collapsed, restore a compact editing
+  row and footer zoom controls. Keep the window frame stable when toggling.
+- Return applies the crop and Escape cancels it. The canvas status row shows
+  actual pixel dimensions and feedback. The canvas has an opaque work area and a
+  checkerboard where the image has transparent pixels.
 - Crop, resize, rotate, flip, and raster adjustments share undo with annotation
   edits. Guides and object handles are visible on canvas only. Shapes use
   corner handles. Lines and arrows use their actual endpoints. Hold Shift

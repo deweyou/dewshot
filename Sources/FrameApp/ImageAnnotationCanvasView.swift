@@ -315,6 +315,14 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
         notifyDocumentChanged()
     }
 
+    func setInspectorMosaicMode(_ mode: ImageAnnotationMosaicMode) {
+        document.setMosaicMode(mode)
+        document.changeSelectedMosaicMode(mode)
+        needsDisplay = true
+        notifyDocumentChanged()
+        onEditingOptionsChange?()
+    }
+
     func setStyle(_ style: ImageAnnotationStyle) {
         document.setStyle(style)
         updateSelectedElementStyleIfNeeded(style)

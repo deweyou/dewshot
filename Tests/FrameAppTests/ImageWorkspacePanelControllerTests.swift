@@ -2078,7 +2078,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testTemporaryWorkspaceReusesExistingWindowForSameScreenshot() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
 
@@ -2130,7 +2130,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testPinnedWorkspaceIsImageOnlyWithoutToolbar() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
 
         XCTAssertTrue(controller.show(
@@ -2186,7 +2186,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testTemporaryWorkspaceOpensSmallImageAtOriginalDisplaySize() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
         let screenshot = try makeSolidScreenshot(color: .systemBlue, size: CGSize(width: 120, height: 80))
 
@@ -2215,7 +2215,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testPinnedWorkspaceOpensSmallImageAtOriginalDisplaySize() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
         let screenshot = try makeSolidScreenshot(color: .systemBlue, size: CGSize(width: 120, height: 80))
 
@@ -2251,7 +2251,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         )
 
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
         let screenshot = try makeSolidScreenshot(color: .systemBlue, size: sourceSize)
 
@@ -2282,7 +2282,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         let visibleFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let sourceSize = CGSize(width: 1_000, height: max(4_000, visibleFrame.height * 4))
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
 
         XCTAssertTrue(controller.show(
@@ -2326,7 +2326,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         )
 
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
         let screenshot = try makeSolidScreenshot(color: .systemBlue, size: sourceSize)
 
@@ -2355,7 +2355,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testTemporaryWorkspaceTrackpadMagnificationZoomsImageWithoutResizingWindow() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
 
         XCTAssertTrue(controller.show(
@@ -2403,7 +2403,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testTemporaryWorkspaceScrollWheelPansZoomedImageWithoutResizingWindow() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
 
         XCTAssertTrue(controller.show(
@@ -2444,7 +2444,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testPinnedWorkspaceTrackpadMagnificationZoomsImageWithoutResizingWindow() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
 
         XCTAssertTrue(controller.show(
@@ -2483,7 +2483,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testPinnedWorkspaceScrollWheelPansZoomedImageWithoutResizingWindow() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
 
         XCTAssertTrue(controller.show(
@@ -2517,7 +2517,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testPinnedWorkspaceContextMenuOutputsAndEditsWithoutClosingPin() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
         var copyCount = 0
         var saveCount = 0
@@ -2573,7 +2573,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testTemporaryWorkspaceStaysOpenOnFocusLossAndClosesOnEscape() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
 
         XCTAssertTrue(controller.show(
@@ -2595,10 +2595,89 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
         XCTAssertFalse(panel.isVisible)
     }
 
+    func testWorkspaceInspectorOpensWithContextualToolsAndCanBeCollapsed() throws {
+        _ = NSApplication.shared
+        let windows = Set(NSApp.windows.map(ObjectIdentifier.init))
+        let controller = ImageWorkspacePanelController()
+        retainedControllers.append(controller)
+        XCTAssertTrue(controller.show(screenshot: try makeScreenshot(), kind: .temporaryPreview, copy: { true }, save: { true }))
+        let panel = try XCTUnwrap(workspacePanels(excluding: windows).first)
+        defer { closePanel(panel) }
+        let content = try XCTUnwrap(panel.contentView)
+        content.layoutSubtreeIfNeeded()
+        let inspector = try XCTUnwrap(findView(in: content, accessibilityLabel: "Image Workspace Inspector"))
+        let canvas = try XCTUnwrap(findAnnotationCanvas(in: content))
+        XCTAssertFalse(inspector.isHidden)
+        XCTAssertNil(findButton(in: content, accessibilityLabel: "Mosaic Options"))
+        XCTAssertNotNil(findButton(in: inspector, accessibilityLabel: "Crop"))
+        let expandedWidth = canvas.bounds.width
+        let windowSize = panel.frame.size
+
+        canvas.selectTool(.shape)
+        let width = try XCTUnwrap(findButton(in: inspector, accessibilityLabel: "Width") as? NSPopUpButton)
+        width.selectItem(at: 4)
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(width.action), to: width.target, from: width))
+        XCTAssertEqual(canvas.documentForTesting.editingOptions.style.lineWidth, 12)
+        XCTAssertNil(findButton(in: inspector, accessibilityLabel: "Font"))
+
+        canvas.selectTool(.text)
+        let font = try XCTUnwrap(findButton(in: inspector, accessibilityLabel: "Font") as? NSPopUpButton)
+        font.selectItem(withTitle: "Georgia")
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(font.action), to: font.target, from: font))
+        let traits = try XCTUnwrap(findView(in: inspector, accessibilityLabel: "Typeface style") as? NSSegmentedControl)
+        traits.setSelected(true, forSegment: 0)
+        traits.setSelected(true, forSegment: 1)
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(traits.action), to: traits.target, from: traits))
+        let style = canvas.documentForTesting.editingOptions.style
+        XCTAssertEqual(style.fontName, "Georgia")
+        XCTAssertEqual(style.fontWeight, .bold)
+        XCTAssertEqual(style.textItalic, true)
+        XCTAssertTrue(NSFontManager.shared.traits(of: ImageAnnotationTextStyle.font(for: style)).contains(.italicFontMask))
+        XCTAssertNil(findButton(in: inspector, accessibilityLabel: "Width"))
+
+        canvas.selectTool(.mosaic)
+        let blur = try XCTUnwrap(findButton(in: inspector, accessibilityLabel: "Blur"))
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(blur.action), to: blur.target, from: blur))
+        XCTAssertEqual(canvas.documentForTesting.editingOptions.mosaicMode, .blur)
+        var document = canvas.documentForTesting
+        let mask = ImageAnnotationElement(kind: .mosaic(.rectangle), bounds: CGRect(x: 10, y: 10, width: 90, height: 45), style: .default)
+        document.add(mask)
+        canvas.setDocument(document)
+        let brush = try XCTUnwrap(findButton(in: inspector, accessibilityLabel: "Brush"))
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(brush.action), to: brush.target, from: brush))
+        XCTAssertEqual(canvas.documentForTesting.elements.last?.kind, .mosaic(.brush))
+        XCTAssertEqual(canvas.documentForTesting.elements.last?.points.count, 2)
+        canvas.undo()
+        XCTAssertEqual(canvas.documentForTesting.elements.last?.kind, .mosaic(.rectangle))
+
+        let crop = try XCTUnwrap(findButton(in: inspector, accessibilityLabel: "Crop"))
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(crop.action), to: crop.target, from: crop))
+        XCTAssertNotNil(findButton(in: inspector, accessibilityLabel: "Apply Crop"))
+        canvas.cancelCrop()
+
+        let toggle = try XCTUnwrap(findButton(in: content, accessibilityLabel: "Hide Inspector"))
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(toggle.action), to: toggle.target, from: toggle))
+        XCTAssertTrue(inspector.isHidden)
+        XCTAssertGreaterThan(canvas.bounds.width, expandedWidth)
+        XCTAssertEqual(panel.frame.size, windowSize)
+        XCTAssertNotNil(findButton(in: content, accessibilityLabel: "Mosaic Options"))
+        XCTAssertNotNil(findButton(in: content, accessibilityLabel: "Zoom Out"))
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(toggle.action), to: toggle.target, from: toggle))
+        XCTAssertFalse(inspector.isHidden)
+        XCTAssertEqual(canvas.bounds.width, expandedWidth, accuracy: 0.5)
+
+        canvas.selectTool(.text)
+        panel.setFrame(NSRect(origin: panel.frame.origin, size: CGSize(width: windowSize.width, height: 270)), display: false)
+        content.layoutSubtreeIfNeeded()
+        let scroll = try XCTUnwrap(inspector.subviews.compactMap { $0 as? NSScrollView }.first)
+        let scrollDocument = try XCTUnwrap(scroll.documentView)
+        XCTAssertGreaterThan(scrollDocument.bounds.height, scroll.contentView.bounds.height)
+    }
+
     func testWorkspaceUsesNativeCloseAndTopToolbarOutsideImage() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
         var copyCount = 0
         var saveCount = 0
@@ -2799,7 +2878,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testTemporaryWorkspaceAutomaticallyLoadsOCRTextOverlay() async throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
         var recognizeCount = 0
@@ -2870,7 +2949,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     func testOCRTextSelectionOverlayOnlyHitsTextWhenPointerToolIsActive() async throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
         let screenshot = try makeScreenshot()
 
@@ -3090,7 +3169,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
     private func assertLiveCornerResizeKeepsInitialResizeAxisStable(kind: ImageWorkspaceKind) throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
-        let controller = ImageWorkspacePanelController()
+        let controller = ImageWorkspacePanelController(showsInspectorByDefault: false)
         retainedControllers.append(controller)
 
         XCTAssertTrue(controller.show(
@@ -3248,6 +3327,7 @@ final class ImageWorkspacePanelControllerTests: XCTestCase {
             controllerDefaults = UserDefaults(suiteName: suiteName)!
         }
         let controller = ImageWorkspacePanelController(
+            showsInspectorByDefault: false,
             editingOptionsProvider: {
                 SettingsStore.imageAnnotationEditingOptions(defaults: controllerDefaults)
             },
