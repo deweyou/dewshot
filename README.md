@@ -83,8 +83,8 @@ permission and lets you try a screenshot as soon as it is enabled.
 If System Settings opens, the dewShot guide shows how to enable it or drag
 the app into the list when it is missing.
 
-dewShot also lists Accessibility and Input Monitoring in Settings. Those optional
-permissions support automatic scrolling and live keyboard hints; their status
-refreshes after you return from System Settings.
+The welcome window and Settings list Accessibility and Input Monitoring as
+optional permissions for automatic scrolling and live keyboard hints. Their
+status refreshes after you return from System Settings.
 
 See [macOS Permissions](docs/permissions.md) for more detail.

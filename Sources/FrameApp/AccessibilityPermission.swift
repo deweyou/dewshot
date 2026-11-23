@@ -9,13 +9,7 @@ enum AccessibilityPermission {
     }
 
     static func openSettings() {
-        guard let settingsURL = URL(
-            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
-        ) else {
-            return
-        }
-
-        NSWorkspace.shared.open(settingsURL)
+        PermissionSettingsPage.accessibility.open()
     }
 }
 
@@ -24,14 +18,9 @@ enum InputMonitoringPermission {
         CGPreflightListenEventAccess()
     }
 
+    @MainActor
     static func openSettings() {
-        guard let settingsURL = URL(
-            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
-        ) else {
-            return
-        }
-
-        NSWorkspace.shared.open(settingsURL)
+        PermissionSettingsPage.inputMonitoring.open()
     }
     @MainActor
     static func confirmOpeningSettings(strings: AppStrings, above window: NSWindow?) -> Bool {

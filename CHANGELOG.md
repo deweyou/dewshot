@@ -4,6 +4,7 @@
 
 - Show screenshot and recording shortcuts on first launch, walk through Screen
   Recording access, and offer a first screenshot from the welcome window.
+  Accessibility and Input Monitoring are available as optional setup steps.
 
 - Show a small permission guide beside System Settings when dewShot needs
   Screen Recording access. Drag the dewShot icon into the list if it is missing.

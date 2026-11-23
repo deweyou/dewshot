@@ -171,6 +171,8 @@ guide opens beside System Settings, and drag the app into the list if it is
 missing. Enable access and follow any system prompt to relaunch. The welcome
 window should resume with its screenshot action available. Test the drag in the
 signed app because the destination is a system-owned privacy control.
+Confirm that the two optional welcome rows open their respective settings pages
+and that the screenshot action is available with both optional permissions off.
 
 1. Capture a region using the global shortcut. Save from Quick Access and choose
    a folder outside the app container. Canceling the picker should leave the

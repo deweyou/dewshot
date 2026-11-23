@@ -1475,6 +1475,13 @@ struct AppStrings {
         }
     }
 
+    var firstRunOptionalPermissions: String {
+        switch language {
+        case .zhHans: "可选权限"
+        case .en: "Optional Permissions"
+        }
+    }
+
     var firstRunStartCapture: String {
         switch language {
         case .zhHans: "开始截图"
@@ -1496,7 +1503,7 @@ struct AppStrings {
         }
     }
 
-    func screenRecordingGuideMessage(appName: String) -> String {
+    func permissionGuideMessage(appName: String) -> String {
         switch language {
         case .zhHans:
             "在系统设置中打开 \(appName) 的开关。"
@@ -1505,7 +1512,7 @@ struct AppStrings {
         }
     }
 
-    var screenRecordingGuideDrag: String {
+    var permissionGuideDrag: String {
         switch language {
         case .zhHans: "列表里没有？拖进去添加"
         case .en: "Missing from the list? Drag to add."

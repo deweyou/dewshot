@@ -2,19 +2,54 @@ import AppKit
 import SwiftUI
 
 @MainActor
-final class ScreenRecordingPermissionPanel {
-    static let shared = ScreenRecordingPermissionPanel()
+enum PermissionSettingsPage {
+    case screenRecording
+    case accessibility
+    case inputMonitoring
+
+    var hasAccess: Bool {
+        switch self {
+        case .screenRecording: ScreenRecordingPermission.hasAccess
+        case .accessibility: AccessibilityPermission.hasAccess
+        case .inputMonitoring: InputMonitoringPermission.hasAccess
+        }
+    }
+
+    func open(guide strings: AppStrings? = nil) {
+        let anchor = switch self {
+        case .screenRecording: "Privacy_ScreenCapture"
+        case .accessibility: "Privacy_Accessibility"
+        case .inputMonitoring: "Privacy_ListenEvent"
+        }
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(anchor)"),
+              NSWorkspace.shared.open(url),
+              let strings,
+              !hasAccess else { return }
+
+        let title = switch self {
+        case .screenRecording: strings.screenRecordingGuideTitle
+        case .accessibility: strings.settingsAccessibilityPermission
+        case .inputMonitoring: strings.settingsInputMonitoringPermission
+        }
+        PermissionGuidePanel.shared.show(title: title, strings: strings, hasAccess: { hasAccess })
+    }
+}
+
+@MainActor
+final class PermissionGuidePanel {
+    static let shared = PermissionGuidePanel()
     private static let settingsBundleID = "com.apple.systempreferences"
 
     private var panel: NSPanel?
     private var followTask: Task<Void, Never>?
 
-    func show(strings: AppStrings) {
+    func show(title: String, strings: AppStrings, hasAccess: @escaping () -> Bool) {
         dismiss()
         let bundle = Bundle.main
         let appName = bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "dewShot"
         let icon = NSWorkspace.shared.icon(forFile: bundle.bundleURL.path)
-        let card = ScreenRecordingPermissionCard(
+        let card = PermissionGuideCard(
+            title: title,
             strings: strings,
             appName: appName,
             bundleURL: bundle.bundleURL,
@@ -28,7 +63,7 @@ final class ScreenRecordingPermissionPanel {
             backing: .buffered,
             defer: false
         )
-        panel.title = strings.screenRecordingGuideTitle
+        panel.title = title
         panel.contentView = host
         panel.isFloatingPanel = true
         panel.level = .floating
@@ -44,7 +79,7 @@ final class ScreenRecordingPermissionPanel {
             var settingsWasRunning = false
             let launchDeadline = ContinuousClock.now + .seconds(5)
             while !Task.isCancelled, let self {
-                if ScreenRecordingPermission.hasAccess {
+                if hasAccess() {
                     self.dismiss()
                     return
                 }
@@ -124,7 +159,8 @@ final class ScreenRecordingPermissionPanel {
     }
 }
 
-private struct ScreenRecordingPermissionCard: View {
+private struct PermissionGuideCard: View {
+    let title: String
     let strings: AppStrings
     let appName: String
     let bundleURL: URL
@@ -134,7 +170,7 @@ private struct ScreenRecordingPermissionCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 13) {
             HStack(alignment: .firstTextBaseline) {
-                Text(strings.screenRecordingGuideTitle)
+                Text(title)
                     .font(.system(size: 16, weight: .semibold))
                     .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: 8)
@@ -147,7 +183,7 @@ private struct ScreenRecordingPermissionCard: View {
                 .accessibilityLabel(strings.quickAccessClose)
             }
 
-            Text(strings.screenRecordingGuideMessage(appName: appName))
+            Text(strings.permissionGuideMessage(appName: appName))
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -160,7 +196,7 @@ private struct ScreenRecordingPermissionCard: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(appName)
                         .font(.system(size: 13, weight: .semibold))
-                    Text(strings.screenRecordingGuideDrag)
+                    Text(strings.permissionGuideDrag)
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }

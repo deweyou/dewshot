@@ -3,7 +3,10 @@
 dewShot needs macOS Screen Recording permission because it captures pixels directly from the display instead of using the system screenshot picker.
 
 The first-run window shows both capture shortcuts and offers Screen Recording
-setup and a first screenshot. Closing the window keeps dewShot in the menu bar.
+setup and a first screenshot. It also offers optional Accessibility and Input
+Monitoring setup. Those entries open their System Settings pages with the
+drag-in guide. Only Screen Recording access enables the first screenshot.
+Closing the window keeps dewShot in the menu bar.
 The next capture attempt reopens setup if access is missing. If macOS relaunches
 dewShot during setup, the window resumes.
 

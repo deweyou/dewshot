@@ -51,6 +51,25 @@ final class FirstRunSetupTests: XCTestCase {
     }
 
     @MainActor
+    func testOptionalPermissionsCanChangeWithoutBlockingCapture() {
+        var optionalPermissions: Set<PermissionSettingsPage> = []
+        let state = FirstRunSetupState(
+            hasAccess: { true },
+            requestAccess: {},
+            openSettings: {},
+            readOptionalPermissions: { optionalPermissions }
+        )
+
+        XCTAssertEqual(state.phase, .ready)
+        XCTAssertTrue(state.grantedOptionalPermissions.isEmpty)
+
+        optionalPermissions = [.accessibility]
+        state.refresh()
+        XCTAssertEqual(state.grantedOptionalPermissions, [.accessibility])
+        XCTAssertEqual(state.phase, .ready)
+    }
+
+    @MainActor
     func testWelcomeViewFitsBothLanguagesAcrossPermissionPhases() {
         _ = NSApplication.shared
         for strings in [AppStrings(language: .en), AppStrings(language: .zhHans)] {
@@ -78,8 +97,8 @@ final class FirstRunSetupTests: XCTestCase {
                 }
                 let host = NSHostingView(rootView: view)
                 XCTAssertEqual(host.fittingSize.width, 476)
-                XCTAssertGreaterThan(host.fittingSize.height, 340)
-                XCTAssertLessThan(host.fittingSize.height, 480)
+                XCTAssertGreaterThan(host.fittingSize.height, 450)
+                XCTAssertLessThan(host.fittingSize.height, 620)
                 fittedHeights.append(host.fittingSize.height)
             }
             XCTAssertEqual(Set(fittedHeights).count, 1)

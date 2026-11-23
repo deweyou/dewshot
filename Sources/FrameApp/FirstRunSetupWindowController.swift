@@ -24,7 +24,9 @@ final class FirstRunSetupState {
     }
 
     private(set) var phase: Phase
+    private(set) var grantedOptionalPermissions: Set<PermissionSettingsPage>
     private let hasAccess: () -> Bool
+    private let readOptionalPermissions: () -> Set<PermissionSettingsPage>
     private let requestAccess: () -> Void
     private let openSettings: () -> Void
     private var isRequesting = false
@@ -32,12 +34,15 @@ final class FirstRunSetupState {
     init(
         hasAccess: @escaping () -> Bool,
         requestAccess: @escaping () -> Void,
-        openSettings: @escaping () -> Void
+        openSettings: @escaping () -> Void,
+        readOptionalPermissions: @escaping () -> Set<PermissionSettingsPage> = { [] }
     ) {
         self.hasAccess = hasAccess
         self.requestAccess = requestAccess
         self.openSettings = openSettings
+        self.readOptionalPermissions = readOptionalPermissions
         phase = hasAccess() ? .ready : .needsPermission
+        grantedOptionalPermissions = readOptionalPermissions()
     }
 
     func refresh() {
@@ -46,6 +51,7 @@ final class FirstRunSetupState {
         } else if phase == .ready {
             phase = .needsPermission
         }
+        grantedOptionalPermissions = readOptionalPermissions()
     }
 
     func requestPermission() {
@@ -86,7 +92,10 @@ final class FirstRunSetupWindowController: NSObject, NSWindowDelegate {
         let state = FirstRunSetupState(
             hasAccess: hasAccess,
             requestAccess: { _ = ScreenRecordingPermission.requestAccess() },
-            openSettings: { ScreenRecordingPermission.openSettings(strings: strings) }
+            openSettings: { ScreenRecordingPermission.openSettings(strings: strings) },
+            readOptionalPermissions: {
+                Set([PermissionSettingsPage.accessibility, .inputMonitoring].filter(\.hasAccess))
+            }
         )
         let view = FirstRunSetupView(
             strings: strings,
@@ -130,7 +139,7 @@ final class FirstRunSetupWindowController: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
-        ScreenRecordingPermissionPanel.shared.dismiss()
+        PermissionGuidePanel.shared.dismiss()
         window = nil
     }
 
@@ -154,6 +163,7 @@ struct FirstRunSetupView: View {
         VStack(alignment: .leading, spacing: 20) {
             hero
             permissionStatus
+            optionalPermissions
             Button(primaryTitle, action: primaryAction)
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
@@ -252,6 +262,76 @@ struct FirstRunSetupView: View {
         }
         .padding(.horizontal, 2)
         .accessibilityElement(children: .combine)
+    }
+
+    private var optionalPermissions: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(strings.firstRunOptionalPermissions)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .accessibilityAddTraits(.isHeader)
+                .padding(.leading, 2)
+
+            VStack(spacing: 0) {
+                optionalPermissionRow(
+                    .accessibility,
+                    title: strings.settingsAccessibilityPermission,
+                    purpose: strings.settingsAccessibilityPurpose,
+                    icon: "figure.arms.open"
+                )
+                Divider().padding(.leading, 48)
+                optionalPermissionRow(
+                    .inputMonitoring,
+                    title: strings.settingsInputMonitoringPermission,
+                    purpose: strings.settingsInputMonitoringPurpose,
+                    icon: "keyboard"
+                )
+            }
+            .background(.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
+        }
+    }
+
+    private func optionalPermissionRow(
+        _ page: PermissionSettingsPage,
+        title: String,
+        purpose: String,
+        icon: String
+    ) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 15))
+                .foregroundStyle(.secondary)
+                .frame(width: 24)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.system(size: 13, weight: .medium))
+                Text(purpose)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            if state.grantedOptionalPermissions.contains(page) {
+                Label(strings.settingsPermissionGranted, systemImage: "checkmark.circle.fill")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.green)
+                    .accessibilityLabel("\(title), \(strings.settingsPermissionGranted)")
+            } else {
+                Button {
+                    page.open(guide: strings)
+                } label: {
+                    Text(strings.settingsOpenSystemSettings)
+                        .font(.system(size: 12, weight: .medium))
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
+                        .background(.primary.opacity(0.065), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(title), \(strings.settingsOpenSystemSettings)")
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
     }
 
     private var permissionMessage: String {
