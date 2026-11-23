@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Center the Capture History filter vertically in its header to give it more room above.
+
 - Center short text-recognition results in the Quick Access screenshot preview, clear of its toolbar.
 
 - Focus the first release on capture, preview, copy, and save. Open copies of screenshots and recordings in the macOS default app while the built-in editors are deferred.

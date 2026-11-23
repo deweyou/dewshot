@@ -291,7 +291,7 @@ final class CaptureHistoryWindowController: NSObject {
             toolbarView.heightAnchor.constraint(equalToConstant: 46),
 
             filterControl.trailingAnchor.constraint(equalTo: toolbarView.trailingAnchor, constant: -18),
-            filterControl.topAnchor.constraint(equalTo: toolbarView.topAnchor, constant: 2),
+            filterControl.centerYAnchor.constraint(equalTo: toolbarView.centerYAnchor),
             filterControl.heightAnchor.constraint(equalToConstant: 32),
 
             scrollView.leadingAnchor.constraint(equalTo: materialView.leadingAnchor),

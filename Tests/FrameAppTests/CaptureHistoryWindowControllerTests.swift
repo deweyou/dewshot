@@ -168,6 +168,11 @@ final class CaptureHistoryWindowControllerTests: XCTestCase {
         XCTAssertNil(findView(in: contentView, ofType: NSSegmentedControl.self))
         let filterControl = try XCTUnwrap(findView(in: contentView, accessibilityLabel: "Capture History Filter"))
         XCTAssertEqual(filterControl.layer?.cornerRadius ?? 0, filterControl.frame.height / 2, accuracy: 1)
+        let header = try XCTUnwrap(filterControl.superview)
+        let topInset = header.bounds.maxY - filterControl.frame.maxY
+        let bottomInset = filterControl.frame.minY - header.bounds.minY
+        XCTAssertGreaterThanOrEqual(topInset, 6)
+        XCTAssertEqual(topInset, bottomInset, accuracy: 0.5)
 
         let buttons = findButtons(in: filterControl)
         XCTAssertEqual(buttons.map(\.title), ["All", "Screenshots", "Recordings"])
