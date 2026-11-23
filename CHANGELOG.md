@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- Group screenshot and recording keycaps in a shared shortcut bar on first launch.
-  The welcome window guides Screen Recording access and offers a first screenshot.
+- Show screenshot and recording shortcuts, guide Screen Recording access, and
+  offer a first screenshot from the welcome window.
   Accessibility and Input Monitoring are available as optional setup steps.
 
 - Show a small permission guide beside System Settings when dewShot needs

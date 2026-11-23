@@ -216,7 +216,7 @@ struct FirstRunSetupView: View {
         let screenshot = shortcutHint(strings.firstRunScreenshot, icon: "camera.viewfinder", shortcut: screenshotShortcut)
         let recording = shortcutHint(strings.firstRunRecording, icon: "record.circle", shortcut: recordingShortcut)
         return ViewThatFits(in: .horizontal) {
-            HStack(spacing: 26) {
+            HStack(spacing: 22) {
                 screenshot
                 recording
             }
@@ -225,9 +225,6 @@ struct FirstRunSetupView: View {
                 recording
             }
         }
-        .padding(.horizontal, 11)
-        .padding(.vertical, 8)
-        .background(.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 11))
     }
 
     private func shortcutHint(_ title: String, icon: String, shortcut: ScreenshotShortcut?) -> some View {
@@ -236,17 +233,18 @@ struct FirstRunSetupView: View {
                 .foregroundStyle(.secondary)
             Text(title)
             if let shortcut {
-                HStack(spacing: 3) {
+                HStack(spacing: 6) {
                     ForEach(Array(shortcut.displayName.enumerated()), id: \.offset) { key in
                         Text(String(key.element))
                             .font(.system(size: 12, weight: .medium, design: .monospaced))
-                            .frame(width: 22, height: 24)
-                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 5))
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 5)
-                                    .strokeBorder(.primary.opacity(0.12), lineWidth: 1)
-                            }
                     }
+                }
+                .padding(.horizontal, 9)
+                .frame(height: 25)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(.primary.opacity(0.12), lineWidth: 1)
                 }
                 .padding(.leading, 2)
             } else {
