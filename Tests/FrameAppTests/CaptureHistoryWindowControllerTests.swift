@@ -354,6 +354,45 @@ final class CaptureHistoryWindowControllerTests: XCTestCase {
     }
 
     @MainActor
+    func testTileHoverFollowsPointerWhenTrackingEventsAreMissedOrStale() throws {
+        let record = try addRecord(kind: .screenshot, date: Date(timeIntervalSince1970: 100))
+        let controller = CaptureHistoryWindowController(store: store)
+        controller.show(strings: AppStrings(language: .en))
+        defer { controller.close() }
+        let window = try XCTUnwrap(NSApp.windows.first { $0.title == "Capture History" && $0.isVisible })
+        let contentView = try XCTUnwrap(window.contentView)
+        let grid = try XCTUnwrap(findView(in: contentView, ofType: NSScrollView.self)?.documentView)
+        contentView.layoutSubtreeIfNeeded()
+        let tile = try XCTUnwrap(grid.subviews.first { $0.identifier?.rawValue == record.id.uuidString })
+        let inside = tile.convert(NSPoint(x: tile.bounds.midX, y: tile.bounds.midY), to: nil)
+        let outside = tile.convert(NSPoint(x: tile.bounds.maxX + 5, y: tile.bounds.midY), to: nil)
+
+        func trackingEvent(_ type: NSEvent.EventType, at location: NSPoint) throws -> NSEvent {
+            try XCTUnwrap(NSEvent.enterExitEvent(
+                with: type, location: location, modifierFlags: [], timestamp: 0,
+                windowNumber: window.windowNumber, context: nil, eventNumber: 0,
+                trackingNumber: 0, userData: nil
+            ))
+        }
+
+        controller.setActionsVisible(false, for: record)
+        tile.mouseMoved(with: try XCTUnwrap(NSEvent.mouseEvent(
+            with: .mouseMoved, location: inside, modifierFlags: [], timestamp: 0,
+            windowNumber: window.windowNumber, context: nil, eventNumber: 0,
+            clickCount: 0, pressure: 0
+        )))
+        XCTAssertTrue(controller.areActionsVisible(for: record))
+
+        tile.mouseExited(with: try trackingEvent(.mouseExited, at: inside))
+        XCTAssertTrue(controller.areActionsVisible(for: record))
+
+        tile.mouseExited(with: try trackingEvent(.mouseExited, at: outside))
+        XCTAssertFalse(controller.areActionsVisible(for: record))
+        tile.mouseEntered(with: try trackingEvent(.mouseEntered, at: outside))
+        XCTAssertFalse(controller.areActionsVisible(for: record))
+    }
+
+    @MainActor
     func testTileActionButtonsExposePointerCursorAndTooltips() throws {
         _ = try addRecord(kind: .screenshot, date: Date(timeIntervalSince1970: 100))
         let controller = CaptureHistoryWindowController(store: store)

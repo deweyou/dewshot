@@ -106,6 +106,7 @@ final class CaptureHistoryWindowController: NSObject {
         window.titleVisibility = .visible
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
+        window.acceptsMouseMovedEvents = true
         window.backgroundColor = .clear
         window.isOpaque = false
         window.contentView = makeContentView()
@@ -416,14 +417,15 @@ final class CaptureHistoryWindowController: NSObject {
     }
 
     private func setActionsVisible(_ isVisible: Bool, forRecordID recordID: UUID) {
-        if isVisible {
-            activeHoverRecordID = recordID
-        } else if activeHoverRecordID == recordID {
-            activeHoverRecordID = nil
-        }
+        let previous = activeHoverRecordID
+        guard isVisible ? previous != recordID : previous == recordID else { return }
+        activeHoverRecordID = isVisible ? recordID : nil
 
-        for (tileRecordID, tileView) in tileViewsByRecordID {
-            tileView.setActionsVisible(tileRecordID == activeHoverRecordID)
+        if let previous {
+            tileViewsByRecordID[previous]?.setActionsVisible(false)
+        }
+        if isVisible {
+            tileViewsByRecordID[recordID]?.setActionsVisible(true)
         }
     }
 }
@@ -836,7 +838,7 @@ private final class CaptureHistoryTileView: NSView {
     var onHoverChanged: ((CaptureHistoryRecord, Bool) -> Void)?
 
     var areActionsVisible: Bool {
-        actionsView.alphaValue > 0
+        !actionsView.isHidden
     }
 
     var actionButtons: [NSButton] {
@@ -924,7 +926,7 @@ private final class CaptureHistoryTileView: NSView {
         actionsView.layer?.cornerRadius = 14
         actionsView.layer?.cornerCurve = .continuous
         actionsView.layer?.masksToBounds = true
-        actionsView.alphaValue = 0
+        actionsView.isHidden = true
 
         deleteActionView.material = .hudWindow
         deleteActionView.blendingMode = .withinWindow
@@ -934,7 +936,7 @@ private final class CaptureHistoryTileView: NSView {
         deleteActionView.layer?.cornerRadius = 12
         deleteActionView.layer?.cornerCurve = .continuous
         deleteActionView.layer?.masksToBounds = true
-        deleteActionView.alphaValue = 0
+        deleteActionView.isHidden = true
 
         let actionsStack = NSStackView()
         actionsStack.orientation = .horizontal
@@ -1043,13 +1045,11 @@ private final class CaptureHistoryTileView: NSView {
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
-        if let trackingArea {
-            removeTrackingArea(trackingArea)
-        }
+        guard trackingArea == nil else { return }
 
         let trackingArea = NSTrackingArea(
-            rect: bounds,
-            options: [.activeAlways, .mouseEnteredAndExited, .inVisibleRect],
+            rect: .zero,
+            options: [.activeAlways, .mouseEnteredAndExited, .mouseMoved, .inVisibleRect],
             owner: self,
             userInfo: nil
         )
@@ -1090,16 +1090,25 @@ private final class CaptureHistoryTileView: NSView {
     }
 
     override func mouseEntered(with event: NSEvent) {
-        onHoverChanged?(record, true)
+        updateHover(at: event.locationInWindow)
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        updateHover(at: event.locationInWindow)
     }
 
     override func mouseExited(with event: NSEvent) {
-        onHoverChanged?(record, false)
+        updateHover(at: event.locationInWindow)
+    }
+
+    private func updateHover(at windowPoint: NSPoint) {
+        let isHovered = bounds.intersection(visibleRect).contains(convert(windowPoint, from: nil))
+        onHoverChanged?(record, isHovered)
     }
 
     func setActionsVisible(_ isVisible: Bool) {
-        actionsView.animator().alphaValue = isVisible ? 1 : 0
-        deleteActionView.animator().alphaValue = isVisible ? 1 : 0
+        actionsView.isHidden = !isVisible
+        deleteActionView.isHidden = !isVisible
         applyHoverAppearance(isVisible)
     }
 
