@@ -195,7 +195,7 @@ dewShot directly from the mounted DMG.
 12. Drag to create, move, or resize the region.
 13. Press Enter to capture.
 14. Confirm the `180x120` preview appears at the active screen's bottom-left corner with equal left and bottom padding.
-15. With multiple displays, trigger capture while the active window is on one display and the pointer is on another. Confirm the first preview opens on the active display. Move the pointer between displays and switch focus to another app. Confirm the preview remains on its original display. Dismiss all previews and capture again from the other display to verify that a new stack uses the new active display.
+15. With multiple displays, trigger capture while the active window is on one display and the pointer is on another. Confirm the first preview opens on the active display. Move only the pointer across displays and confirm the preview stays in place. Focus a window on the other display and confirm the existing stack moves together. Repeat with two windows of the same app on different displays.
 16. Take multiple screenshots and confirm previews stack upward from the bottom-left corner.
 17. Confirm the Quick Access preview cannot be moved by dragging its background.
 18. Drag the preview image into a rich-text TextEdit document or Notes note and confirm the target receives image content.

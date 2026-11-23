@@ -4,7 +4,7 @@
 
 - Put Open in Default App and Save first in Quick Access for screenshots and recordings, with Copy at the end.
 
-- Open Quick Access on the active display and keep visible previews on that display when the pointer crosses screens.
+- Open Quick Access on the active display and move existing previews together when window focus switches displays.
 
 - Use a continuous outline around the rounded edges of screenshot and recording previews.
 

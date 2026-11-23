@@ -562,13 +562,14 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         XCTAssertGreaterThan(sortedPanels[1].frame.minY, sortedPanels[0].frame.maxY)
     }
 
-    func testQuickAccessKeepsItsDisplayUntilTheStackIsEmpty() throws {
+    func testQuickAccessMovesExistingStackWhenActiveDisplayChanges() throws {
         _ = NSApplication.shared
         let firstScreen = try XCTUnwrap(NSScreen.screens.first)
         guard let secondScreen = NSScreen.screens.first(where: { $0.frame != firstScreen.frame }) else {
             throw XCTSkip("Requires two non-mirrored displays")
         }
-        let controller = QuickAccessPanelController()
+        var activeFrame = firstScreen.visibleFrame
+        let controller = QuickAccessPanelController(activeDisplayAnchor: { activeFrame })
         retainedPreviewControllers.append(controller)
         let png = try makePNGData()
         let image = NSImage(size: CGSize(width: 320, height: 180))
@@ -587,15 +588,22 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
 
         let firstPanel = try show(first, on: firstScreen)
         defer { _ = controller.closePreview(for: first, notify: false) }
-        let secondPanel = try show(second, on: secondScreen)
+        let secondPanel = try show(second, on: firstScreen)
         defer { _ = controller.closePreview(for: second, notify: false) }
         XCTAssertTrue(firstScreen.visibleFrame.contains(firstPanel.frame))
         XCTAssertTrue(firstScreen.visibleFrame.contains(secondPanel.frame))
+        let offset = secondPanel.frame.minY - firstPanel.frame.minY
+
+        activeFrame = secondScreen.visibleFrame
+        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+
+        XCTAssertTrue(secondScreen.visibleFrame.contains(firstPanel.frame))
+        XCTAssertTrue(secondScreen.visibleFrame.contains(secondPanel.frame))
+        XCTAssertEqual(secondPanel.frame.minY - firstPanel.frame.minY, offset)
+        XCTAssertTrue(firstPanel.isVisible)
+        XCTAssertTrue(secondPanel.isVisible)
         XCTAssertTrue(controller.closePreview(for: first, notify: false))
-        XCTAssertTrue(firstScreen.visibleFrame.contains(secondPanel.frame))
-        XCTAssertTrue(controller.closePreview(for: second, notify: false))
-        let newPanel = try show(first, on: secondScreen)
-        XCTAssertTrue(secondScreen.visibleFrame.contains(newPanel.frame))
+        XCTAssertTrue(secondScreen.visibleFrame.contains(secondPanel.frame))
     }
 
     func testScreenshotAndRecordingQuickAccessCardsUseSameSize() throws {
