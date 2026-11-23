@@ -163,10 +163,13 @@ in the sandbox container. To test it at the stable development-app path, follow
 the replacement and signing checks below with the bundle from
 `.build/app-sandbox/`. Grant Screen Recording if requested, then relaunch.
 
-When testing without an existing permission entry, confirm the guide opens next
-to System Settings. Drag the app from the guide into the list, enable it, and
-follow any system prompt to relaunch. Test the drag in the signed app because
-the destination is a system-owned privacy control.
+When testing a first launch without Screen Recording access, confirm the welcome
+window shows the configured screenshot shortcut. In the signed app, choose Later
+and reopen setup from Capture Screenshot. Start permission setup, confirm the
+guide opens beside System Settings, and drag the app into the list if it is
+missing. Enable access and follow any system prompt to relaunch. The welcome
+window should resume with its screenshot action available. Test the drag in the
+signed app because the destination is a system-owned privacy control.
 
 1. Capture a region using the global shortcut. Save from Quick Access and choose
    a folder outside the app container. Canceling the picker should leave the

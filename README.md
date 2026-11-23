@@ -78,6 +78,8 @@ The goal is simple: capture what you need, then get back to what you were doing.
 dewShot needs the macOS Screen Recording permission so it can see what is on your
 screen when you take a screenshot or recording. The name sounds broader than
 screenshots, but macOS uses this permission for screenshot apps too.
+On first launch without access, the welcome window guides you through this
+permission and lets you try a screenshot as soon as it is enabled.
 If System Settings opens, the dewShot guide shows how to enable it or drag
 the app into the list when it is missing.
 

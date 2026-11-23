@@ -1426,26 +1426,52 @@ struct AppStrings {
         }
     }
 
-    var screenRecordingPermissionRequiredTitle: String {
+    var firstRunTitle: String {
         switch language {
-        case .zhHans: "dewShot 需要屏幕录制权限"
-        case .en: "dewShot Needs Screen Recording Permission"
+        case .zhHans: "欢迎使用 dewShot"
+        case .en: "Welcome to dewShot"
         }
     }
 
-    var screenRecordingPermissionRequiredMessage: String {
+    var firstRunIntroduction: String {
         switch language {
-        case .zhHans:
-            "继续后，macOS 会要求你允许 dewShot 截图和录屏。"
-        case .en:
-            "Continue to allow dewShot to take screenshots and record the screen."
+        case .zhHans: "dewShot 常驻菜单栏，随时可以截图或录屏。"
+        case .en: "Capture your screen anytime from the menu bar."
         }
     }
 
-    var screenRecordingPermissionContinue: String {
+    var firstRunPermissionExplanation: String {
         switch language {
-        case .zhHans: "继续"
-        case .en: "Continue"
+        case .zhHans: "macOS 需要你先允许 dewShot 读取屏幕，才能截图和录屏。"
+        case .en: "Allow dewShot to access the screen before taking screenshots or recording."
+        }
+    }
+
+    var firstRunPermissionWaiting: String {
+        switch language {
+        case .zhHans: "请在系统设置中打开 dewShot 的开关。如果 macOS 提示重开，请选择「退出并重新打开」。"
+        case .en: "Turn on dewShot in System Settings. If macOS asks you to reopen, choose Quit & Reopen."
+        }
+    }
+
+    var firstRunLater: String {
+        switch language {
+        case .zhHans: "稍后"
+        case .en: "Later"
+        }
+    }
+
+    var firstRunStartCapture: String {
+        switch language {
+        case .zhHans: "开始截图"
+        case .en: "Take a Screenshot"
+        }
+    }
+
+    var firstRunReady: String {
+        switch language {
+        case .zhHans: "权限已开启，试一次截图吧。"
+        case .en: "Screen recording is enabled. Try your first screenshot."
         }
     }
 
@@ -1469,20 +1495,6 @@ struct AppStrings {
         switch language {
         case .zhHans: "列表里没有？拖进去添加"
         case .en: "Missing from the list? Drag to add."
-        }
-    }
-
-    var screenRecordingPermissionGrantedTitle: String {
-        switch language {
-        case .zhHans: "dewShot 屏幕录制权限已开启"
-        case .en: "Screen Recording Permission Granted"
-        }
-    }
-
-    var screenRecordingPermissionRestartMessage: String {
-        switch language {
-        case .zhHans: "请重新打开 dewShot 后再使用截图或录屏。"
-        case .en: "Reopen dewShot before taking a screenshot or recording the screen."
         }
     }
 

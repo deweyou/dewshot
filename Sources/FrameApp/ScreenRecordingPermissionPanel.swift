@@ -74,7 +74,7 @@ final class ScreenRecordingPermissionPanel {
         }
     }
 
-    private func dismiss() {
+    func dismiss() {
         followTask?.cancel()
         followTask = nil
         panel?.orderOut(nil)

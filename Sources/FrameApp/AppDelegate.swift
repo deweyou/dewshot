@@ -31,11 +31,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let videoEditingExporter: VideoEditingExporting
     private let keyboardHintOverlayController: KeyboardHintOverlayControlling
     private let hasScreenRecordingAccess: () -> Bool
-    private let showMissingScreenRecordingPermission: () -> Void
+    private let showMissingScreenRecordingPermission: (() -> Void)?
     private let playInvalidActionFeedback: () -> Void
     private let activeRecordingHUDPanelController = ActiveRecordingHUDPanelController()
     private let recordingBoundaryOverlayController = RecordingBoundaryOverlayController()
     private let settingsWindowController = SettingsWindowController()
+    private let firstRunSetupWindowController = FirstRunSetupWindowController()
     private var captureHistoryWindowController: CaptureHistoryWindowController?
     private var strings = AppStrings.current()
     private var activeQuickAccessScreenshotIDs: Set<UUID> = []
@@ -64,9 +65,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         recordingFileWriter: RecordingFileWriter = RecordingFileWriter(),
         videoEditingExporter: VideoEditingExporting = VideoEditingExporter(),
         hasScreenRecordingAccess: @escaping () -> Bool = { ScreenRecordingPermission.hasAccess },
-        showMissingScreenRecordingPermission: @escaping () -> Void = {
-            ScreenRecordingPermission.showMissingPermissionAlert(strings: .current())
-        },
+        showMissingScreenRecordingPermission: (() -> Void)? = nil,
         playInvalidActionFeedback: @escaping () -> Void = { NSSound.beep() }
     ) {
         self.selectionOverlayController = selectionOverlayController
@@ -144,6 +143,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showHotKeyRegistrationFailedAlert(error)
             NSLog("dewShot 快捷键注册失败: \(error.localizedDescription)")
         }
+
+        if SettingsStore.firstRunSetupProgress().shouldShowOnLaunch(hasAccess: hasScreenRecordingAccess()) {
+            showFirstRunSetup()
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -187,6 +190,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         showCaptureHistory()
     }
 
+    private func showFirstRunSetup() {
+        firstRunSetupWindowController.show(
+            strings: strings,
+            shortcut: SettingsStore.screenshotShortcut(),
+            hasAccess: hasScreenRecordingAccess
+        ) { [weak self] in
+            guard let self else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + self.overlayDismissalCaptureDelay) { [weak self] in
+                self?.startCaptureFlow()
+            }
+        }
+    }
+
     private var isCaptureFlowBusy: Bool {
         selectionOverlayController.isSelecting
             || scrollingScreenshotSessionController.isActive
@@ -214,10 +230,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         guard hasScreenRecordingAccess() else {
-            showMissingScreenRecordingPermission()
+            if let showMissingScreenRecordingPermission {
+                showMissingScreenRecordingPermission()
+            } else {
+                showFirstRunSetup()
+            }
             return false
         }
 
+        firstRunSetupWindowController.finishIfVisible()
         quickAccessPanelController.temporarilyHidePreviews()
 
         let quickAccessAnchor = ActiveScreenResolver.preferredQuickAccessAnchor()

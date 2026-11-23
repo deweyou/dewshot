@@ -2,8 +2,6 @@ import AppKit
 import CoreGraphics
 
 enum ScreenRecordingPermission {
-    @MainActor private static var isRequestInProgress = false
-
     static var hasAccess: Bool {
         CGPreflightScreenCaptureAccess()
     }
@@ -23,45 +21,5 @@ enum ScreenRecordingPermission {
         if NSWorkspace.shared.open(settingsURL), !hasAccess {
             ScreenRecordingPermissionPanel.shared.show(strings: strings)
         }
-    }
-
-    @MainActor
-    static func showMissingPermissionAlert(strings: AppStrings = .current()) {
-        guard !isRequestInProgress else { return }
-        isRequestInProgress = true
-        defer { isRequestInProgress = false }
-
-        let alert = NSAlert()
-        alert.messageText = strings.screenRecordingPermissionRequiredTitle
-        alert.informativeText = strings.screenRecordingPermissionRequiredMessage
-        alert.addButton(withTitle: strings.screenRecordingPermissionContinue)
-        alert.addButton(withTitle: strings.cancel)
-
-        NSApp.activate(ignoringOtherApps: true)
-        if alert.runModal() == .alertFirstButtonReturn {
-            requestAccessAndOpenSettingsIfNeeded(strings: strings)
-        }
-    }
-
-    @MainActor
-    private static func requestAccessAndOpenSettingsIfNeeded(strings: AppStrings) {
-        NSLog("dewShot 正在请求屏幕录制权限")
-        let didGrantAccess = requestAccess()
-        NSLog("dewShot 屏幕录制权限请求结果: \(didGrantAccess)")
-
-        if hasAccess {
-            showRestartRequiredAlert(strings: strings)
-        } else {
-            openSettings(strings: strings)
-        }
-    }
-
-    @MainActor
-    private static func showRestartRequiredAlert(strings: AppStrings) {
-        let alert = NSAlert()
-        alert.messageText = strings.screenRecordingPermissionGrantedTitle
-        alert.informativeText = strings.screenRecordingPermissionRestartMessage
-        alert.addButton(withTitle: strings.ok)
-        alert.runModal()
     }
 }

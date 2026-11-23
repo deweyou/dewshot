@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Walk through Screen Recording access on first launch and offer a first
+  screenshot from the welcome window.
+
 - Show a small permission guide beside System Settings when dewShot needs
   Screen Recording access. Drag the dewShot icon into the list if it is missing.
   The guide waits for the Settings window while the system permission prompt is open.
