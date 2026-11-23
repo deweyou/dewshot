@@ -3,9 +3,9 @@ import AVKit
 
 @MainActor
 final class QuickAccessPanelController: NSObject {
-    static let previewWindowTitle = "Frame Quick Access Preview"
-    static let hoverPreviewWindowTitle = "Frame Quick Access Hover Preview"
-    static let deliveryFeedbackWindowTitle = "Frame Quick Access Feedback"
+    static let previewWindowTitle = "dewShot Quick Access Preview"
+    static let hoverPreviewWindowTitle = "dewShot Quick Access Hover Preview"
+    static let deliveryFeedbackWindowTitle = "dewShot Quick Access Feedback"
     static let defaultHoverPreviewDelayForTesting: TimeInterval = 2
 
     private typealias ConfirmableAction = () -> Bool

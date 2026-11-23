@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="Sources/FrameApp/Resources/Frame.iconset/icon_256x256.png" alt="Frame app icon" width="96" height="96">
+  <img src="Sources/FrameApp/Resources/dewShot.iconset/icon_256x256.png" alt="dewShot app icon" width="96" height="96">
 </p>
 
-<h1 align="center">Frame</h1>
+<h1 align="center">dewShot</h1>
 
 <p align="center">
   A native macOS app for screenshots and screen recordings you can edit, save,
@@ -13,19 +13,19 @@
   <a href="README_ZH.md">中文</a>
 </p>
 
-Frame helps when you need to show something quickly: a bug, an idea, a setting,
+dewShot helps when you need to show something quickly: a bug, an idea, a setting,
 a layout, or a short interaction. Press the shortcut, choose what you need, and
 then copy, save, edit, pin, or find it again later.
 
-Everything stays on your Mac. Frame does not need an account and does not upload
+Everything stays on your Mac. dewShot does not need an account and does not upload
 your screenshots or recordings.
 
 ## How It Feels
 
-Frame lives in the menu bar instead of opening a large window. After each
+dewShot lives in the menu bar instead of opening a large window. After each
 screenshot or recording, a small preview appears in the corner of your screen.
 From there you can copy it, save it, edit it, keep it visible, or close it.
-By default, Frame also copies the finished screenshot or recording to the clipboard.
+By default, dewShot also copies the finished screenshot or recording to the clipboard.
 You can turn this off in Settings → Capture.
 Corner previews close after 30 seconds by default once the capture has been
 copied or saved in history. Change the delay in the same settings pane.
@@ -33,7 +33,7 @@ The menu keeps Capture Screenshot and Record Screen as separate direct actions
 and shows each configured shortcut beside its action.
 Record Screen defaults to `Command+Shift+R`.
 Customize these shortcuts in General settings with Command, Option, or Control
-and a letter or number. Frame checks for known conflicts before saving.
+and a letter or number. dewShot checks for known conflicts before saving.
 
 The goal is simple: capture what you need, then get back to what you were doing.
 
@@ -46,8 +46,8 @@ The goal is simple: capture what you need, then get back to what you were doing.
 - Capture long content by scrolling, with a fixed side preview that follows
   successfully stitched progress while capture is running, fast Finish without
   restitching the whole capture. Automatic scrolling waits for each frame.
-  Frame explains when scrolling stops and lets you finish with the captured portion.
-- Use Frame on multiple displays.
+  dewShot explains when scrolling stops and lets you finish with the captured portion.
+- Use dewShot on multiple displays.
 - Save screenshots as PNG files.
 
 ### Use The Preview
@@ -87,7 +87,7 @@ The goal is simple: capture what you need, then get back to what you were doing.
 - Double-click a recent screenshot to edit it or a recording to play it.
 - Replace a history screenshot with its edited version or save a separate copy.
 - Bring an older item back into the corner preview.
-- Choose how long Frame keeps recent items.
+- Choose how long dewShot keeps recent items.
 
 ### Appearance
 
@@ -98,16 +98,16 @@ The goal is simple: capture what you need, then get back to what you were doing.
 
 ### Start Automatically
 
-- Turn on Launch at Login in Settings to keep Frame available from the menu bar
+- Turn on Launch at Login in Settings to keep dewShot available from the menu bar
   after signing in to your Mac.
 
 ## Permissions
 
-Frame needs the macOS Screen Recording permission so it can see what is on your
+dewShot needs the macOS Screen Recording permission so it can see what is on your
 screen when you take a screenshot or recording. The name sounds broader than
 screenshots, but macOS uses this permission for screenshot apps too.
 
-Frame also lists Accessibility and Input Monitoring in Settings. Those optional
+dewShot also lists Accessibility and Input Monitoring in Settings. Those optional
 permissions support automatic scrolling and live keyboard hints; their status
 refreshes after you return from System Settings.
 

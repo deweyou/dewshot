@@ -28,7 +28,7 @@ final class RecordingFileWriterTests: XCTestCase {
             date: Date(timeIntervalSince1970: 1_717_419_730)
         )
 
-        XCTAssertEqual(written.lastPathComponent, "Frame 2024-06-03 13.02.10.mp4")
+        XCTAssertEqual(written.lastPathComponent, "dewShot 2024-06-03 13.02.10.mp4")
         XCTAssertEqual(try Data(contentsOf: written), Data([1, 2, 3]))
     }
 }

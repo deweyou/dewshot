@@ -149,8 +149,8 @@ struct AppStrings {
 
     var settingsLaunchAtLoginRequiresApproval: String {
         switch language {
-        case .zhHans: "请在系统设置的“登录项与扩展”中允许 Frame。"
-        case .en: "Allow Frame in Login Items & Extensions in System Settings."
+        case .zhHans: "请在系统设置的“登录项与扩展”中允许 dewShot。"
+        case .en: "Allow dewShot in Login Items & Extensions in System Settings."
         }
     }
 
@@ -279,15 +279,15 @@ struct AppStrings {
 
     var settingsShortcutRecorderReservedShortcut: String {
         switch language {
-        case .zhHans: "这个快捷键已由 Frame 保留"
-        case .en: "This shortcut is reserved by Frame"
+        case .zhHans: "这个快捷键已由 dewShot 保留"
+        case .en: "This shortcut is reserved by dewShot"
         }
     }
 
     var settingsShortcutRecorderDuplicateShortcut: String {
         switch language {
-        case .zhHans: "这个快捷键已被 Frame 的另一个操作使用"
-        case .en: "Already used by another Frame shortcut"
+        case .zhHans: "这个快捷键已被 dewShot 的另一个操作使用"
+        case .en: "Already used by another dewShot shortcut"
         }
     }
 
@@ -376,8 +376,8 @@ struct AppStrings {
 
     var keyboardHintsPermissionMessage: String {
         switch language {
-        case .zhHans: "在系统设置中允许 Frame 在录屏时显示按键。你也可以直接开始录制。"
-        case .en: "Allow Frame in System Settings to show keystrokes in recordings. You can still start recording."
+        case .zhHans: "在系统设置中允许 dewShot 在录屏时显示按键。你也可以直接开始录制。"
+        case .en: "Allow dewShot in System Settings to show keystrokes in recordings. You can still start recording."
         }
     }
 
@@ -547,8 +547,8 @@ struct AppStrings {
 
     var settingsCaptureHistoryClearConfirmationMessage: String {
         switch language {
-        case .zhHans: "这会移除 Frame 缓存的截图和录屏。你已另存到其他位置的文件不受影响。"
-        case .en: "This removes Frame's cached screenshots and recordings. Files you saved elsewhere are not affected."
+        case .zhHans: "这会移除 dewShot 缓存的截图和录屏。你已另存到其他位置的文件不受影响。"
+        case .en: "This removes dewShot's cached screenshots and recordings. Files you saved elsewhere are not affected."
         }
     }
 
@@ -653,14 +653,14 @@ struct AppStrings {
     var scrollingScreenshotInsufficientProgress: String {
         switch language {
         case .zhHans: "没有检测到可滚动的内容。请确认选区覆盖可滚动区域。"
-        case .en: "Frame did not detect scrollable content. Make sure the selection covers a scrollable area."
+        case .en: "dewShot did not detect scrollable content. Make sure the selection covers a scrollable area."
         }
     }
 
     var scrollingScreenshotNoReliableOverlap: String {
         switch language {
         case .zhHans: "没有找到可拼接的重叠区域。请慢一点滚动，并保持同一个区域可见。"
-        case .en: "Frame could not match the captured frames. Scroll more slowly and keep the same region visible."
+        case .en: "dewShot could not match the captured frames. Scroll more slowly and keep the same region visible."
         }
     }
 
@@ -1097,8 +1097,8 @@ struct AppStrings {
 
     var captureHistoryDeleteConfirmationMessage: String {
         switch language {
-        case .zhHans: "这会永久删除 Frame 缓存的文件，无法撤销。"
-        case .en: "This permanently deletes the cached file from Frame and cannot be undone."
+        case .zhHans: "这会永久删除 dewShot 缓存的文件，无法撤销。"
+        case .en: "This permanently deletes the cached file from dewShot and cannot be undone."
         }
     }
 
@@ -1335,8 +1335,8 @@ struct AppStrings {
 
     var hotKeyRegistrationFailedTitle: String {
         switch language {
-        case .zhHans: "Frame 快捷键注册失败"
-        case .en: "Frame shortcut registration failed"
+        case .zhHans: "dewShot 快捷键注册失败"
+        case .en: "dewShot shortcut registration failed"
         }
     }
 
@@ -1370,8 +1370,8 @@ struct AppStrings {
 
     func commonHotKeyWarningMessage(shortcut: String) -> String {
         switch language {
-        case .zhHans: "\(shortcut) 是许多 App 的常用快捷键。设为全局快捷键后，在其他 App 里按下它也可能触发 Frame。"
-        case .en: "Many apps use \(shortcut). If you use it as a global shortcut, pressing it in another app may trigger Frame."
+        case .zhHans: "\(shortcut) 是许多 App 的常用快捷键。设为全局快捷键后，在其他 App 里按下它也可能触发 dewShot。"
+        case .en: "Many apps use \(shortcut). If you use it as a global shortcut, pressing it in another app may trigger dewShot."
         }
     }
 
@@ -1400,24 +1400,24 @@ struct AppStrings {
 
     var captureFailedTitle: String {
         switch language {
-        case .zhHans: "Frame 截图失败"
-        case .en: "Frame capture failed"
+        case .zhHans: "dewShot 截图失败"
+        case .en: "dewShot capture failed"
         }
     }
 
     var screenRecordingPermissionRequiredTitle: String {
         switch language {
-        case .zhHans: "Frame 需要屏幕录制权限"
-        case .en: "Frame Needs Screen Recording Permission"
+        case .zhHans: "dewShot 需要屏幕录制权限"
+        case .en: "dewShot Needs Screen Recording Permission"
         }
     }
 
     var screenRecordingPermissionRequiredMessage: String {
         switch language {
         case .zhHans:
-            "macOS 要求截图工具获得屏幕录制授权。点击继续后，Frame 会向系统请求权限；如果系统没有弹窗，请在系统设置的“屏幕与系统音频录制”或“屏幕录制”中允许 Frame，授权后重新打开 Frame。"
+            "macOS 要求截图工具获得屏幕录制授权。点击继续后，dewShot 会向系统请求权限；如果系统没有弹窗，请在系统设置的“屏幕与系统音频录制”或“屏幕录制”中允许 dewShot，授权后重新打开 dewShot。"
         case .en:
-            "macOS requires permission before Frame can capture the screen. Continue to request access. If no system prompt appears, allow Frame under Screen & System Audio Recording or Screen Recording in System Settings, then reopen Frame."
+            "macOS requires permission before dewShot can capture the screen. Continue to request access. If no system prompt appears, allow dewShot under Screen & System Audio Recording or Screen Recording in System Settings, then reopen dewShot."
         }
     }
 
@@ -1430,29 +1430,29 @@ struct AppStrings {
 
     var screenRecordingPermissionGrantedTitle: String {
         switch language {
-        case .zhHans: "Frame 屏幕录制权限已开启"
+        case .zhHans: "dewShot 屏幕录制权限已开启"
         case .en: "Screen Recording Permission Granted"
         }
     }
 
     var screenRecordingPermissionRestartMessage: String {
         switch language {
-        case .zhHans: "请重新打开 Frame 后再使用截图或录屏。"
-        case .en: "Reopen Frame before taking a screenshot or recording the screen."
+        case .zhHans: "请重新打开 dewShot 后再使用截图或录屏。"
+        case .en: "Reopen dewShot before taking a screenshot or recording the screen."
         }
     }
 
     var copyFailedTitle: String {
         switch language {
-        case .zhHans: "Frame 复制失败"
-        case .en: "Frame copy failed"
+        case .zhHans: "dewShot 复制失败"
+        case .en: "dewShot copy failed"
         }
     }
 
     var saveFailedTitle: String {
         switch language {
-        case .zhHans: "Frame 保存失败"
-        case .en: "Frame save failed"
+        case .zhHans: "dewShot 保存失败"
+        case .en: "dewShot save failed"
         }
     }
 

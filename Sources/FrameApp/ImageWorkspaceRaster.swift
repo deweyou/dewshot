@@ -225,6 +225,6 @@ private enum ImageWorkspaceRasterError: LocalizedError {
     case foregroundUnavailable
 
     var errorDescription: String? {
-        AppStrings.current().editorLabel("没有识别到可保留的主体。", "Frame couldn’t identify a foreground subject.")
+        AppStrings.current().editorLabel("没有识别到可保留的主体。", "dewShot couldn’t identify a foreground subject.")
     }
 }

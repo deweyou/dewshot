@@ -9,7 +9,7 @@ final class ScreenshotDragItemProvider {
     func draggingItem(for screenshot: CapturedScreenshot, sourceBounds: NSRect) -> NSDraggingItem {
         let pasteboardItem = NSPasteboardItem()
         pasteboardItem.setData(screenshot.pngData, forType: .png)
-        pasteboardItem.setString("Frame Screenshot.png", forType: .string)
+        pasteboardItem.setString("dewShot Screenshot.png", forType: .string)
         if let fileURL = makeTemporaryPNGFile(with: screenshot.pngData) {
             pasteboardItem.setString(fileURL.absoluteString, forType: .fileURL)
         }
@@ -22,7 +22,7 @@ final class ScreenshotDragItemProvider {
     private func makeTemporaryPNGFile(with pngData: Data) -> URL? {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("FrameDrag-\(UUID().uuidString)", isDirectory: true)
-        let fileURL = directoryURL.appendingPathComponent("Frame Screenshot.png", isDirectory: false)
+        let fileURL = directoryURL.appendingPathComponent("dewShot Screenshot.png", isDirectory: false)
 
         do {
             try FileManager.default.createDirectory(

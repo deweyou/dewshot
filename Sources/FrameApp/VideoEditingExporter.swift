@@ -42,7 +42,7 @@ final class VideoEditingExporter: VideoEditingExporting {
 
         let directory = temporaryDirectory()
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-        let outputURL = directory.appendingPathComponent("Frame Edited-\(UUID().uuidString).mp4")
+        let outputURL = directory.appendingPathComponent("dewShot Edited-\(UUID().uuidString).mp4")
         if fileManager.fileExists(atPath: outputURL.path) {
             try fileManager.removeItem(at: outputURL)
         }

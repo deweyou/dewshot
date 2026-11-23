@@ -1,6 +1,6 @@
 # Signing and Development-Device Migration
 
-This runbook records the durable Apple signing setup for Frame. Use it when onboarding a new development Mac, recovering a signing environment, or checking which credential belongs to which build lane.
+This runbook records the durable Apple signing setup for dewShot. Use it when onboarding a new development Mac, recovering a signing environment, or checking which credential belongs to which build lane.
 
 ## Stable Project Identities
 
@@ -8,10 +8,10 @@ The Explicit App IDs are registered in the Apple Developer account and do not ne
 
 | Purpose | App name | Bundle identifier |
 | --- | --- | --- |
-| Public production app | Frame | `dev.deweyou.frame` |
-| Development and signing checks | Frame Dev | `dev.deweyou.frame.dev` |
+| Public production app | dewShot | `dev.deweyou.frame` |
+| Development and signing checks | dewShot Dev | `dev.deweyou.frame.dev` |
 
-The Apple Developer Team ID is `6JKX7TG2AN`, verified from the signed development bundle on 2026-09-02. This value is not a private key, but it should change only if Frame deliberately moves to another Apple Developer team.
+The Apple Developer Team ID is `6JKX7TG2AN`, verified from the signed development bundle on 2026-09-02. This value is not a private key, but it should change only if dewShot deliberately moves to another Apple Developer team.
 
 Do not create another App ID for a replacement Mac. A Bundle ID identifies the app; it is not a certificate, private key, or provisioning profile.
 
@@ -22,8 +22,8 @@ The two variants have separate `UserDefaults`, TCC permission records, and captu
 | Lane | Variant | Signing identity | Stable app path | Purpose |
 | --- | --- | --- | --- | --- |
 | CI package check | `production` | Ad hoc | CI workspace only | Compile and validate bundle structure |
-| Daily local GUI work | `development` | Apple Development | `~/Applications/Frame Dev.app` | Stable development identity for TCC and Launch at Login |
-| Public release | `production` | Developer ID Application | `/Applications/Frame.app` | Hardened, notarized distribution outside the Mac App Store |
+| Daily local GUI work | `development` | Apple Development | `~/Applications/dewShot Dev.app` | Stable development identity for TCC and Launch at Login |
+| Public release | `production` | Developer ID Application | `/Applications/dewShot.app` | Hardened, notarized distribution outside the Mac App Store |
 
 Developer ID must never be used for ordinary local iteration. Public artifacts must never fall back to ad-hoc or Apple Development signing.
 
@@ -33,12 +33,12 @@ Developer ID must never be used for ordinary local iteration. Public artifacts m
 2. In `Xcode -> Settings -> Accounts`, sign in with the Apple Account and select the paid developer team.
 3. Open `Manage Certificates`, create an `Apple Development` identity for this Mac, and wait for it to appear in the login keychain with a private key.
 4. Run `security find-identity -v -p codesigning`. The output must list `Apple Development: ...` and at least one valid identity.
-5. If Keychain Access reports that the Apple Development certificate is not trusted, inspect its issuer. Frame's current development identity uses `Apple Worldwide Developer Relations Certification Authority`, organizational unit `G3`. Download and import [Worldwide Developer Relations - G3](https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer), then verify again. Keep Apple certificates on system-default trust settings; do not mark the leaf certificate as Always Trust.
-6. Clone Frame and run `swift test` and `swift build`. Follow the
+5. If Keychain Access reports that the Apple Development certificate is not trusted, inspect its issuer. dewShot's current development identity uses `Apple Worldwide Developer Relations Certification Authority`, organizational unit `G3`. Download and import [Worldwide Developer Relations - G3](https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer), then verify again. Keep Apple certificates on system-default trust settings; do not mark the leaf certificate as Always Trust.
+6. Clone dewShot and run `swift test` and `swift build`. Follow the
    [local installation flow](development.md#manual-smoke-test) using the
    Apple Development identity from the previous steps.
 7. Grant Screen Recording and any feature-specific permissions to the
-   installed Frame Dev. If you use Launch at Login, enable it in Frame and
+   installed dewShot Dev. If you use Launch at Login, enable it in dewShot and
    confirm the entry in System Settings → General → Login Items & Extensions.
 
 ## What Moves to a Replacement Mac
@@ -51,7 +51,7 @@ Developer ID must never be used for ordinary local iteration. Public artifacts m
 | Developer ID Application identity | Export the certificate together with its private key as a password-protected `.p12`, keep it in approved secure storage, and import it only on an authorized release machine. |
 | Notarization keychain profile | Recreate it on the new release machine. Do not copy credentials into the repository or shell scripts. |
 | TCC permissions | Grant them again on the new Mac. They are local security decisions, not developer-account assets. |
-| Launch at Login | Enable it again in Frame Settings. Service Management registration is local to the Mac and is not stored in the repository or Apple Developer account. |
+| Launch at Login | Enable it again in dewShot Settings. Service Management registration is local to the Mac and is not stored in the repository or Apple Developer account. |
 
 Apple documents the supported `.p12` export/import flow in [Synchronizing code signing identities with your developer account](https://developer.apple.com/documentation/xcode/sharing-your-teams-signing-certificates). Anyone with the `.p12` and its password can sign as the team, so transfer and store them separately.
 
@@ -86,8 +86,8 @@ FRAME_APP_VARIANT=development scripts/package-app.sh --print-configuration
 Inspect an Apple-signed development bundle:
 
 ```sh
-codesign --verify --deep --strict --verbose=2 ".build/app/Frame Dev.app"
-codesign -dv --verbose=4 ".build/app/Frame Dev.app"
+codesign --verify --deep --strict --verbose=2 ".build/app/dewShot Dev.app"
+codesign -dv --verbose=4 ".build/app/dewShot Dev.app"
 ```
 
 Expected trust chain for the current Apple Development setup:

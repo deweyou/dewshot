@@ -138,7 +138,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.hotKeyController = hotKeyController
         } catch {
             showHotKeyRegistrationFailedAlert(error)
-            NSLog("Frame 快捷键注册失败: \(error.localizedDescription)")
+            NSLog("dewShot 快捷键注册失败: \(error.localizedDescription)")
         }
     }
 
@@ -266,7 +266,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                     canAutoDismiss: stored || (copied && screenshot.id == activeScreenshot?.id)
                                 )
                             }
-                            NSLog("Frame 已捕获全屏截图：screens=\(screenshots.count)")
+                            NSLog("dewShot 已捕获全屏截图：screens=\(screenshots.count)")
                         } catch {
                             self.quickAccessPanelController.restoreTemporarilyHiddenPreviews()
                             self.showCaptureFailedAlert(error)
@@ -280,7 +280,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                             let stored = self.storeInCaptureHistory(screenshot)
                             self.quickAccessPanelController.restoreTemporarilyHiddenPreviews()
                             self.showQuickAccess(for: screenshot, anchor: quickAccessAnchor, canAutoDismiss: copied || stored)
-                            NSLog("Frame 截图选区类型：\(selection.kind)")
+                            NSLog("dewShot 截图选区类型：\(selection.kind)")
                         } catch {
                             self.quickAccessPanelController.restoreTemporarilyHiddenPreviews()
                             self.showCaptureFailedAlert(error)
@@ -349,7 +349,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.showQuickAccess(for: screenshot, anchor: anchor, canAutoDismiss: copied || stored)
                 }
                 pendingPreview = nil
-                NSLog("Frame 已完成滚动长截图：rect=\(screenshot.rect.debugDescription)")
+                NSLog("dewShot 已完成滚动长截图：rect=\(screenshot.rect.debugDescription)")
             },
             onCancel: { [weak self] in
                 guard let self else {
@@ -360,7 +360,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.endQuickAccessLifecycle(for: pendingPreview)
                 }
                 self.quickAccessPanelController.restoreTemporarilyHiddenPreviews()
-                NSLog("Frame 滚动长截图已取消")
+                NSLog("dewShot 滚动长截图已取消")
             },
             onRetryableFailure: { [weak self] error in
                 guard let self else {
@@ -372,7 +372,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 pendingPreview = nil
                 self.quickAccessPanelController.temporarilyHidePreviews()
-                NSLog("Frame 滚动长截图拼接失败，已恢复采样：\(error.localizedDescription)")
+                NSLog("dewShot 滚动长截图拼接失败，已恢复采样：\(error.localizedDescription)")
             },
             onFailure: { [weak self] error in
                 guard let self else {
@@ -413,7 +413,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
 
             showOCRPanel(layout, for: screenshot)
-            NSLog("Frame 已从截图 HUD 识别文字：选区类型=\(selection.kind)")
+            NSLog("dewShot 已从截图 HUD 识别文字：选区类型=\(selection.kind)")
         } catch {
             showQuickAccessFailedAlert(title: strings.ocrFailedTitle, error: error)
         }
@@ -499,12 +499,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             close: { [weak self] in
                 self?.endQuickAccessLifecycle(for: screenshot)
-                NSLog("Frame 快速操作已关闭")
+                NSLog("dewShot 快速操作已关闭")
             }
         )
 
         NSLog(
-            "Frame 已捕获截图：rect=\(screenshot.rect.debugDescription), pngSize=\(screenshot.pngData.count) bytes"
+            "dewShot 已捕获截图：rect=\(screenshot.rect.debugDescription), pngSize=\(screenshot.pngData.count) bytes"
         )
     }
 
@@ -601,7 +601,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.statusItemController?.setRecordingState(.recording)
                 self.startRecordingElapsedTimer()
 
-                NSLog("Frame 已开始录屏：rect=\(selection.rect.debugDescription), format=\(options.format.rawValue)")
+                NSLog("dewShot 已开始录屏：rect=\(selection.rect.debugDescription), format=\(options.format.rawValue)")
             } catch {
                 self.quickAccessPanelController.setPreviewRestorationSuppressed(false)
                 self.quickAccessPanelController.restoreTemporarilyHiddenPreviews()
@@ -629,7 +629,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let elapsed = self.currentRecordingElapsed()
                 self.activeRecordingHUDPanelController.update(elapsed: elapsed, isPaused: true)
                 self.statusItemController?.setRecordingState(.paused)
-                NSLog("Frame 录屏已暂停")
+                NSLog("dewShot 录屏已暂停")
             } catch {
                 self.showCaptureFailedAlert(error)
             }
@@ -654,7 +654,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let elapsed = self.currentRecordingElapsed()
                 self.activeRecordingHUDPanelController.update(elapsed: elapsed, isPaused: false)
                 self.statusItemController?.setRecordingState(.recording)
-                NSLog("Frame 录屏已继续")
+                NSLog("dewShot 录屏已继续")
             } catch {
                 self.showCaptureFailedAlert(error)
             }
@@ -696,7 +696,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     && self.copyRecordingFileToClipboard(stableRecording.fileURL, showsFailureAlert: false)
                 self.showVideoQuickAccess(for: stableRecording, anchor: anchor, canAutoDismiss: copied || stored)
                 NSLog(
-                    "Frame 已停止录屏：url=\(stableRecording.fileURL.path), duration=\(stableRecording.duration)"
+                    "dewShot 已停止录屏：url=\(stableRecording.fileURL.path), duration=\(stableRecording.duration)"
                 )
             } catch {
                 self.finishActiveRecording()
@@ -727,7 +727,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 overlayWindow: nil,
                 anchor: anchor
             )
-            NSLog("Frame 录屏已重新开始")
+            NSLog("dewShot 录屏已重新开始")
         }
     }
 
@@ -744,7 +744,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
             await session.cancel()
             self.finishActiveRecording()
-            NSLog("Frame 录屏已删除")
+            NSLog("dewShot 录屏已删除")
         }
     }
 
@@ -900,7 +900,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.openVideoPreview(recording, focusEditor: true) ?? false
             },
             close: {
-                NSLog("Frame 录屏快速操作已关闭")
+                NSLog("dewShot 录屏快速操作已关闭")
             }
         )
     }
@@ -1008,7 +1008,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             return try captureHistoryStore.addScreenshot(screenshot) != nil
         } catch {
-            NSLog("Frame 写入截图历史失败: \(error.localizedDescription)")
+            NSLog("dewShot 写入截图历史失败: \(error.localizedDescription)")
             return false
         }
     }
@@ -1036,7 +1036,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
             return (storedRecording, true)
         } catch {
-            NSLog("Frame 写入录屏历史失败: \(error.localizedDescription)")
+            NSLog("dewShot 写入录屏历史失败: \(error.localizedDescription)")
             return (recording, false)
         }
     }
@@ -1419,7 +1419,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func copyRecognizedText(_ text: String) -> Bool {
         do {
             try clipboardWriter.write(text: text)
-            NSLog("Frame 已复制识别文字到剪贴板")
+            NSLog("dewShot 已复制识别文字到剪贴板")
             return true
         } catch {
             showQuickAccessFailedAlert(title: strings.copyFailedTitle, error: error)
@@ -1457,7 +1457,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func copyToClipboard(_ screenshot: CapturedScreenshot, showsFailureAlert: Bool = true) -> Bool {
         do {
             try clipboardWriter.write(image: screenshot.image, pngData: screenshot.pngData)
-            NSLog("Frame 已复制截图到剪贴板")
+            NSLog("dewShot 已复制截图到剪贴板")
             return true
         } catch {
             reportClipboardFailure(error, showsAlert: showsFailureAlert)
@@ -1482,7 +1482,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func copyRecordingFileToClipboard(_ fileURL: URL, showsFailureAlert: Bool = true) -> Bool {
         do {
             try clipboardWriter.write(fileURL: fileURL)
-            NSLog("Frame 已复制录屏文件到剪贴板")
+            NSLog("dewShot 已复制录屏文件到剪贴板")
             return true
         } catch {
             reportClipboardFailure(error, showsAlert: showsFailureAlert)
@@ -1494,7 +1494,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if showsAlert {
             showQuickAccessFailedAlert(title: strings.copyFailedTitle, error: error)
         } else {
-            NSLog("Frame 自动复制失败: \(error.localizedDescription)")
+            NSLog("dewShot 自动复制失败: \(error.localizedDescription)")
         }
     }
 
@@ -1527,7 +1527,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func saveScreenshotFile(_ screenshot: CapturedScreenshot) -> URL? {
         do {
             let saveURL = try ScreenshotFileWriter(strings: strings).write(pngData: screenshot.pngData)
-            NSLog("Frame 已保存截图：\(saveURL.path)")
+            NSLog("dewShot 已保存截图：\(saveURL.path)")
             return saveURL
         } catch {
             showQuickAccessFailedAlert(title: strings.saveFailedTitle, error: error)
@@ -1559,7 +1559,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 from: fileURL,
                 format: format
             )
-            NSLog("Frame 已保存录屏：\(saveURL.path)")
+            NSLog("dewShot 已保存录屏：\(saveURL.path)")
             return saveURL
         } catch {
             showQuickAccessFailedAlert(title: strings.saveFailedTitle, error: error)
@@ -1644,13 +1644,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 screenshotShortcut: shortcut,
                 recordingShortcut: hotKeyController.recordingShortcut
             )
-            NSLog("Frame 截图快捷键已更新为 \(shortcut.displayName)")
+            NSLog("dewShot 截图快捷键已更新为 \(shortcut.displayName)")
             return true
         } catch {
             do {
                 try hotKeyController.register(shortcut: previousShortcut)
             } catch {
-                NSLog("Frame 恢复原快捷键失败: \(error.localizedDescription)")
+                NSLog("dewShot 恢复原快捷键失败: \(error.localizedDescription)")
             }
 
             showHotKeyRegistrationFailedAlert(error)
@@ -1685,13 +1685,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 screenshotShortcut: screenshotShortcut,
                 recordingShortcut: shortcut
             )
-            NSLog("Frame 录屏快捷键已更新为 \(shortcut?.displayName ?? "未设置")")
+            NSLog("dewShot 录屏快捷键已更新为 \(shortcut?.displayName ?? "未设置")")
             return true
         } catch {
             do {
                 try hotKeyController.register(shortcut: screenshotShortcut, recordingShortcut: .some(previousShortcut))
             } catch {
-                NSLog("Frame 恢复原录屏快捷键失败: \(error.localizedDescription)")
+                NSLog("dewShot 恢复原录屏快捷键失败: \(error.localizedDescription)")
             }
 
             showHotKeyRegistrationFailedAlert(error)

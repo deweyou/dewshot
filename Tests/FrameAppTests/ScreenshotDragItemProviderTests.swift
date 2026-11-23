@@ -28,7 +28,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             try? FileManager.default.removeItem(at: fileURL.deletingLastPathComponent())
         }
 
-        XCTAssertEqual(fileURL.lastPathComponent, "Frame Screenshot.png")
+        XCTAssertEqual(fileURL.lastPathComponent, "dewShot Screenshot.png")
         XCTAssertEqual(try Data(contentsOf: fileURL), pngData)
     }
 

@@ -17,7 +17,7 @@ skills:
 nodes:
   implement-change:
     kind: agent
-    description: Implement one scoped Frame change under the active Commitment and task-owned Plan.
+    description: Implement one scoped dewShot change under the active Commitment and task-owned Plan.
     inputs:
       task:
         type: string
@@ -33,7 +33,7 @@ nodes:
 
   review-change:
     kind: agent
-    description: Review a scoped Frame change for correctness, regressions, and repository contract compliance.
+    description: Review a scoped dewShot change for correctness, regressions, and repository contract compliance.
     inputs:
       implementation:
         type: object
@@ -55,7 +55,7 @@ nodes:
 
   build:
     kind: command
-    description: Build all Frame Swift package products.
+    description: Build all dewShot Swift package products.
     command: swift build
     outputs:
       build-result:
@@ -64,16 +64,16 @@ nodes:
 
   package-app:
     kind: command
-    description: Package and locally sign Frame.app for non-destructive bundle verification.
+    description: Package and locally sign dewShot.app for non-destructive bundle verification.
     command: scripts/package-app.sh
     outputs:
       app-bundle:
         type: object
-        description: Metadata and verification result for the packaged Frame.app bundle.
+        description: Metadata and verification result for the packaged dewShot.app bundle.
 
   verify-gui-change:
     kind: agent
-    description: Verify a user-facing Frame GUI change in the stable locally signed app and record live evidence.
+    description: Verify a user-facing dewShot GUI change in the stable locally signed app and record live evidence.
     skill: [frame-gui-verification]
     inputs:
       change-summary:

@@ -115,5 +115,5 @@ perl -0pi -e '
     die "Unable to find CHANGELOG.md Unreleased section\n" unless $matched;
 ' "$CHANGELOG_SOURCE"
 
-echo "Updated Frame to version $NEW_SHORT_VERSION build $NEW_BUILD"
+echo "Updated dewShot to version $NEW_SHORT_VERSION build $NEW_BUILD"
 echo "Rolled CHANGELOG.md release section for $NEW_SHORT_VERSION - $RELEASE_DATE"

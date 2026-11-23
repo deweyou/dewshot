@@ -19,7 +19,7 @@ public struct ScreenshotNaming: Sendable {
         )
 
         return String(
-            format: "Frame %04d-%02d-%02d %02d.%02d.%02d.png",
+            format: "dewShot %04d-%02d-%02d %02d.%02d.%02d.png",
             components.year ?? 0,
             components.month ?? 0,
             components.day ?? 0,

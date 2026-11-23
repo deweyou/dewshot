@@ -4,7 +4,7 @@ Use `harness.yaml` as the repository's durable agent-work configuration. Deweyou
 
 ## Project Context
 
-Frame is a native macOS screenshot and screen recording tool. Editing, saving, and sharing captures are part of its core workflow. See [Product Positioning](docs/product-positioning.md) when deciding what to develop or prioritize.
+dewShot is a native macOS screenshot and screen recording tool. Editing, saving, and sharing captures are part of its core workflow. See [Product Positioning](docs/product-positioning.md) when deciding what to develop or prioritize.
 
 ## Commands
 
@@ -16,13 +16,13 @@ swift build
 scripts/package-app.sh
 ```
 
-The packaging script creates the production `.build/app/Frame.app` by default. Set `FRAME_APP_VARIANT=development` to create `.build/app/Frame Dev.app` with bundle identifier `dev.deweyou.frame.dev`. It uses ad-hoc signing by default, or `FRAME_CODESIGN_IDENTITY` when a stable local Code Signing identity is available.
+The packaging script creates the production `.build/app/dewShot.app` by default. Set `FRAME_APP_VARIANT=development` to create `.build/app/dewShot Dev.app` with bundle identifier `dev.deweyou.frame.dev`. It uses ad-hoc signing by default, or `FRAME_CODESIGN_IDENTITY` when a stable local Code Signing identity is available.
 
 For user-facing GUI changes, final handoff must explicitly ask whether to replace the local test app unless the user already declined or replacement was already completed in the same turn.
 
 For repeat GUI testing and local replacement, use the `development` variant
 signed with an Apple Development identity from `security find-identity -v -p
-codesigning`. Install it at `~/Applications/Frame Dev.app` and verify the
+codesigning`. Install it at `~/Applications/dewShot Dev.app` and verify the
 installed signature reports an Apple Development authority before handing off.
 Follow [the local installation flow](docs/development.md#manual-smoke-test).
 

@@ -256,7 +256,7 @@ final class SettingsWindowControllerTests: XCTestCase {
 
         XCTAssertEqual(
             strings.settingsShortcutRecorderError(.duplicateShortcut),
-            "Already used by another Frame shortcut"
+            "Already used by another dewShot shortcut"
         )
     }
 

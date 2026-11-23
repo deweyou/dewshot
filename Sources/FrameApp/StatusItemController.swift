@@ -78,15 +78,15 @@ final class StatusItemController: NSObject {
                 image.size = NSSize(width: 18, height: 18)
                 statusButton.image = image
                 statusButton.imagePosition = .imageOnly
-                statusButton.toolTip = "Frame"
+                statusButton.toolTip = "dewShot"
             } else if let image = loadStatusIcon() {
                 image.isTemplate = true
                 image.size = NSSize(width: 18, height: 18)
                 statusButton.image = image
                 statusButton.imagePosition = .imageOnly
-                statusButton.toolTip = "Frame"
+                statusButton.toolTip = "dewShot"
             } else {
-                statusButton.title = "Frame"
+                statusButton.title = "dewShot"
             }
         }
 

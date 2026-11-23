@@ -777,7 +777,7 @@ final class ImageWorkspacePanelController: NSObject {
                 }
 
                 textSelectionOverlay.isHidden = true
-                NSLog("Frame 预览编辑自动 OCR 失败: \(error.localizedDescription)")
+                NSLog("dewShot 预览编辑自动 OCR 失败: \(error.localizedDescription)")
             }
         }
     }
@@ -1339,7 +1339,7 @@ final class ImageWorkspacePanelController: NSObject {
                 preservingID: preservingID
             )
         } catch {
-            NSLog("Frame 编辑截图渲染失败: \(error.localizedDescription)")
+            NSLog("dewShot 编辑截图渲染失败: \(error.localizedDescription)")
             return nil
         }
     }

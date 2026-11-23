@@ -26,7 +26,7 @@ enum ImageWorkspaceFileDialogs {
     static func export(_ screenshot: CapturedScreenshot, strings: AppStrings) -> Bool {
         let panel = NSSavePanel()
         panel.title = strings.editorLabel("导出图片", "Export Image")
-        panel.nameFieldStringValue = strings.editorLabel("Frame 图片", "Frame Image")
+        panel.nameFieldStringValue = strings.editorLabel("dewShot 图片", "dewShot Image")
         panel.canCreateDirectories = true
         panel.allowedContentTypes = [.png]
         let format = popup(exportFormats.map(\.title))
@@ -60,7 +60,7 @@ enum ImageWorkspaceFileDialogs {
     static func saveProject(_ project: ImageWorkspaceProject, strings: AppStrings, window: NSWindow, completion: @escaping () -> Void) {
         let panel = NSSavePanel()
         panel.title = strings.editorLabel("保存可编辑工程", "Save Editable Project")
-        panel.nameFieldStringValue = "Frame"
+        panel.nameFieldStringValue = "dewShot"
         panel.canCreateDirectories = true
         panel.allowedContentTypes = [projectType]
         panel.beginSheetModal(for: window) { response in

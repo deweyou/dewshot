@@ -330,7 +330,7 @@ final class ScreenCaptureRecordingSession: NSObject, RecordingSessionControlling
 
     private func makeTemporaryOutputURL(format: RecordingFormat) -> URL {
         FileManager.default.temporaryDirectory
-            .appendingPathComponent("Frame-\(UUID().uuidString)", isDirectory: false)
+            .appendingPathComponent("dewShot-\(UUID().uuidString)", isDirectory: false)
             .appendingPathExtension(format.fileExtension)
     }
 
@@ -505,7 +505,7 @@ final class RecordingKeyboardEventTap: @unchecked Sendable {
             callback: Self.handleEvent,
             userInfo: userInfo
         ) else {
-            NSLog("Frame 录屏键盘提示无法创建 CGEvent tap；可能需要在系统设置中允许 Accessibility/输入监听权限。")
+            NSLog("dewShot 录屏键盘提示无法创建 CGEvent tap；可能需要在系统设置中允许 Accessibility/输入监听权限。")
             return false
         }
 

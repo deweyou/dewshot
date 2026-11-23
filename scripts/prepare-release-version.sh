@@ -9,7 +9,7 @@ usage() {
     cat <<'USAGE'
 Usage: scripts/prepare-release-version.sh patch|minor|major|custom [CUSTOM_VERSION]
 
-Computes the next Frame version, increments the build number by one, and then
+Computes the next dewShot version, increments the build number by one, and then
 runs scripts/bump-version.sh. For custom releases, CUSTOM_VERSION must be a
 numeric major.minor.patch version greater than the current version.
 USAGE
@@ -110,12 +110,12 @@ NEXT_BUILD="$((CURRENT_BUILD + 1))"
 
 echo "FRAME_RELEASE_VERSION=$NEXT_SHORT_VERSION"
 echo "FRAME_RELEASE_BUILD=$NEXT_BUILD"
-echo "FRAME_RELEASE_ARTIFACT_NAME=Frame-$NEXT_SHORT_VERSION-build.$NEXT_BUILD"
+echo "FRAME_RELEASE_ARTIFACT_NAME=dewShot-$NEXT_SHORT_VERSION-build.$NEXT_BUILD"
 
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     {
         echo "version=$NEXT_SHORT_VERSION"
         echo "build=$NEXT_BUILD"
-        echo "artifact_name=Frame-$NEXT_SHORT_VERSION-build.$NEXT_BUILD"
+        echo "artifact_name=dewShot-$NEXT_SHORT_VERSION-build.$NEXT_BUILD"
     } >> "$GITHUB_OUTPUT"
 fi

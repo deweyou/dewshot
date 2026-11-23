@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Rename the app to dewShot. New captures and release downloads use the new name.
+
 - Add a right inspector to the image editor, open by default, with contextual
   shape, text, and redaction controls. Group image commands and zoom
   together and remove individual outlines from the image commands. Use a
@@ -63,7 +65,7 @@
 - Open history screenshots in the editor or recordings in the player with a
   double-click or Return.
 
-- Switch OCR results between selectable full text and individual blocks. Frame
+- Switch OCR results between selectable full text and individual blocks. dewShot
   remembers the last view.
 
 - Explain when scrolling capture stops and how to continue or finish with the
@@ -79,8 +81,8 @@
 
 - Add a Launch at Login setting backed by macOS Service Management, with
   approval and failure feedback that reflects the system's real login-item state.
-- Separate development and production packaging as `Frame Dev`
-  (`dev.deweyou.frame.dev`) and `Frame` (`dev.deweyou.frame`), and document
+- Separate development and production packaging as `dewShot Dev`
+  (`dev.deweyou.frame.dev`) and `dewShot` (`dev.deweyou.frame`), and document
   signing setup and recovery for a new development Mac.
 - Make screenshot and screen recording discoverable as separate menu actions,
   with native shortcut labels that follow the configured shortcuts.

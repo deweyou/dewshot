@@ -1659,7 +1659,7 @@ private struct SettingsAboutFooterView: View {
     }
 
     private var appName: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Frame"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "dewShot"
     }
 
     private var versionText: String {

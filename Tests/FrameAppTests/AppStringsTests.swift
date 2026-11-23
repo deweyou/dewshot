@@ -19,7 +19,7 @@ final class AppStringsTests: XCTestCase {
         XCTAssertEqual(strings.settingsLaunchAtLogin, "Launch at login")
         XCTAssertEqual(
             strings.settingsLaunchAtLoginRequiresApproval,
-            "Allow Frame in Login Items & Extensions in System Settings."
+            "Allow dewShot in Login Items & Extensions in System Settings."
         )
         XCTAssertEqual(
             strings.settingsLaunchAtLoginUpdateFailed(errorDescription: "Denied"),
@@ -30,13 +30,13 @@ final class AppStringsTests: XCTestCase {
         XCTAssertEqual(strings.settingsCaptureHistoryEnabled, "Keep recent captures")
         XCTAssertEqual(strings.settingsRecordingShortcut, "Recording shortcut")
         XCTAssertEqual(strings.settingsShortcutRecorderUnset, "Not set")
-        XCTAssertEqual(strings.settingsShortcutRecorderDuplicateShortcut, "Already used by another Frame shortcut")
+        XCTAssertEqual(strings.settingsShortcutRecorderDuplicateShortcut, "Already used by another dewShot shortcut")
         XCTAssertEqual(strings.settingsWindowScreenshotDecorationStyle, "Window screenshot style")
         XCTAssertEqual(strings.settingsImageWorkspaceSaveCurrentBehavior, "Edited screenshot save")
         XCTAssertEqual(strings.settingsCaptureHistoryClearConfirmationTitle, "Clear local history?")
         XCTAssertEqual(
             strings.settingsCaptureHistoryClearConfirmationMessage,
-            "This removes Frame's cached screenshots and recordings. Files you saved elsewhere are not affected."
+            "This removes dewShot's cached screenshots and recordings. Files you saved elsewhere are not affected."
         )
         XCTAssertEqual(strings.settingsCaptureHistoryCleared, "Local history cleared")
         XCTAssertEqual(strings.windowScreenshotDecorationStyleName(.softBackdrop), "Soft Backdrop")
@@ -73,7 +73,7 @@ final class AppStringsTests: XCTestCase {
         XCTAssertEqual(strings.settingsLaunchAtLogin, "登录时启动")
         XCTAssertEqual(
             strings.settingsLaunchAtLoginRequiresApproval,
-            "请在系统设置的“登录项与扩展”中允许 Frame。"
+            "请在系统设置的“登录项与扩展”中允许 dewShot。"
         )
         XCTAssertEqual(
             strings.settingsLaunchAtLoginUpdateFailed(errorDescription: "已拒绝"),
@@ -84,13 +84,13 @@ final class AppStringsTests: XCTestCase {
         XCTAssertEqual(strings.settingsCaptureHistoryEnabled, "保存最近捕获")
         XCTAssertEqual(strings.settingsRecordingShortcut, "录屏快捷键")
         XCTAssertEqual(strings.settingsShortcutRecorderUnset, "未设置")
-        XCTAssertEqual(strings.settingsShortcutRecorderDuplicateShortcut, "这个快捷键已被 Frame 的另一个操作使用")
+        XCTAssertEqual(strings.settingsShortcutRecorderDuplicateShortcut, "这个快捷键已被 dewShot 的另一个操作使用")
         XCTAssertEqual(strings.settingsWindowScreenshotDecorationStyle, "窗口截图样式")
         XCTAssertEqual(strings.settingsImageWorkspaceSaveCurrentBehavior, "编辑保存方式")
         XCTAssertEqual(strings.settingsCaptureHistoryClearConfirmationTitle, "清空本地历史？")
         XCTAssertEqual(
             strings.settingsCaptureHistoryClearConfirmationMessage,
-            "这会移除 Frame 缓存的截图和录屏。你已另存到其他位置的文件不受影响。"
+            "这会移除 dewShot 缓存的截图和录屏。你已另存到其他位置的文件不受影响。"
         )
         XCTAssertEqual(strings.settingsCaptureHistoryCleared, "本地历史已清空")
         XCTAssertEqual(strings.windowScreenshotDecorationStyleName(.softBackdrop), "柔和背景")
@@ -151,11 +151,11 @@ final class AppStringsTests: XCTestCase {
         XCTAssertEqual(english.scrollingScreenshotFailedTitle, "Scrolling screenshot failed")
         XCTAssertEqual(
             english.scrollingScreenshotInsufficientProgress,
-            "Frame did not detect scrollable content. Make sure the selection covers a scrollable area."
+            "dewShot did not detect scrollable content. Make sure the selection covers a scrollable area."
         )
         XCTAssertEqual(
             english.scrollingScreenshotNoReliableOverlap,
-            "Frame could not match the captured frames. Scroll more slowly and keep the same region visible."
+            "dewShot could not match the captured frames. Scroll more slowly and keep the same region visible."
         )
 
         let chinese = AppStrings(language: .zhHans)
@@ -175,13 +175,13 @@ final class AppStringsTests: XCTestCase {
         XCTAssertEqual(english.settingsShortcutRecorderPrompt, "Press shortcut")
         XCTAssertEqual(english.settingsShortcutRecorderInsufficientModifiers, "Use at least one of Command, Option, or Control")
         XCTAssertEqual(english.settingsShortcutRecorderUnsupportedKey, "Use a letter or number key")
-        XCTAssertEqual(english.settingsShortcutRecorderReservedShortcut, "This shortcut is reserved by Frame")
+        XCTAssertEqual(english.settingsShortcutRecorderReservedShortcut, "This shortcut is reserved by dewShot")
 
         let chinese = AppStrings(language: .zhHans)
         XCTAssertEqual(chinese.settingsShortcutRecorderPrompt, "按下快捷键")
         XCTAssertEqual(chinese.settingsShortcutRecorderInsufficientModifiers, "请使用 ⌘、⌥ 或 ⌃ 中的至少一个")
         XCTAssertEqual(chinese.settingsShortcutRecorderUnsupportedKey, "只支持字母或数字")
-        XCTAssertEqual(chinese.settingsShortcutRecorderReservedShortcut, "这个快捷键已由 Frame 保留")
+        XCTAssertEqual(chinese.settingsShortcutRecorderReservedShortcut, "这个快捷键已由 dewShot 保留")
     }
 
     func testOCRScrubSelectionStringsAreLocalized() {

@@ -9,7 +9,7 @@ flowchart TD
     CI --> Manual["Use manual smoke only for permissions and full desktop flows"]
 ```
 
-Frame uses two automated test layers:
+dewShot uses two automated test layers:
 
 - `FrameCoreTests` cover deterministic helpers that do not need AppKit.
 - `FrameAppTests` cover AppKit component behavior that is stable in a macOS test process.
