@@ -5,12 +5,15 @@ import FrameCore
 
 struct CapturedScreenshot {
     let id: UUID
+    let exportFilename: String
     let pngData: Data
     let image: NSImage
     let rect: CGRect
 
-    init(id: UUID = UUID(), pngData: Data, image: NSImage, rect: CGRect) {
+    init(id: UUID = UUID(), exportFilename: String = ScreenshotNaming().filename(),
+         pngData: Data, image: NSImage, rect: CGRect) {
         self.id = id
+        self.exportFilename = exportFilename
         self.pngData = pngData
         self.image = image
         self.rect = rect

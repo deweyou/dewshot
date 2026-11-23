@@ -1088,7 +1088,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             throw CaptureHistoryError.imageDecodeFailed
         }
 
-        return CapturedScreenshot(id: record.id, pngData: data, image: image, rect: record.rect)
+        return CapturedScreenshot(
+            id: record.id, exportFilename: record.screenshotSaveFilename, pngData: data, image: image, rect: record.rect
+        )
     }
 
     private func recording(from record: CaptureHistoryRecord) async throws -> CapturedRecording {
@@ -1559,6 +1561,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         saveCaptureFile { directory in
             let saveURL = try ScreenshotFileWriter(strings: strings).write(
                 pngData: screenshot.pngData,
+                filename: screenshot.exportFilename,
                 directory: directory
             )
             NSLog("dewShot 已保存截图：\(saveURL.path)")

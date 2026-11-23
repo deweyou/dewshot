@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Assign a filename when taking a screenshot and keep it in History. Reuse an
+  identical PNG in the save folder and keep different screenshots with colliding
+  filenames as separate files.
+
 - Show the destination folder after saving a capture from History.
 
 - Prepare Mac App Store installer packages and include a privacy manifest.

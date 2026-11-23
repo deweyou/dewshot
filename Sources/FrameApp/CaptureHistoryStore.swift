@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import FrameCore
 
 enum CaptureHistoryKind: String, Codable, CaseIterable, Equatable {
     case screenshot
@@ -149,6 +150,12 @@ struct CaptureHistoryRecord: Codable, Equatable, Identifiable {
     let pixelWidth: Int
     let pixelHeight: Int
     let rect: CGRect
+    var screenshotExportFilename: String? = nil
+
+    var screenshotSaveFilename: String {
+        screenshotExportFilename
+            ?? ScreenshotNaming(calendar: Calendar(identifier: .gregorian), timeZone: .gmt).filename(for: createdAt)
+    }
 }
 
 final class CaptureHistoryStore {
@@ -207,6 +214,7 @@ final class CaptureHistoryStore {
         imageSize: CGSize,
         rect: CGRect,
         date: Date = Date(),
+        screenshotExportFilename: String? = nil,
         configuration: CaptureHistoryConfiguration = .current()
     ) throws -> CaptureHistoryRecord? {
         guard configuration.isEnabled else {
@@ -229,7 +237,8 @@ final class CaptureHistoryStore {
             byteSize: data.count,
             pixelWidth: Int(imageSize.width.rounded()),
             pixelHeight: Int(imageSize.height.rounded()),
-            rect: rect
+            rect: rect,
+            screenshotExportFilename: screenshotExportFilename
         )
 
         var records = try readRecords()
@@ -257,6 +266,7 @@ final class CaptureHistoryStore {
             imageSize: screenshot.image.size,
             rect: screenshot.rect,
             date: date,
+            screenshotExportFilename: screenshot.exportFilename,
             configuration: configuration
         )
     }
@@ -287,7 +297,8 @@ final class CaptureHistoryStore {
             byteSize: screenshot.pngData.count,
             pixelWidth: Int(screenshot.image.size.width.rounded()),
             pixelHeight: Int(screenshot.image.size.height.rounded()),
-            rect: screenshot.rect
+            rect: screenshot.rect,
+            screenshotExportFilename: original.screenshotSaveFilename
         )
         records[index] = replacement
         let retained = retainedRecords(records, now: Date(), configuration: configuration, preserving: replacement.id)

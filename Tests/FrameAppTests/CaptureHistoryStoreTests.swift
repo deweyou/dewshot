@@ -43,6 +43,8 @@ final class CaptureHistoryStoreTests: XCTestCase {
         XCTAssertEqual(record.byteSize, 3)
         XCTAssertEqual(record.pixelWidth, 40)
         XCTAssertEqual(record.pixelHeight, 20)
+        XCTAssertNil(record.screenshotExportFilename)
+        XCTAssertEqual(record.screenshotSaveFilename, "dewShot 1970-01-01 00.01.40.png")
         XCTAssertEqual(try store.data(for: record), Data([1, 2, 3]))
         XCTAssertEqual(try store.records(), [record])
     }
@@ -64,6 +66,7 @@ final class CaptureHistoryStoreTests: XCTestCase {
         XCTAssertEqual(records.count, 2)
         let replacement = try XCTUnwrap(records.first { $0.id == record.id })
         XCTAssertEqual(replacement.createdAt, record.createdAt)
+        XCTAssertEqual(replacement.screenshotSaveFilename, original.exportFilename)
         XCTAssertEqual(replacement.byteSize, 2)
         XCTAssertEqual(try reopened.data(for: replacement), edited.pngData)
         XCTAssertFalse(FileManager.default.fileExists(atPath: store.fileURL(for: record).path))
