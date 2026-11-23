@@ -312,7 +312,8 @@ documents the retained implementations for a future release.
   titlebar and window buttons drawn by the system.
 - The titlebar chrome should blend with the content background. Keep the
   traffic-light safe area clear and put compact filters at the trailing end of
-  the toolbar. Start the grid below the system toolbar.
+  the toolbar. Give More Actions its own glass button, with space between it
+  and the filters. Start the grid below the system toolbar.
 - History tiles follow the Quick Access visual language: rounded image preview,
   fine translucent border, compact metadata, and icon-only hover HUD actions.
 - Single-click selects a history tile. Double-click or Return opens the selected

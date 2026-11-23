@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Add Clear History to the Capture History toolbar menu, with confirmation before deleting cached screenshots and recordings.
+- Add Clear History to its own menu alongside the Capture History filters, with confirmation before deleting cached screenshots and recordings.
 
 - Keep Capture History tile actions visible while the pointer is over the tile and hide them immediately when it leaves.
 

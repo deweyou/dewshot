@@ -235,7 +235,7 @@ final class CaptureHistoryWindowController: NSObject, NSToolbarDelegate {
     }
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.flexibleSpace, Self.filterItemID, Self.moreItemID]
+        [.flexibleSpace, Self.filterItemID, .space, Self.moreItemID]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -266,14 +266,7 @@ final class CaptureHistoryWindowController: NSObject, NSToolbarDelegate {
         return item
     }
 
-    private func makeMoreItem(willBeInserted: Bool) -> NSMenuToolbarItem {
-        let item = NSMenuToolbarItem(itemIdentifier: Self.moreItemID)
-        item.label = strings.captureHistoryMoreActions
-        item.toolTip = strings.captureHistoryMoreActions
-        item.image = NSImage(systemSymbolName: "ellipsis", accessibilityDescription: item.label)
-        item.isBordered = true
-        item.showsIndicator = false
-
+    private func makeMoreItem(willBeInserted: Bool) -> NSToolbarItem {
         let menu = NSMenu()
         menu.autoenablesItems = false
         let clearItem = NSMenuItem(
@@ -284,10 +277,33 @@ final class CaptureHistoryWindowController: NSObject, NSToolbarDelegate {
         clearItem.target = self
         clearItem.isEnabled = hasStoredRecords
         menu.addItem(clearItem)
-        item.menu = menu
         if willBeInserted {
             clearHistoryMenuItem = clearItem
         }
+
+        let title = strings.captureHistoryMoreActions
+        let image = NSImage(systemSymbolName: "ellipsis", accessibilityDescription: title) ?? NSImage()
+        let button = NSPopUpButton(image: image, pullDownMenu: menu)
+        if #available(macOS 26.0, *) {
+            button.bezelStyle = .glass
+        } else {
+            button.bezelStyle = .rounded
+        }
+        (button.cell as? NSPopUpButtonCell)?.arrowPosition = .noArrow
+        button.toolTip = title
+        button.setAccessibilityLabel(title)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: 42),
+            button.heightAnchor.constraint(equalToConstant: 32),
+        ])
+
+        let item = NSToolbarItem(itemIdentifier: Self.moreItemID)
+        item.label = title
+        item.view = button
+        let overflowItem = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        overflowItem.submenu = menu
+        item.menuFormRepresentation = overflowItem
         return item
     }
 
