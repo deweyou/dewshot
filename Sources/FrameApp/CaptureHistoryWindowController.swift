@@ -893,7 +893,7 @@ private final class CaptureHistoryTileView: NSView {
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel("\(accessibilityTitle), \(timeText), \(metadata)")
-        setAccessibilityHelp(strings.captureHistoryOpen)
+        setAccessibilityHelp(record.kind == .screenshot ? strings.quickAccessOpen : strings.captureHistoryOpen)
 
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor

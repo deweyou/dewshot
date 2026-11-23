@@ -32,7 +32,8 @@ final class VideoPreviewWindowController: NSObject, NSWindowDelegate {
         copy: @escaping (CapturedRecording, VideoEditingState?) -> Bool,
         download: @escaping (CapturedRecording, VideoEditingState?) -> Bool,
         saveCurrent: @escaping (CapturedRecording, VideoEditingState, VideoPreviewSaveChoice) -> Bool,
-        focusEditor: Bool = false
+        focusEditor: Bool = false,
+        allowsEditing: Bool = true
     ) {
         if let item = items[recording.id] {
             item.window.makeKeyAndOrderFront(nil)
@@ -55,10 +56,12 @@ final class VideoPreviewWindowController: NSObject, NSWindowDelegate {
         window.delegate = self
         window.center()
 
-        let media = makeMediaView(for: recording)
+        let editingState = allowsEditing && recording.format == .mp4
+            ? try? VideoEditingState(sourceDuration: recording.duration)
+            : nil
+        let media = makeMediaView(for: recording, showsPlaybackControls: editingState == nil)
         let mediaView = media.view
         mediaView.translatesAutoresizingMaskIntoConstraints = false
-        let editingState = recording.format == .mp4 ? try? VideoEditingState(sourceDuration: recording.duration) : nil
         let editorBar = editingState.map { VideoEditorBarView(state: $0, strings: strings) }
         if let asset = media.player?.currentItem?.asset {
             editorBar?.loadTimelineThumbnails(from: asset)
@@ -305,7 +308,10 @@ final class VideoPreviewWindowController: NSObject, NSWindowDelegate {
         items.removeValue(forKey: item.recording.id)
     }
 
-    private func makeMediaView(for recording: CapturedRecording) -> (view: NSView, player: AVPlayer?) {
+    private func makeMediaView(
+        for recording: CapturedRecording,
+        showsPlaybackControls: Bool
+    ) -> (view: NSView, player: AVPlayer?) {
         switch recording.format {
         case .gif:
             let imageView = NSImageView()
@@ -319,7 +325,7 @@ final class VideoPreviewWindowController: NSObject, NSWindowDelegate {
             let playerView = AVPlayerView()
             let player = AVPlayer(url: recording.fileURL)
             playerView.player = player
-            playerView.controlsStyle = .none
+            playerView.controlsStyle = showsPlaybackControls ? .inline : .none
             return (playerView, player)
         }
     }

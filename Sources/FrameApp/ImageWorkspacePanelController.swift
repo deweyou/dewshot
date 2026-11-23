@@ -10,6 +10,7 @@ final class ImageWorkspacePanelController: NSObject {
     private let persistEditingOptions: (ImageAnnotationEditingOptions) -> Void
     private let saveCurrentBehaviorProvider: () -> ImageWorkspaceSaveCurrentBehavior
     private let presentSaveCurrentMenu: (NSMenu, NSButton) -> Void
+    private let openPinnedScreenshot: ((CapturedScreenshot) -> Void)?
 
     init(
         showsInspectorByDefault: Bool = true,
@@ -28,13 +29,15 @@ final class ImageWorkspacePanelController: NSObject {
                 at: NSPoint(x: sender.bounds.minX, y: sender.bounds.maxY + 4),
                 in: sender
             )
-        }
+        },
+        openPinnedScreenshot: ((CapturedScreenshot) -> Void)? = nil
     ) {
         self.showsInspectorByDefault = showsInspectorByDefault
         self.editingOptionsProvider = editingOptionsProvider
         self.persistEditingOptions = persistEditingOptions
         self.saveCurrentBehaviorProvider = saveCurrentBehaviorProvider
         self.presentSaveCurrentMenu = presentSaveCurrentMenu
+        self.openPinnedScreenshot = openPinnedScreenshot
         super.init()
     }
 
@@ -812,7 +815,8 @@ final class ImageWorkspacePanelController: NSObject {
         menu.addItem(makeMenuItem(title: item.strings.workspaceCopy, action: #selector(copyMenuItemClicked), representedObject: item))
         menu.addItem(makeMenuItem(title: item.strings.workspaceDownload, action: #selector(downloadMenuItemClicked), representedObject: item))
         menu.addItem(.separator())
-        menu.addItem(makeMenuItem(title: item.strings.workspaceEdit, action: #selector(editMenuItemClicked), representedObject: item))
+        let openTitle = openPinnedScreenshot == nil ? item.strings.workspaceEdit : item.strings.quickAccessOpen
+        menu.addItem(makeMenuItem(title: openTitle, action: #selector(editMenuItemClicked), representedObject: item))
         return menu
     }
 
@@ -1011,6 +1015,11 @@ final class ImageWorkspacePanelController: NSObject {
     @objc private func editMenuItemClicked(_ sender: NSMenuItem) {
         guard let item = sender.representedObject as? ImageWorkspaceItem,
               item.state.kind == .pinned else {
+            return
+        }
+
+        if let openPinnedScreenshot {
+            openPinnedScreenshot(item.screenshot)
             return
         }
 

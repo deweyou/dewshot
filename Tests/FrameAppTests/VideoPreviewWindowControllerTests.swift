@@ -36,6 +36,47 @@ final class VideoPreviewWindowControllerTests: XCTestCase {
         XCTAssertTrue(editorBar.hasSpeedDropdownForTesting)
     }
 
+    func testPlaybackOnlyPreviewUsesNativeControlsAndOutputsOriginal() throws {
+        let recording = makeMP4Recording()
+        let controller = VideoPreviewWindowController()
+        var copyCount = 0
+        var downloadCount = 0
+
+        controller.show(
+            recording: recording,
+            strings: AppStrings(language: .en),
+            copy: { source, state in
+                XCTAssertEqual(source, recording)
+                XCTAssertNil(state)
+                copyCount += 1
+                return true
+            },
+            download: { source, state in
+                XCTAssertEqual(source, recording)
+                XCTAssertNil(state)
+                downloadCount += 1
+                return true
+            },
+            saveCurrent: { _, _, _ in
+                XCTFail("Playback opened the editor save path")
+                return false
+            },
+            allowsEditing: false
+        )
+
+        let window = try XCTUnwrap(controller.windowForTesting(recordingID: recording.id))
+        defer { window.close() }
+        let contentView = try XCTUnwrap(window.contentView)
+        let player = try XCTUnwrap(findSubview(of: AVPlayerView.self, in: contentView))
+        XCTAssertEqual(player.controlsStyle, .inline)
+        XCTAssertNil(findSubview(of: VideoEditorBarView.self, in: contentView))
+        XCTAssertNil(findButton(accessibilityLabel: "Save Current", in: contentView))
+        try XCTUnwrap(findButton(accessibilityLabel: "Copy", in: contentView)).performClick(nil)
+        try XCTUnwrap(findButton(accessibilityLabel: "Download", in: contentView)).performClick(nil)
+        XCTAssertEqual(copyCount, 1)
+        XCTAssertEqual(downloadCount, 1)
+    }
+
     func testMP4PreviewUsesWorkspaceStyleHeaderRow() throws {
         let recording = makeMP4Recording(duration: 24)
         let controller = VideoPreviewWindowController()

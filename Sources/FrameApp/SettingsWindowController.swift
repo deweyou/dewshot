@@ -585,7 +585,7 @@ enum SettingsGeneralMetrics {
 enum SettingsScreenshotMetrics {
     static let containsShortcut = false
     static let containsSaveLocation = false
-    static let containsImageWorkspaceSaveCurrentBehavior = true
+    static let containsImageWorkspaceSaveCurrentBehavior = false
 }
 
 enum SettingsGroupMetrics {
@@ -839,21 +839,23 @@ private struct ScreenshotSettingsView: View {
                     }
                 }
 
-                SettingsControlDivider()
+                if SettingsScreenshotMetrics.containsImageWorkspaceSaveCurrentBehavior {
+                    SettingsControlDivider()
 
-                SettingsControlRow(strings.settingsImageWorkspaceSaveCurrentBehavior) {
-                    SettingsMenuPicker(
-                        strings.settingsImageWorkspaceSaveCurrentBehavior,
-                        value: strings.imageWorkspaceSaveCurrentBehaviorName(selectedImageWorkspaceSaveCurrentBehavior),
-                        selection: $selectedImageWorkspaceSaveCurrentBehavior
-                    ) {
-                        ForEach(ImageWorkspaceSaveCurrentBehavior.allCases, id: \.self) { behavior in
-                            Text(strings.imageWorkspaceSaveCurrentBehaviorName(behavior))
-                                .tag(behavior)
+                    SettingsControlRow(strings.settingsImageWorkspaceSaveCurrentBehavior) {
+                        SettingsMenuPicker(
+                            strings.settingsImageWorkspaceSaveCurrentBehavior,
+                            value: strings.imageWorkspaceSaveCurrentBehaviorName(selectedImageWorkspaceSaveCurrentBehavior),
+                            selection: $selectedImageWorkspaceSaveCurrentBehavior
+                        ) {
+                            ForEach(ImageWorkspaceSaveCurrentBehavior.allCases, id: \.self) { behavior in
+                                Text(strings.imageWorkspaceSaveCurrentBehaviorName(behavior))
+                                    .tag(behavior)
+                            }
                         }
-                    }
-                    .onChange(of: selectedImageWorkspaceSaveCurrentBehavior) { _, behavior in
-                        SettingsStore.setImageWorkspaceSaveCurrentBehavior(behavior)
+                        .onChange(of: selectedImageWorkspaceSaveCurrentBehavior) { _, behavior in
+                            SettingsStore.setImageWorkspaceSaveCurrentBehavior(behavior)
+                        }
                     }
                 }
             }

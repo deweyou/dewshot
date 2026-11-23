@@ -9,7 +9,7 @@ import XCTest
 final class RecordingQuickAccessPanelControllerTests: XCTestCase {
     private var retainedPreviewControllers: [QuickAccessPanelController] = []
 
-    func testMP4RecordingQuickAccessExposesEnabledEdit() throws {
+    func testMP4RecordingQuickAccessOpensInDefaultApp() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
         let recording = CapturedRecording(
@@ -24,7 +24,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         let controller = QuickAccessPanelController()
         retainedPreviewControllers.append(controller)
         let expectedPreviewSize = QuickAccessPanelController.recordingPreviewSize(forSourceSize: recording.pixelSize)
-        var editCallCount = 0
+        var openCallCount = 0
 
         controller.show(
             for: recording,
@@ -33,8 +33,8 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             download: { true },
             copy: { true },
             preview: { true },
-            edit: {
-                editCallCount += 1
+            openExternally: {
+                openCallCount += 1
                 return true
             },
             close: {}
@@ -58,14 +58,14 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         XCTAssertNotNil(findButton(in: contentView, accessibilityLabel: "Download"))
         XCTAssertNotNil(findButton(in: contentView, accessibilityLabel: "Copy"))
         XCTAssertNil(findButton(in: contentView, accessibilityLabel: "Preview"))
-        let editButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Edit"))
-        XCTAssertTrue(editButton.isEnabled)
-        editButton.performClick(nil)
-        XCTAssertEqual(editCallCount, 1)
+        let openButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Open in Default App"))
+        XCTAssertTrue(openButton.isEnabled)
+        openButton.performClick(nil)
+        XCTAssertEqual(openCallCount, 1)
         XCTAssertNotNil(findButton(in: contentView, accessibilityLabel: "Close"))
     }
 
-    func testGIFRecordingQuickAccessKeepsEditDisabled() throws {
+    func testGIFRecordingQuickAccessOpensInDefaultApp() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
         let recording = CapturedRecording(
@@ -79,7 +79,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         )
         let controller = QuickAccessPanelController()
         retainedPreviewControllers.append(controller)
-        var editCallCount = 0
+        var openCallCount = 0
 
         controller.show(
             for: recording,
@@ -88,8 +88,8 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             download: { true },
             copy: { true },
             preview: { true },
-            edit: {
-                editCallCount += 1
+            openExternally: {
+                openCallCount += 1
                 return true
             },
             close: {}
@@ -101,11 +101,10 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         }
         let contentView = try XCTUnwrap(panel.contentView)
         contentView.layoutSubtreeIfNeeded()
-        let editButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Edit"))
-        XCTAssertFalse(editButton.isEnabled)
-        XCTAssertEqual(editButton.toolTip, "MP4 editing only in this version")
-        editButton.performClick(nil)
-        XCTAssertEqual(editCallCount, 0)
+        let openButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Open in Default App"))
+        XCTAssertTrue(openButton.isEnabled)
+        openButton.performClick(nil)
+        XCTAssertEqual(openCallCount, 1)
     }
 
     func testDeliveryFeedbackOutlivesItsPreviewAndIsClickThrough() throws {
@@ -118,7 +117,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         )
         controller.show(
             for: screenshot, preferredAnchor: nil, copy: { true }, save: { true },
-            recognizeText: { true }, openWorkspace: { true }, pin: { true }, close: {}
+            recognizeText: { true }, openExternally: { true }, pin: { true }, close: {}
         )
         defer { controller.temporarilyHidePreviews() }
 
@@ -149,7 +148,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -192,7 +191,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             download: { true },
             copy: { true },
             preview: { true },
-            edit: { true },
+            openExternally: { true },
             close: {}
         )
 
@@ -244,7 +243,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             },
             copy: { true },
             preview: { true },
-            edit: { true },
+            openExternally: { true },
             close: {
                 closeCallCount += 1
             }
@@ -290,7 +289,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
                 return true
             },
             preview: { true },
-            edit: { true },
+            openExternally: { true },
             close: {
                 closeCallCount += 1
             }
@@ -349,7 +348,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             download: { true },
             copy: { true },
             preview: { true },
-            edit: { true },
+            openExternally: { true },
             close: {}
         )
 
@@ -388,7 +387,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             download: { true },
             copy: { true },
             preview: { true },
-            edit: { true },
+            openExternally: { true },
             close: {}
         )
 
@@ -439,7 +438,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
                 previewCallCount += 1
                 return true
             },
-            edit: { true },
+            openExternally: { true },
             close: {}
         )
 
@@ -483,7 +482,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
                 previewCallCount += 1
                 return true
             },
-            edit: { true },
+            openExternally: { true },
             close: {}
         )
 
@@ -528,7 +527,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -539,7 +538,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             download: { true },
             copy: { true },
             preview: { true },
-            edit: { true },
+            openExternally: { true },
             close: {}
         )
 
@@ -583,7 +582,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -594,7 +593,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             download: { true },
             copy: { true },
             preview: { true },
-            edit: { true },
+            openExternally: { true },
             close: {}
         )
 
@@ -624,7 +623,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -657,7 +656,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -699,7 +698,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -756,7 +755,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             download: { true },
             copy: { true },
             preview: { true },
-            edit: { true },
+            openExternally: { true },
             close: {}
         )
 
@@ -799,7 +798,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -816,7 +815,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             download: { true },
             copy: { true },
             preview: { true },
-            edit: { true },
+            openExternally: { true },
             close: {}
         )
 
@@ -843,14 +842,14 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         controller.show(
             for: first, preferredAnchor: nil, canAutoDismiss: true,
             copy: { true }, save: { true }, recognizeText: { true },
-            openWorkspace: { true }, pin: { true }, close: { closedIDs.append(1) }
+            openExternally: { true }, pin: { true }, close: { closedIDs.append(1) }
         )
         let firstPanel = try XCTUnwrap(newPreviewPanels(excluding: existingWindows).first)
         defer { _ = controller.closePreview(for: first, notify: false) }
 
         controller.show(
             for: second, preferredAnchor: nil, canAutoDismiss: true,
-            download: { true }, copy: { true }, preview: { true }, edit: { true }, close: { closedIDs.append(2) }
+            download: { true }, copy: { true }, preview: { true }, openExternally: { true }, close: { closedIDs.append(2) }
         )
         let start = ProcessInfo.processInfo.systemUptime
         let outside = CGPoint(x: 100_000, y: 100_000)
@@ -874,7 +873,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             let controller = QuickAccessPanelController(dismissalDelay: { delay })
             controller.show(
                 for: screenshot, preferredAnchor: nil, canAutoDismiss: canAutoDismiss,
-                copy: { true }, save: { true }, recognizeText: { true }, openWorkspace: { true }, pin: { true },
+                copy: { true }, save: { true }, recognizeText: { true }, openExternally: { true }, pin: { true },
                 close: { XCTFail("This card should stay open") }
             )
             controller.updatePreviewExpiry(

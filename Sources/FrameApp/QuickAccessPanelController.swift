@@ -45,7 +45,7 @@ final class QuickAccessPanelController: NSObject {
         copy: @escaping () -> Bool,
         save: @escaping () -> Bool,
         recognizeText: @escaping () -> Bool,
-        openWorkspace: @escaping () -> Bool,
+        openExternally: @escaping () -> Bool,
         pin: @escaping () -> Bool,
         close: @escaping () -> Void
     ) {
@@ -66,12 +66,11 @@ final class QuickAccessPanelController: NSObject {
             copy: copy,
             save: save,
             recognizeText: recognizeText,
-            openWorkspace: openWorkspace,
+            openExternally: openExternally,
             pin: pin,
             downloadRecording: nil,
             copyRecording: nil,
             previewRecording: nil,
-            editRecording: nil,
             hoverPreviewMedia: .image(captured.image),
             isInUse: isInUse,
             close: close
@@ -94,7 +93,7 @@ final class QuickAccessPanelController: NSObject {
         download: @escaping () -> Bool,
         copy: @escaping () -> Bool,
         preview: @escaping () -> Bool,
-        edit: @escaping () -> Bool,
+        openExternally: @escaping () -> Bool,
         close: @escaping () -> Void
     ) {
         restoreTemporarilyHiddenPreviews()
@@ -129,12 +128,11 @@ final class QuickAccessPanelController: NSObject {
             copy: nil,
             save: nil,
             recognizeText: nil,
-            openWorkspace: nil,
+            openExternally: openExternally,
             pin: nil,
             downloadRecording: download,
             copyRecording: copy,
             previewRecording: preview,
-            editRecording: edit,
             hoverPreviewMedia: .recording(recording),
             close: close
         )
@@ -584,21 +582,21 @@ final class QuickAccessPanelController: NSObject {
             action: #selector(pinButtonClicked),
             style: .toolbar
         )
-        let openWorkspaceButton = makeIconButton(
+        let openExternallyButton = makeIconButton(
             title: strings.quickAccessOpen,
-            symbolName: "arrow.up.left.and.arrow.down.right",
-            action: #selector(openWorkspaceButtonClicked),
+            symbolName: "arrow.up.forward.app",
+            action: #selector(openExternallyButtonClicked),
             style: .toolbar
         )
 
         stackView.addArrangedSubview(copyButton)
         stackView.addArrangedSubview(saveButton)
-        for button in [ocrButton, pinButton, openWorkspaceButton] {
+        for button in [ocrButton, pinButton, openExternallyButton] {
             button.contentTintColor = FrameHUDChrome.secondaryIcon
         }
         stackView.addArrangedSubview(ocrButton)
         stackView.addArrangedSubview(pinButton)
-        stackView.addArrangedSubview(openWorkspaceButton)
+        stackView.addArrangedSubview(openExternallyButton)
 
         contentView.actionsViews = [closeButton, overlayView]
         contentView.addSubview(imageView)
@@ -716,19 +714,13 @@ final class QuickAccessPanelController: NSObject {
                 style: .toolbar
             )
         )
-        let editButton = makeIconButton(
-            title: strings.videoQuickAccessEdit,
-            symbolName: "slider.horizontal.3",
-            action: #selector(editRecordingButtonClicked),
+        let openButton = makeIconButton(
+            title: strings.quickAccessOpen,
+            symbolName: "arrow.up.forward.app",
+            action: #selector(openExternallyButtonClicked),
             style: .toolbar
         )
-        if recording.format != .mp4 {
-            editButton.isEnabled = false
-            editButton.contentTintColor = FrameHUDChrome.disabledIcon
-            editButton.toolTip = strings.videoEditingMP4Only
-            editButton.setAccessibilityHelp(strings.videoEditingMP4Only)
-        }
-        stackView.addArrangedSubview(editButton)
+        stackView.addArrangedSubview(openButton)
 
         let overlayView = NSVisualEffectView()
         overlayView.identifier = NSUserInterfaceItemIdentifier("QuickAccessActionOverlay")
@@ -1065,12 +1057,12 @@ final class QuickAccessPanelController: NSObject {
         }
     }
 
-    @objc private func openWorkspaceButtonClicked(_ sender: NSButton) {
+    @objc private func openExternallyButtonClicked(_ sender: NSButton) {
         guard let item = previewItem(for: sender.window) else {
             return
         }
 
-        _ = item.openWorkspace?()
+        _ = item.openExternally?()
     }
 
     @objc private func pinButtonClicked(_ sender: NSButton) {
@@ -1101,14 +1093,6 @@ final class QuickAccessPanelController: NSObject {
         if item.copyRecording?() == true {
             closePreview(item, notify: false)
         }
-    }
-
-    @objc private func editRecordingButtonClicked(_ sender: NSButton) {
-        guard let item = previewItem(for: sender.window) else {
-            return
-        }
-
-        _ = item.editRecording?()
     }
 
     @objc private func closeButtonClicked(_ sender: NSButton) {
@@ -1210,12 +1194,11 @@ private final class QuickAccessPreviewItem {
     let copy: (() -> Bool)?
     let save: (() -> Bool)?
     let recognizeText: (() -> Bool)?
-    let openWorkspace: (() -> Bool)?
+    let openExternally: (() -> Bool)?
     let pin: (() -> Bool)?
     let downloadRecording: (() -> Bool)?
     let copyRecording: (() -> Bool)?
     let previewRecording: (() -> Bool)?
-    let editRecording: (() -> Bool)?
     var hoverPreviewMedia: QuickAccessHoverPreviewMedia
     let close: () -> Void
     let isInUse: () -> Bool
@@ -1240,12 +1223,11 @@ private final class QuickAccessPreviewItem {
         copy: (() -> Bool)?,
         save: (() -> Bool)?,
         recognizeText: (() -> Bool)?,
-        openWorkspace: (() -> Bool)?,
+        openExternally: (() -> Bool)?,
         pin: (() -> Bool)?,
         downloadRecording: (() -> Bool)?,
         copyRecording: (() -> Bool)?,
         previewRecording: (() -> Bool)?,
-        editRecording: (() -> Bool)?,
         hoverPreviewMedia: QuickAccessHoverPreviewMedia,
         isInUse: @escaping () -> Bool = { false },
         close: @escaping () -> Void
@@ -1263,12 +1245,11 @@ private final class QuickAccessPreviewItem {
         self.copy = copy
         self.save = save
         self.recognizeText = recognizeText
-        self.openWorkspace = openWorkspace
+        self.openExternally = openExternally
         self.pin = pin
         self.downloadRecording = downloadRecording
         self.copyRecording = copyRecording
         self.previewRecording = previewRecording
-        self.editRecording = editRecording
         self.hoverPreviewMedia = hoverPreviewMedia
         self.isInUse = isInUse
         self.close = close

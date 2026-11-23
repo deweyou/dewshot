@@ -3,6 +3,10 @@
 dewShot is a quiet native macOS utility. Its interface should feel like a small
 system tool, not a branded dashboard.
 
+For the first release, active surfaces focus on capture, preview, copy, and
+save. Open in Default App opens a separate copy. The editor design below
+documents the retained implementations for a future release.
+
 ## Product Feel
 
 - Prefer native macOS behavior and system materials over custom-drawn controls.
@@ -179,9 +183,8 @@ system tool, not a branded dashboard.
   unless the workspace becomes a borderless HUD-like surface again.
 - Pinned windows give the image its own surface below the native titlebar.
   Put output actions in the context menu.
-- Pinned image windows expose Copy, Download, and Edit through the context menu.
-  These actions must not close the pinned window. Edit opens or activates the
-  preview/edit workspace for the same screenshot.
+- Pinned image windows expose Copy, Download, and Open in Default App through
+  the context menu. Keep the pinned window visible when performing these actions.
 - Every icon-only action must keep a tooltip and accessibility label.
 - Video Preview output actions follow the workspace's traffic-light-safe header
   pattern: a compact, right-aligned group of fixed-width icon cells with a
@@ -192,7 +195,7 @@ system tool, not a branded dashboard.
 ## Quick Access
 
 - Quick Access is a small fixed post-capture preview with icon-only hover
-  actions for copy, save, workspace, pin, and close. Lead with copy and save,
+  actions for copy, save, open in default app, pin, and close. Lead with copy and save,
   and give secondary actions quieter icons.
 - Auto-copy is on by default and lives in Capture settings. Copy screenshots
   as images and recordings as files after capture completes, and keep their
@@ -213,7 +216,7 @@ system tool, not a branded dashboard.
 - Multiple previews stack upward from the bottom-left corner.
 - Dragging the preview image outputs image content to targets that accept PNG
   pasteboard drags.
-- Workspace opens a movable preview/edit window that stays open across focus
+- The built-in image editor uses a movable preview/edit window that stays open across focus
   changes. If there are unsaved edits, Escape or the native close control asks
   Save, Don't Save, or Cancel. Save follows the configured Save Current default;
   only an explicit Ask Every Time preference exposes Replace Current / Save As
@@ -272,9 +275,9 @@ system tool, not a branded dashboard.
   card with the existing previews instead of clearing the stack.
 - Screenshots and recordings share one Quick Access stack and one visual
   language. Recording cards use the centered play affordance to open Preview;
-  hover actions expose Download, Copy, Edit, and Close so playback entry is not
-  duplicated. Edit is enabled for MP4 and disabled for GIF. Preview and Edit
-  open the same playable video window; MP4 windows hide the native AVPlayer
+  hover actions expose Download, Copy, Open in Default App, and Close. The
+  first release uses native controls for MP4 playback. In the retained editing
+  mode, MP4 windows hide the native AVPlayer
   playback controls and titlebar filename prominence, keep Save Current, Copy,
   and Download in the same right-aligned header row pattern as screenshot
   editing, and show dewShot's compact grouped bottom media control strip by
@@ -311,10 +314,10 @@ system tool, not a branded dashboard.
 - History tiles follow the Quick Access visual language: rounded image preview,
   fine translucent border, compact metadata, and icon-only hover HUD actions.
 - Single-click selects a history tile. Double-click or Return opens the selected
-  screenshot in the image workspace or recording in dewShot's video preview.
+  screenshot as a copy in the default app or recording in dewShot's video preview.
   Restore brings the capture back to the bottom-left Quick Access stack.
   Restored recordings must keep enough media metadata, including duration, for
-  the same Preview and Edit actions available after a fresh recording.
+  the same preview and export actions available after a fresh recording.
 - Recording history tiles should use the first decodable recording frame as the
   preview image and fall back to a lightweight video placeholder only when
   decoding fails.

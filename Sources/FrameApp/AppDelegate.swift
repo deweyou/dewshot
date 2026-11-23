@@ -14,7 +14,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let scrollingScreenshotSessionController: ScrollingScreenshotSessionControlling
     private let quickAccessPanelController: QuickAccessPanelController
     private let videoPreviewWindowController: VideoPreviewWindowController
-    private let imageWorkspacePanelController = ImageWorkspacePanelController()
+    private lazy var imageWorkspacePanelController = ImageWorkspacePanelController(
+        openPinnedScreenshot: { [weak self] screenshot in
+            guard let self else { return }
+            _ = self.openExternally { try self.externalCaptureOpener.open(screenshot) }
+        }
+    )
+    private let externalCaptureOpener = ExternalCaptureOpener()
     private let captureHistoryStore: CaptureHistoryStore
     private let ocrService = OCRService()
     private let ocrTextPanelController = OCRTextPanelController()
@@ -105,9 +111,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onStopRecording: { [weak self] in
                 self?.stopActiveRecording()
-            },
-            onOpenImage: { [weak self] in self?.openImageFile() },
-            onOpenClipboardImage: { [weak self] in self?.openClipboardImage() }
+            }
         )
 
         try? captureHistoryStore.cleanup()
@@ -478,12 +482,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
                 return self.recognizeText(in: self.currentQuickAccessScreenshot(for: screenshot))
             },
-            openWorkspace: { [weak self] in
+            openExternally: { [weak self] in
                 guard let self else {
                     return false
                 }
 
-                return self.openWorkspace(self.currentQuickAccessScreenshot(for: screenshot), kind: .temporaryPreview)
+                return self.openExternally {
+                    try self.externalCaptureOpener.open(self.currentQuickAccessScreenshot(for: screenshot))
+                }
             },
             pin: { [weak self] in
                 guard let self else {
@@ -896,8 +902,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             preview: { [weak self] in
                 self?.openVideoPreview(recording) ?? false
             },
-            edit: { [weak self] in
-                self?.openVideoPreview(recording, focusEditor: true) ?? false
+            openExternally: { [weak self] in
+                guard let self else { return false }
+                return self.openExternally { try self.externalCaptureOpener.open(recording) }
             },
             close: {
                 NSLog("dewShot 录屏快速操作已关闭")
@@ -905,7 +912,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
-    private func openVideoPreview(_ recording: CapturedRecording, focusEditor: Bool = false) -> Bool {
+    private func openVideoPreview(_ recording: CapturedRecording) -> Bool {
         videoPreviewWindowController.show(
             recording: recording,
             strings: strings,
@@ -918,9 +925,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             saveCurrent: { [weak self] recording, editingState, choice in
                 self?.saveEditedRecording(recording, editingState: editingState, choice: choice) ?? false
             },
-            focusEditor: focusEditor
+            allowsEditing: false
         )
         return true
+    }
+
+    private func openExternally(_ open: () throws -> Void) -> Bool {
+        do {
+            try open()
+            return true
+        } catch {
+            showQuickAccessFailedAlert(title: strings.externalOpenFailed, error: error)
+            return false
+        }
     }
 
     private func saveEditedRecording(
@@ -1114,11 +1131,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func openHistoryRecord(_ record: CaptureHistoryRecord) {
         switch record.kind {
         case .screenshot:
-            do {
-                _ = openWorkspace(try screenshot(from: record), kind: .temporaryPreview)
-            } catch {
-                showQuickAccessFailedAlert(title: strings.captureFailedTitle, error: error)
-            }
+            _ = openExternally { try externalCaptureOpener.open(screenshot(from: record)) }
         case .recording:
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -1216,12 +1229,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         ImageWorkspaceFileDialogs.open(strings: strings, window: nil) { [weak self] url in
             self?.openEditorFile(at: url)
-        }
-    }
-
-    func application(_ application: NSApplication, open urls: [URL]) {
-        for url in urls where url.isFileURL {
-            openEditorFile(at: url)
         }
     }
 

@@ -50,7 +50,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -131,7 +131,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
         XCTAssertEqual(overlayView.frame.midX, imageView.frame.midX, accuracy: 0.5)
         XCTAssertLessThan(overlayView.frame.width, imageView.frame.width * 0.8)
 
-        for label in ["保存", "复制", "识别文字", "固定到预览窗口", "打开预览"] {
+        for label in ["保存", "复制", "识别文字", "固定到预览窗口", "在默认 App 中打开"] {
             let button = try XCTUnwrap(findButton(in: previewView, accessibilityLabel: label))
             let buttonPoint = NSPoint(x: button.bounds.midX, y: button.bounds.midY)
             let previewPoint = previewView.convert(buttonPoint, from: button)
@@ -159,7 +159,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -208,14 +208,14 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             "复制": "doc.on.doc",
             "识别文字": "character.textbox",
             "固定到预览窗口": "pin",
-            "打开预览": "arrow.up.left.and.arrow.down.right"
+            "在默认 App 中打开": "arrow.up.forward.app"
         ]
         let expectedConfigurationsByLabel = [
             "保存": NSImage.SymbolConfiguration(pointSize: 12.5, weight: .semibold),
             "复制": NSImage.SymbolConfiguration(pointSize: 11.5, weight: .semibold),
             "识别文字": NSImage.SymbolConfiguration(pointSize: 12.5, weight: .semibold),
             "固定到预览窗口": NSImage.SymbolConfiguration(pointSize: 11.5, weight: .semibold),
-            "打开预览": NSImage.SymbolConfiguration(pointSize: 11.5, weight: .semibold)
+            "在默认 App 中打开": NSImage.SymbolConfiguration(pointSize: 11.5, weight: .semibold)
         ]
 
         for (label, symbolName) in expectedSymbolsByLabel {
@@ -366,7 +366,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             copy: { false },
             save: { false },
             recognizeText: { true },
-            openWorkspace: { false },
+            openExternally: { false },
             pin: { false },
             close: {}
         )
@@ -418,7 +418,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -429,7 +429,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -469,7 +469,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {
                 closeCount += 1
@@ -482,7 +482,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {
                 closeCount += 1
@@ -526,7 +526,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -568,7 +568,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {
                 closeCount += 1
@@ -681,7 +681,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             copy: copy,
             save: save,
             recognizeText: recognizeText,
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )

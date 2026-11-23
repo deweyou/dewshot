@@ -694,8 +694,15 @@ struct AppStrings {
 
     var quickAccessOpen: String {
         switch language {
-        case .zhHans: "打开预览"
-        case .en: "Open Preview"
+        case .zhHans: "在默认 App 中打开"
+        case .en: "Open in Default App"
+        }
+    }
+
+    var externalOpenFailed: String {
+        switch language {
+        case .zhHans: "无法在默认 App 中打开"
+        case .en: "Couldn’t Open in Default App"
         }
     }
 

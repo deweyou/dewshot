@@ -97,29 +97,6 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
     <string>$FRAME_SHORT_VERSION</string>
     <key>CFBundleVersion</key>
     <string>$FRAME_BUILD</string>
-    <key>CFBundleDocumentTypes</key>
-    <array>
-        <dict>
-            <key>CFBundleTypeName</key>
-            <string>dewShot Image Project</string>
-            <key>CFBundleTypeRole</key>
-            <string>Editor</string>
-            <key>LSHandlerRank</key>
-            <string>Owner</string>
-            <key>LSItemContentTypes</key>
-            <array><string>dev.deweyou.frame.image-project</string></array>
-        </dict>
-        <dict>
-            <key>CFBundleTypeName</key>
-            <string>Image</string>
-            <key>CFBundleTypeRole</key>
-            <string>Editor</string>
-            <key>LSHandlerRank</key>
-            <string>Alternate</string>
-            <key>LSItemContentTypes</key>
-            <array><string>public.image</string></array>
-        </dict>
-    </array>
     <key>UTExportedTypeDeclarations</key>
     <array>
         <dict>

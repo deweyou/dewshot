@@ -55,7 +55,7 @@ final class SettingsWindowControllerTests: XCTestCase {
     }
 
     func testScreenshotSettingsIncludeImageWorkspaceSaveCurrentBehavior() {
-        XCTAssertTrue(SettingsScreenshotMetrics.containsImageWorkspaceSaveCurrentBehavior)
+        XCTAssertFalse(SettingsScreenshotMetrics.containsImageWorkspaceSaveCurrentBehavior)
         XCTAssertEqual(ImageWorkspaceSaveCurrentBehavior.allCases, [
             .askEveryTime,
             .replaceCurrent,
