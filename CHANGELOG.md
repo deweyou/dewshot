@@ -4,7 +4,7 @@
 
 - Keep Capture History tile actions visible while the pointer is over the tile and hide them immediately when it leaves.
 
-- Use a native unified toolbar and system window controls in Capture History.
+- Use a native unified toolbar and system window controls in Capture History, with compact filters and no duplicate caption.
 
 - Center short text-recognition results in the Quick Access screenshot preview, clear of its toolbar.
 

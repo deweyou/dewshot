@@ -172,6 +172,7 @@ final class CaptureHistoryWindowControllerTests: XCTestCase {
 
         let window = try XCTUnwrap(NSApp.windows.first { $0.title == "Capture History" && $0.isVisible })
         let toolbar = try XCTUnwrap(window.toolbar)
+        XCTAssertEqual(toolbar.displayMode, .iconOnly)
         XCTAssertEqual(toolbar.items.map(\.itemIdentifier.rawValue), ["NSToolbarFlexibleSpaceItem", "CaptureHistoryFilter"])
         let filterControl = try XCTUnwrap(toolbar.items.last?.view)
         filterControl.layoutSubtreeIfNeeded()

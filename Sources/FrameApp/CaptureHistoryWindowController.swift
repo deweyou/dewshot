@@ -106,6 +106,7 @@ final class CaptureHistoryWindowController: NSObject, NSToolbarDelegate {
         window.isMovableByWindowBackground = true
         window.acceptsMouseMovedEvents = true
         let toolbar = NSToolbar(identifier: "dewShotCaptureHistory")
+        toolbar.displayMode = .iconOnly
         toolbar.allowsUserCustomization = false
         toolbar.delegate = self
         window.toolbar = toolbar
