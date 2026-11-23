@@ -132,6 +132,34 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         XCTAssertNotNil(findTextField(in: try XCTUnwrap(panel.contentView), stringValue: "Copied"))
     }
 
+    func testDeliveryFeedbackCanAppearInHistoryWithoutAQuickAccessPreview() throws {
+        _ = NSApplication.shared
+        let controller = QuickAccessPanelController()
+        let window = NSWindow(
+            contentRect: CGRect(x: 0, y: 0, width: 520, height: 360),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.center()
+        defer {
+            controller.temporarilyHidePreviews()
+            window.close()
+        }
+        let windowsBeforeFeedback = Set(NSApp.windows.map(ObjectIdentifier.init))
+
+        controller.showDeliveryFeedback("Saved to Documents", anchoredTo: window)
+
+        let panel = try XCTUnwrap(NSApp.windows.first {
+            !windowsBeforeFeedback.contains(ObjectIdentifier($0))
+                && $0.title == QuickAccessPanelController.deliveryFeedbackWindowTitle && $0.isVisible
+        })
+        XCTAssertTrue(panel.ignoresMouseEvents)
+        XCTAssertEqual(panel.frame.midX, window.frame.midX, accuracy: 1)
+        XCTAssertNotNil(findTextField(in: try XCTUnwrap(panel.contentView), stringValue: "Saved to Documents"))
+    }
+
     func testScreenshotQuickAccessKeepsMediaSurfaceSeparateFromDarkActionChrome() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))

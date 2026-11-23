@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Show the destination folder after saving a capture from History.
+
 - Prepare Mac App Store installer packages and include a privacy manifest.
 
 - Show screenshot and recording shortcuts in the welcome window, with a bottom

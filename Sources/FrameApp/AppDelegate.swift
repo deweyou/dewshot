@@ -1217,25 +1217,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func saveHistoryRecord(_ record: CaptureHistoryRecord) {
-        guard record.kind == .screenshot else {
-            guard let format = recordingFormat(for: record) else {
-                return
-            }
-
-            do {
-                _ = try recordingFileWriter.copyRecording(
-                    from: captureHistoryStore.fileURL(for: record),
-                    format: format,
-                    date: record.createdAt
-                )
-            } catch {
-                showQuickAccessFailedAlert(title: strings.saveFailedTitle, error: error)
-            }
-            return
-        }
-
         do {
-            _ = saveToDesktop(try screenshot(from: record))
+            let savedURL: URL?
+            switch record.kind {
+            case .screenshot:
+                savedURL = saveScreenshotFile(try screenshot(from: record))
+            case .recording:
+                guard let format = recordingFormat(for: record) else { return }
+                savedURL = try recordingFileWriter.copyRecording(
+                    from: captureHistoryStore.fileURL(for: record), format: format, date: record.createdAt
+                )
+            }
+
+            if let savedURL, let window = captureHistoryWindowController?.visibleWindow {
+                quickAccessPanelController.showDeliveryFeedback(savedFeedbackMessage(for: savedURL), anchoredTo: window)
+            }
         } catch {
             showQuickAccessFailedAlert(title: strings.saveFailedTitle, error: error)
         }
@@ -1547,8 +1543,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showQuickAccessSavedFeedback(for captureID: UUID, fileURL: URL) {
+        quickAccessPanelController.showDeliveryFeedback(savedFeedbackMessage(for: fileURL), captureID: captureID)
+    }
+
+    private func savedFeedbackMessage(for fileURL: URL) -> String {
         let folder = FileManager.default.displayName(atPath: fileURL.deletingLastPathComponent().path)
-        quickAccessPanelController.showDeliveryFeedback(strings.quickAccessSaved(to: folder), captureID: captureID)
+        return strings.quickAccessSaved(to: folder)
     }
 
     private func saveToDesktop(_ screenshot: CapturedScreenshot) -> Bool {

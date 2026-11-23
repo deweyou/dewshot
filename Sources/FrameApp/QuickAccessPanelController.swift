@@ -165,17 +165,26 @@ final class QuickAccessPanelController: NSObject {
         })?.panel else {
             return
         }
+        showDeliveryFeedback(message, anchoredTo: source.frame, on: source.screen)
+    }
 
+    func showDeliveryFeedback(_ message: String, anchoredTo window: NSWindow) {
+        let anchor = CGRect(x: window.frame.midX, y: window.frame.minY + 16, width: 0, height: 0)
+        showDeliveryFeedback(message, anchoredTo: anchor, on: window.screen)
+    }
+
+    private func showDeliveryFeedback(_ message: String, anchoredTo anchor: CGRect, on screen: NSScreen?) {
         let label = NSTextField(labelWithString: message)
         label.font = .systemFont(ofSize: 12, weight: .medium)
         label.textColor = FrameHUDChrome.primaryIcon
         label.alignment = .center
         label.lineBreakMode = .byTruncatingMiddle
-        let visibleFrame = source.screen?.visibleFrame ?? source.frame
+        let visibleFrame = screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? anchor
         let size = CGSize(width: min(260, max(72, ceil(label.fittingSize.width) + 24)), height: 32)
+        let preferredX = anchor.isEmpty ? anchor.midX - size.width / 2 : anchor.minX
         let origin = CGPoint(
-            x: min(max(source.frame.minX, visibleFrame.minX), visibleFrame.maxX - size.width),
-            y: max(visibleFrame.minY, source.frame.minY)
+            x: max(visibleFrame.minX, min(preferredX, visibleFrame.maxX - size.width)),
+            y: max(visibleFrame.minY, anchor.minY)
         )
 
         let panel = NSPanel(
