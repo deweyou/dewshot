@@ -20,8 +20,7 @@ final class QuickAccessPanelController: NSObject {
     private var dismissalTimer: Timer?
     private var deliveryFeedbackPanel: NSPanel?
     private var deliveryFeedbackTimer: Timer?
-    private var activeScreenObserver: NSObjectProtocol?
-    private var followActiveScreenTimer: Timer?
+    private var screenConfigurationObserver: NSObjectProtocol?
     private var currentPreviewScreenID: CGDirectDisplayID?
     private var isPreviewRestorationSuppressed = false
 
@@ -79,8 +78,8 @@ final class QuickAccessPanelController: NSObject {
         if canAutoDismiss && !isPending {
             startCountdown(for: item)
         }
-        repositionPreviewStack(preferredAnchor: preferredAnchor, force: true)
-        startFollowingActiveScreen()
+        layoutPreviewStack(preferredAnchor: preferredAnchor)
+        observeScreenConfiguration()
 
         panel.orderFrontRegardless()
     }
@@ -140,8 +139,8 @@ final class QuickAccessPanelController: NSObject {
         if canAutoDismiss {
             startCountdown(for: item)
         }
-        repositionPreviewStack(preferredAnchor: preferredAnchor, force: true)
-        startFollowingActiveScreen()
+        layoutPreviewStack(preferredAnchor: preferredAnchor)
+        observeScreenConfiguration()
 
         panel.orderFrontRegardless()
         content.layoutSubtreeIfNeeded()
@@ -415,7 +414,7 @@ final class QuickAccessPanelController: NSObject {
             return
         }
 
-        repositionPreviewStack(preferredAnchor: ActiveScreenResolver.preferredQuickAccessFollowAnchor(), force: true)
+        layoutPreviewStack()
         let now = ProcessInfo.processInfo.systemUptime
         for item in hiddenItems {
             item.isTemporarilyHidden = false
@@ -912,50 +911,37 @@ final class QuickAccessPanelController: NSObject {
         hoverPreviewController.close()
     }
 
-    private func startFollowingActiveScreen() {
-        guard followActiveScreenTimer == nil else {
-            return
-        }
+    private func observeScreenConfiguration() {
+        guard screenConfigurationObserver == nil else { return }
 
-        activeScreenObserver = NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didActivateApplicationNotification,
+        screenConfigurationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                self?.repositionPreviewStack(preferredAnchor: ActiveScreenResolver.preferredQuickAccessFollowAnchor())
-            }
-        }
-
-        followActiveScreenTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.repositionPreviewStack(preferredAnchor: ActiveScreenResolver.preferredQuickAccessFollowAnchor())
+                self?.layoutPreviewStack()
             }
         }
     }
 
-    private func stopFollowingActiveScreenIfNeeded() {
-        guard previewItems.isEmpty else {
-            return
+    private func stopObservingScreenConfigurationIfNeeded() {
+        guard previewItems.isEmpty else { return }
+        if let screenConfigurationObserver {
+            NotificationCenter.default.removeObserver(screenConfigurationObserver)
+            self.screenConfigurationObserver = nil
         }
-
-        if let activeScreenObserver {
-            NSWorkspace.shared.notificationCenter.removeObserver(activeScreenObserver)
-            self.activeScreenObserver = nil
-        }
-
-        followActiveScreenTimer?.invalidate()
-        followActiveScreenTimer = nil
         currentPreviewScreenID = nil
     }
 
-    private func repositionPreviewStack(preferredAnchor: CGRect?, force: Bool = false) {
-        let targetScreen = preferredScreen(for: preferredAnchor)
-        let targetScreenID = displayID(for: targetScreen)
-        guard force || targetScreenID != currentPreviewScreenID else {
-            return
-        }
+    private func layoutPreviewStack(preferredAnchor: CGRect? = nil) {
+        guard !previewItems.isEmpty else { return }
 
+        let pinnedScreen = currentPreviewScreenID.flatMap { id in
+            NSScreen.screens.first { displayID(for: $0) == id }
+        }
+        let targetScreen = pinnedScreen ?? preferredScreen(for: preferredAnchor)
+        let targetScreenID = displayID(for: targetScreen)
         currentPreviewScreenID = targetScreenID
         let visibleFrame = targetScreen?.visibleFrame
             ?? NSScreen.main?.visibleFrame
@@ -986,12 +972,14 @@ final class QuickAccessPanelController: NSObject {
 
     private func preferredScreen(for preferredAnchor: CGRect?) -> NSScreen? {
         let fallbackScreen = NSScreen.main ?? NSScreen.screens.first
-        let anchorFrame = preferredAnchor ?? fallbackScreen?.visibleFrame ?? .zero
-        return NSScreen.screens
-            .max { firstScreen, secondScreen in
-                intersectionArea(firstScreen.frame, anchorFrame) < intersectionArea(secondScreen.frame, anchorFrame)
-            }
-            ?? fallbackScreen
+        guard let preferredAnchor else { return fallbackScreen }
+        let bestMatch = NSScreen.screens.max {
+            intersectionArea($0.frame, preferredAnchor) < intersectionArea($1.frame, preferredAnchor)
+        }
+        guard let bestMatch, intersectionArea(bestMatch.frame, preferredAnchor) > 0 else {
+            return fallbackScreen
+        }
+        return bestMatch
     }
 
     private func displayID(for screen: NSScreen?) -> CGDirectDisplayID? {
@@ -1103,8 +1091,8 @@ final class QuickAccessPanelController: NSObject {
         item.panel.close()
         previewItems.removeAll { $0 === item }
         stopDismissalTimerIfNeeded()
-        repositionPreviewStack(preferredAnchor: ActiveScreenResolver.preferredQuickAccessFollowAnchor(), force: true)
-        stopFollowingActiveScreenIfNeeded()
+        layoutPreviewStack()
+        stopObservingScreenConfigurationIfNeeded()
         if notify {
             item.close()
         }
@@ -1123,7 +1111,7 @@ final class QuickAccessPanelController: NSObject {
         previewItems.removeAll()
         stopDismissalTimerIfNeeded()
         closeHoverPreview()
-        stopFollowingActiveScreenIfNeeded()
+        stopObservingScreenConfigurationIfNeeded()
     }
 
     private func closeOrphanPreviewPanels() {

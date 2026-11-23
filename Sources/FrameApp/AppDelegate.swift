@@ -1157,7 +1157,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             showQuickAccess(
                 for: try screenshot(from: record),
-                anchor: ActiveScreenResolver.preferredQuickAccessFollowAnchor(),
+                anchor: ActiveScreenResolver.preferredQuickAccessAnchor(),
                 canAutoDismiss: true
             )
         } catch {
@@ -1169,7 +1169,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             showVideoQuickAccess(
                 for: try await recording(from: record),
-                anchor: ActiveScreenResolver.preferredQuickAccessFollowAnchor(),
+                anchor: ActiveScreenResolver.preferredQuickAccessAnchor(),
                 canAutoDismiss: true
             )
         } catch {

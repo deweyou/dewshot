@@ -560,6 +560,42 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         XCTAssertGreaterThan(sortedPanels[1].frame.minY, sortedPanels[0].frame.maxY)
     }
 
+    func testQuickAccessKeepsItsDisplayUntilTheStackIsEmpty() throws {
+        _ = NSApplication.shared
+        let firstScreen = try XCTUnwrap(NSScreen.screens.first)
+        guard let secondScreen = NSScreen.screens.first(where: { $0.frame != firstScreen.frame }) else {
+            throw XCTSkip("Requires two non-mirrored displays")
+        }
+        let controller = QuickAccessPanelController()
+        retainedPreviewControllers.append(controller)
+        let png = try makePNGData()
+        let image = NSImage(size: CGSize(width: 320, height: 180))
+        let first = CapturedScreenshot(pngData: png, image: image, rect: .zero)
+        let second = CapturedScreenshot(pngData: png, image: image, rect: .zero)
+
+        func show(_ screenshot: CapturedScreenshot, on screen: NSScreen) throws -> NSPanel {
+            let existingWindows = Set(NSApp.windows.map(ObjectIdentifier.init))
+            controller.show(
+                for: screenshot, preferredAnchor: screen.visibleFrame,
+                copy: { true }, save: { true }, recognizeText: { true },
+                openExternally: { true }, pin: { true }, close: {}
+            )
+            return try XCTUnwrap(newPreviewPanels(excluding: existingWindows).first)
+        }
+
+        let firstPanel = try show(first, on: firstScreen)
+        defer { _ = controller.closePreview(for: first, notify: false) }
+        let secondPanel = try show(second, on: secondScreen)
+        defer { _ = controller.closePreview(for: second, notify: false) }
+        XCTAssertTrue(firstScreen.visibleFrame.contains(firstPanel.frame))
+        XCTAssertTrue(firstScreen.visibleFrame.contains(secondPanel.frame))
+        XCTAssertTrue(controller.closePreview(for: first, notify: false))
+        XCTAssertTrue(firstScreen.visibleFrame.contains(secondPanel.frame))
+        XCTAssertTrue(controller.closePreview(for: second, notify: false))
+        let newPanel = try show(first, on: secondScreen)
+        XCTAssertTrue(secondScreen.visibleFrame.contains(newPanel.frame))
+    }
+
     func testScreenshotAndRecordingQuickAccessCardsUseSameSize() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Open Quick Access on the active display and keep visible previews on that display when the pointer crosses screens.
+
 - Use a continuous outline around the rounded edges of screenshot and recording previews.
 
 - Apply the system accent color to the selected Capture History filter on first open.

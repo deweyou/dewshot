@@ -212,9 +212,9 @@ documents the retained implementations for a future release.
   wallpaper cannot lower control contrast.
 - Keep the OCR spinner on its action button. Show short OCR results in a compact,
   click-through message centered in the screenshot preview. Dismiss it automatically.
-- It anchors to the active screen's bottom-left corner with equal left and
-  bottom padding.
-- While previews are visible, they follow active-screen changes.
+- The first preview anchors the stack to the active screen's bottom-left corner
+  with equal left and bottom padding. Keep the stack on that display until it
+  empties or the display is disconnected.
 - Multiple previews stack upward from the bottom-left corner.
 - Dragging the preview image outputs image content to targets that accept PNG
   pasteboard drags.

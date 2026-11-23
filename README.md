@@ -24,6 +24,7 @@ your screenshots or recordings.
 dewShot lives in the menu bar instead of opening a large window. After each
 screenshot or recording, a small preview appears in the corner of your screen.
 From there you can preview, copy, or save it.
+On multiple displays, previews stay on the display where the first preview appeared.
 By default, dewShot also copies the finished screenshot or recording to the clipboard.
 You can turn this off in Settings → Capture.
 Corner previews close after 30 seconds by default once the capture has been
