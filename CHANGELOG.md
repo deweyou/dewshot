@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Use a continuous outline around the rounded edges of screenshot and recording previews.
+
 - Apply the system accent color to the selected Capture History filter on first open.
 
 - Add Clear History to its own menu alongside the Capture History filters, with confirmation before deleting cached screenshots and recordings.

@@ -167,6 +167,8 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             accuracy: 0.01
         )
         XCTAssertFalse(mediaSurface is NSVisualEffectView)
+        XCTAssertEqual(mediaSurface.layer?.cornerCurve, .continuous)
+        XCTAssertEqual(mediaSurface.layer?.borderWidth, 1)
     }
 
     func testRecordingQuickAccessUsesDeepPlaceholderAndDurationChrome() throws {
@@ -361,6 +363,9 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         let previewSurface = try XCTUnwrap(findPreviewSurface(in: contentView))
         XCTAssertEqual(previewSurface.frame, contentView.bounds)
         let thumbnailView = try XCTUnwrap(previewSurface as? RecordingThumbnailDrawableForTesting)
+        XCTAssertEqual(previewSurface.layer?.cornerCurve, .continuous)
+        XCTAssertEqual(previewSurface.layer?.borderWidth, 1)
+        XCTAssertTrue(previewSurface.layer?.masksToBounds == true)
         XCTAssertTrue(thumbnailView.lastDrawRectForTesting.contains(contentView.bounds))
         XCTAssertEqual(RecordingThumbnailProvider().thumbnail(for: gifURL)?.size, CGSize(width: 2, height: 2))
     }

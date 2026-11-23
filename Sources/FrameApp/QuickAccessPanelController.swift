@@ -436,6 +436,15 @@ final class QuickAccessPanelController: NSObject {
         panel.ignoresMouseEvents = false
     }
 
+    private func configurePreviewEdge(_ view: NSView) {
+        view.wantsLayer = true
+        view.layer?.cornerRadius = 12
+        view.layer?.cornerCurve = .continuous
+        view.layer?.masksToBounds = true
+        view.layer?.borderWidth = 1
+        view.layer?.borderColor = NSColor.white.withAlphaComponent(0.32).cgColor
+    }
+
     private func makePanel(for image: NSImage) -> NSPanel {
         // Non-activating panels do not reliably participate in cursor-rect updates
         // while another app is focused, so Quick Access stays a normal floating panel.
@@ -489,12 +498,7 @@ final class QuickAccessPanelController: NSObject {
 
         let imageView = AspectFillImageView(image: screenshot.image)
         imageView.translatesAutoresizingMaskIntoConstraints = false
-        imageView.wantsLayer = true
-        imageView.layer?.cornerRadius = 12
-        imageView.layer?.cornerCurve = .continuous
-        imageView.layer?.masksToBounds = true
-        imageView.layer?.borderWidth = 0.5
-        imageView.layer?.borderColor = NSColor.white.withAlphaComponent(0.32).cgColor
+        configurePreviewEdge(imageView)
         imageView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
 
         let overlayView = NSVisualEffectView()
@@ -662,6 +666,7 @@ final class QuickAccessPanelController: NSObject {
             FrameHUDChrome.configure(visualEffectView, surface: .overlay, cornerRadius: 12)
             previewSurface = visualEffectView
         }
+        configurePreviewEdge(previewSurface)
 
         let playImageView = NSImageView(
             image: NSImage(systemSymbolName: "play.circle.fill", accessibilityDescription: strings.videoQuickAccessPreview) ?? NSImage()
@@ -2123,14 +2128,7 @@ private final class RecordingThumbnailImageView: NSView, RecordingThumbnailDrawa
         nil
     }
 
-    override var isOpaque: Bool {
-        true
-    }
-
     override func draw(_ dirtyRect: NSRect) {
-        let clipPath = NSBezierPath(roundedRect: bounds, xRadius: 12, yRadius: 12)
-        clipPath.addClip()
-
         NSColor.windowBackgroundColor.setFill()
         bounds.fill()
 
@@ -2142,11 +2140,6 @@ private final class RecordingThumbnailImageView: NSView, RecordingThumbnailDrawa
             operation: .copy,
             fraction: 1
         )
-
-        NSColor.white.withAlphaComponent(0.32).setStroke()
-        let border = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.25, dy: 0.25), xRadius: 12, yRadius: 12)
-        border.lineWidth = 0.5
-        border.stroke()
     }
 
     private func drawRectForCurrentBounds() -> CGRect {
