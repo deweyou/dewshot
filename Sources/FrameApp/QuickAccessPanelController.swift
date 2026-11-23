@@ -61,6 +61,7 @@ final class QuickAccessPanelController: NSObject {
     ) {
         let panel = makePanel(for: captured.image)
         let content = makeContentView(for: captured, strings: strings, isPending: isPending)
+        content.view.onOpenRequested = openExternally
         panel.contentView = content.view
         let item = QuickAccessPreviewItem(
             screenshotID: captured.id,
@@ -121,6 +122,7 @@ final class QuickAccessPanelController: NSObject {
             strings: strings,
             preview: preview
         )
+        content.onOpenRequested = openExternally
         content.frame = CGRect(origin: .zero, size: previewSize)
         content.autoresizingMask = [.width, .height]
         panel.contentView = content
@@ -1485,11 +1487,13 @@ private class ScreenshotPreviewView: NSView {
     var actionsViews: [NSView] = []
     var onHoverChanged: ((Bool) -> Void)?
     var onPointerDown: (() -> Void)?
+    var onOpenRequested: (() -> Bool)?
 
     private var trackingArea: NSTrackingArea?
     private var pendingHideActionsWorkItem: DispatchWorkItem?
     private var areActionsVisible = false
     private var areActionsEnabled = true
+    private var didDrag = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -1538,8 +1542,27 @@ private class ScreenshotPreviewView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        didDrag = false
         onPointerDown?()
         super.mouseDown(with: event)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        didDrag = true
+        super.mouseDragged(with: event)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard event.clickCount == 2, isMediaClick(event) else {
+            super.mouseUp(with: event)
+            return
+        }
+        _ = onOpenRequested?()
+    }
+
+    func isMediaClick(_ event: NSEvent) -> Bool {
+        let point = convert(event.locationInWindow, from: nil)
+        return areActionsEnabled && !didDrag && hitTest(point) === self
     }
 
     override func mouseMoved(with event: NSEvent) {
@@ -1743,6 +1766,7 @@ private final class RecordingQuickAccessContentView: ScreenshotPreviewView {
     private weak var overlayView: NSView?
     private weak var actionsView: NSView?
     private weak var closeButton: NSButton?
+    private var pendingPlayClick: DispatchWorkItem?
     private var floatingButtonDiameter: CGFloat = 20
     var preferredContentSize: CGSize = .zero {
         didSet {
@@ -1762,16 +1786,30 @@ private final class RecordingQuickAccessContentView: ScreenshotPreviewView {
         preferredContentSize == .zero ? super.intrinsicContentSize : preferredContentSize
     }
 
+    override func mouseDown(with event: NSEvent) {
+        if event.clickCount == 2 {
+            pendingPlayClick?.cancel()
+            pendingPlayClick = nil
+        }
+        super.mouseDown(with: event)
+    }
+
     override func mouseUp(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        guard bounds.contains(point),
-              isPointInPlayOverlay(point),
-              !isPointInActionControls(point) else {
+        guard event.clickCount == 1, isMediaClick(event), isPointInPlayOverlay(point) else {
             super.mouseUp(with: event)
             return
         }
 
-        _ = onPreviewRequested?()
+        // Give the second click a chance to open the recording externally.
+        pendingPlayClick?.cancel()
+        let playClick = DispatchWorkItem { [weak self] in
+            guard let self, self.window?.isVisible == true else { return }
+            self.pendingPlayClick = nil
+            _ = self.onPreviewRequested?()
+        }
+        pendingPlayClick = playClick
+        DispatchQueue.main.asyncAfter(deadline: .now() + NSEvent.doubleClickInterval, execute: playClick)
     }
 
     override func cursorUpdate(with event: NSEvent) {

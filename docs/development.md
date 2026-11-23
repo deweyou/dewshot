@@ -203,7 +203,7 @@ dewShot directly from the mounted DMG.
 20. Confirm copy places an image on the pasteboard.
 21. Confirm save writes `dewShot yyyy-MM-dd HH.mm.ss.png` to the configured screenshot folder, or Desktop after reset.
 22. Double-click an eligible app window, capture it, and confirm the output uses the selected window screenshot style. Confirm Original keeps the cropped raw window output without an added background canvas while region screenshots remain undecorated.
-23. Choose Open in Default App on a screenshot. Confirm macOS opens a PNG copy, then double-click a screenshot in Capture History and verify it also opens externally.
+23. Double-click the screenshot in Quick Access and confirm macOS opens a PNG copy. Repeat with Open in Default App and with a double-click in Capture History.
 24. Confirm pin closes the originating Quick Access card and opens a persistent image-only pinned window.
 25. Confirm the pinned window has no toolbar or visible output buttons, keeps the image edge-to-edge, stays open after focus changes, and closes with the native red traffic-light close button.
 26. Right-click the pinned window and confirm Copy and Download work without closing it.
@@ -212,7 +212,7 @@ dewShot directly from the mounted DMG.
 29. Record a short MP4 with cursor enabled. Confirm start shows a brief preparation/loading state instead of a countdown, then switches to elapsed-time recording controls; stop finalizes the file, restart discards the current take and records the same area again, and delete requires confirmation before discarding without Quick Access.
 30. Confirm the menu bar icon becomes a red recording dot while recording and its Stop Recording menu item stops the same active session.
 31. Confirm the completed recording appears in a bottom-left Quick Access card with Open in Default App, Save, and Copy in that order, a centered play control, and Close in the corner.
-32. Confirm MP4 playback uses native play, pause, and seek controls with Copy and Download. Choose Open in Default App from the recording card and verify macOS opens a copy.
+32. Click the recording card's center play control once and confirm the built-in player opens with native play, pause, and seek controls, plus Copy and Download. Close the player, double-click the same spot, and confirm only the default app opens a copy. Repeat using Open in Default App from the toolbar.
 33. Confirm Copy places the recording file URL on the pasteboard and Download writes `dewShot yyyy-MM-dd HH.mm.ss.mp4` to the configured screenshot folder.
 34. Repeat with GIF selected and confirm `dewShot yyyy-MM-dd HH.mm.ss.gif` output is produced.
 35. Select an entire single display as the recording region and confirm the recording HUD remains usable but is absent from the output.

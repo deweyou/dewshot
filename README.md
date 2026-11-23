@@ -57,7 +57,7 @@ The goal is simple: capture what you need, then get back to what you were doing.
 
 - Copy a screenshot or recording, or save it to your chosen folder.
 - Hover to see a larger preview, pin a screenshot, or drag it into another app.
-- Use **Open in Default App** to open a copy of a screenshot or recording in the app macOS selects for that file type.
+- Double-click a corner preview or choose **Open in Default App** to open a copy in the app macOS selects for that file type.
 - Open a recent screenshot or replay a recent recording from Capture History.
 - Clear cached captures from the More Actions menu in Capture History.
 

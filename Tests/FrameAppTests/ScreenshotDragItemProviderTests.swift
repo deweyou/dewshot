@@ -153,6 +153,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
         )
         let controller = QuickAccessPanelController()
         retainedPreviewControllers.append(controller)
+        var openCallCount = 0
 
         controller.show(
             for: screenshot,
@@ -162,7 +163,10 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openExternally: { true },
+            openExternally: {
+                openCallCount += 1
+                return true
+            },
             pin: { true },
             close: {}
         )
@@ -184,10 +188,19 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
 
         XCTAssertFalse(progressIndicator.isHidden)
         XCTAssertIdentical(previewView.hitTest(closePoint), previewView)
+        let mediaPoint = previewView.convert(
+            NSPoint(x: previewView.bounds.midX, y: previewView.bounds.midY), to: nil
+        )
+        try click(at: mediaPoint, in: panel, count: 2)
+        XCTAssertEqual(openCallCount, 0)
 
         XCTAssertTrue(controller.setScreenshotPending(false, for: screenshot))
         XCTAssertTrue(progressIndicator.isHidden)
         XCTAssertIdentical(previewView.hitTest(closePoint), closeButton)
+        try click(at: mediaPoint, in: panel)
+        XCTAssertEqual(openCallCount, 0)
+        try click(at: mediaPoint, in: panel, count: 2)
+        XCTAssertEqual(openCallCount, 1)
     }
 
     func testQuickAccessToolbarUsesReadableSymbolsWithConsistentScaling() throws {
@@ -769,14 +782,20 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
         let button = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: accessibilityLabel))
         let windowPoint = button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil)
 
-        let mouseDown = try makeMouseButtonEvent(type: .leftMouseDown, point: windowPoint, panel: panel)
-        let mouseUp = try makeMouseButtonEvent(type: .leftMouseUp, point: windowPoint, panel: panel)
-
-        panel.sendEvent(mouseDown)
-        panel.sendEvent(mouseUp)
+        try click(at: windowPoint, in: panel)
     }
 
-    private func makeMouseButtonEvent(type: NSEvent.EventType, point: NSPoint, panel: NSPanel) throws -> NSEvent {
+    private func click(at point: NSPoint, in panel: NSPanel, count: Int = 1) throws {
+        panel.sendEvent(try makeMouseButtonEvent(type: .leftMouseDown, point: point, panel: panel, clickCount: count))
+        panel.sendEvent(try makeMouseButtonEvent(type: .leftMouseUp, point: point, panel: panel, clickCount: count))
+    }
+
+    private func makeMouseButtonEvent(
+        type: NSEvent.EventType,
+        point: NSPoint,
+        panel: NSPanel,
+        clickCount: Int
+    ) throws -> NSEvent {
         try XCTUnwrap(NSEvent.mouseEvent(
             with: type,
             location: point,
@@ -785,7 +804,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             windowNumber: panel.windowNumber,
             context: nil,
             eventNumber: 0,
-            clickCount: 1,
+            clickCount: clickCount,
             pressure: type == .leftMouseDown ? 1 : 0
         ))
     }

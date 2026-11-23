@@ -197,6 +197,9 @@ documents the retained implementations for a future release.
 - Quick Access is a small fixed post-capture preview with icon-only hover
   actions. For screenshots, order them as Open in Default App, Save, Recognize
   Text, Pin, and Copy. Keep Close in the corner.
+- Double-click the media in a completed preview to open it in the macOS default app.
+  A single click on a recording's play control opens the built-in player after
+  the system double-click interval.
 - Use one tint for enabled hover toolbar actions. Center the screenshot actions
   in equal-height buttons and adjust symbol sizes for their visible bounds.
 - Auto-copy is on by default and lives in Capture settings. Copy screenshots

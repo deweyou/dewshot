@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Double-click a screenshot or recording in Quick Access to open it in the macOS default app.
+
 - Align Quick Access screenshot toolbar icons and use a consistent color for enabled actions.
 
 - Put Open in Default App and Save first in Quick Access for screenshots and recordings, with Copy at the end.

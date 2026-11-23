@@ -429,7 +429,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         XCTAssertLessThan(drawingRect.height, badge.bounds.height)
     }
 
-    func testClickingRecordingPlayOverlayOpensPreview() throws {
+    func testRecordingPlayOverlayDistinguishesSingleAndDoubleClick() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
         let recording = CapturedRecording(
@@ -444,6 +444,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         let controller = QuickAccessPanelController()
         retainedPreviewControllers.append(controller)
         var previewCallCount = 0
+        var openCallCount = 0
 
         controller.show(
             for: recording,
@@ -455,7 +456,10 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
                 previewCallCount += 1
                 return true
             },
-            openExternally: { true },
+            openExternally: {
+                openCallCount += 1
+                return true
+            },
             close: {}
         )
 
@@ -467,10 +471,25 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         contentView.layoutSubtreeIfNeeded()
         let windowPoint = contentView.convert(NSPoint(x: contentView.bounds.midX, y: contentView.bounds.midY), to: nil)
 
-        panel.sendEvent(try makeMouseButtonEvent(type: .leftMouseDown, point: windowPoint, panel: panel))
-        panel.sendEvent(try makeMouseButtonEvent(type: .leftMouseUp, point: windowPoint, panel: panel))
+        func click(count: Int) throws {
+            panel.sendEvent(try makeMouseButtonEvent(
+                type: .leftMouseDown, point: windowPoint, panel: panel, clickCount: count
+            ))
+            panel.sendEvent(try makeMouseButtonEvent(
+                type: .leftMouseUp, point: windowPoint, panel: panel, clickCount: count
+            ))
+        }
 
+        try click(count: 1)
+        try click(count: 2)
+        XCTAssertEqual(openCallCount, 1)
+        RunLoop.main.run(until: Date().addingTimeInterval(NSEvent.doubleClickInterval + 0.1))
+        XCTAssertEqual(previewCallCount, 0)
+
+        try click(count: 1)
+        RunLoop.main.run(until: Date().addingTimeInterval(NSEvent.doubleClickInterval + 0.1))
         XCTAssertEqual(previewCallCount, 1)
+        XCTAssertEqual(openCallCount, 1)
     }
 
     func testClickingRecordingPreviewOutsidePlayOverlayDoesNotOpenPreview() throws {
@@ -1077,7 +1096,12 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         return nil
     }
 
-    private func makeMouseButtonEvent(type: NSEvent.EventType, point: NSPoint, panel: NSPanel) throws -> NSEvent {
+    private func makeMouseButtonEvent(
+        type: NSEvent.EventType,
+        point: NSPoint,
+        panel: NSPanel,
+        clickCount: Int = 1
+    ) throws -> NSEvent {
         try XCTUnwrap(NSEvent.mouseEvent(
             with: type,
             location: point,
@@ -1086,7 +1110,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             windowNumber: panel.windowNumber,
             context: nil,
             eventNumber: 0,
-            clickCount: 1,
+            clickCount: clickCount,
             pressure: type == .leftMouseDown ? 1 : 0
         ))
     }
