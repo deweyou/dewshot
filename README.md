@@ -5,8 +5,8 @@
 <h1 align="center">Frame</h1>
 
 <p align="center">
-  A quiet macOS app for screenshots, short recordings, and the things you just
-  captured.
+  A native macOS app for screenshots and screen recordings you can edit, save,
+  or share right after capture.
 </p>
 
 <p align="center">

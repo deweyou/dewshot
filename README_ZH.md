@@ -5,7 +5,7 @@
 <h1 align="center">Frame</h1>
 
 <p align="center">
-  一个安静的 macOS 工具，用来截图、录屏，并找回刚刚捕获的内容。
+  一款原生 macOS 截图录屏工具，捕获后可以直接编辑、保存或分享。
 </p>
 
 <p align="center">

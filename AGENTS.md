@@ -4,16 +4,7 @@ Use `harness.yaml` as the repository's durable agent-work configuration. Deweyou
 
 ## Project Context
 
-Frame is a native macOS screenshot utility. The current implemented scope focuses on the local screenshot loop:
-
-- menu bar app with no main window
-- `Command+Shift+A` default region screenshot shortcut, configurable in Settings
-- Screen Recording permission guidance
-- multi-display selection overlay
-- PNG capture
-- Quick Access actions for copy, save, and close
-
-Recording, annotation, OCR, history, cloud sync, and scrolling capture are future product areas unless a task explicitly brings them into scope.
+Frame is a native macOS screenshot and screen recording tool. Editing, saving, and sharing captures are part of its core workflow. See [Product Positioning](docs/product-positioning.md) when deciding what to develop or prioritize.
 
 ## Commands
 
