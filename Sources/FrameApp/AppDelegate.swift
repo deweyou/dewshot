@@ -193,7 +193,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showFirstRunSetup() {
         firstRunSetupWindowController.show(
             strings: strings,
-            shortcut: SettingsStore.screenshotShortcut(),
+            screenshotShortcut: hotKeyController?.shortcut,
+            recordingShortcut: hotKeyController?.recordingShortcut,
             hasAccess: hasScreenRecordingAccess
         ) { [weak self] in
             guard let self else { return }

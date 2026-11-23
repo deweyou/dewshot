@@ -1454,10 +1454,24 @@ struct AppStrings {
         }
     }
 
-    var firstRunLater: String {
+    var firstRunScreenshot: String {
         switch language {
-        case .zhHans: "稍后"
-        case .en: "Later"
+        case .zhHans: "截图"
+        case .en: "Screenshot"
+        }
+    }
+
+    var firstRunRecording: String {
+        switch language {
+        case .zhHans: "录屏"
+        case .en: "Recording"
+        }
+    }
+
+    var firstRunMenuBar: String {
+        switch language {
+        case .zhHans: "菜单栏"
+        case .en: "Menu Bar"
         }
     }
 

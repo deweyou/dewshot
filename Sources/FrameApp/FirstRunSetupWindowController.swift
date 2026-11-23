@@ -72,7 +72,8 @@ final class FirstRunSetupWindowController: NSObject, NSWindowDelegate {
 
     func show(
         strings: AppStrings,
-        shortcut: ScreenshotShortcut,
+        screenshotShortcut: ScreenshotShortcut?,
+        recordingShortcut: ScreenshotShortcut?,
         hasAccess: @escaping () -> Bool,
         onStartCapture: @escaping () -> Void
     ) {
@@ -89,10 +90,10 @@ final class FirstRunSetupWindowController: NSObject, NSWindowDelegate {
         )
         let view = FirstRunSetupView(
             strings: strings,
-            shortcut: shortcut,
+            screenshotShortcut: screenshotShortcut,
+            recordingShortcut: recordingShortcut,
             icon: NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath),
             state: state,
-            onLater: { [weak self] in self?.finishIfVisible() },
             onStartCapture: { [weak self] in
                 self?.finishIfVisible()
                 onStartCapture()
@@ -141,10 +142,10 @@ final class FirstRunSetupWindowController: NSObject, NSWindowDelegate {
 
 struct FirstRunSetupView: View {
     let strings: AppStrings
-    let shortcut: ScreenshotShortcut
+    let screenshotShortcut: ScreenshotShortcut?
+    let recordingShortcut: ScreenshotShortcut?
     let icon: NSImage
     let state: FirstRunSetupState
-    let onLater: () -> Void
     let onStartCapture: () -> Void
 
     private let permissionRefresh = Timer.publish(every: 0.7, on: .main, in: .common).autoconnect()
@@ -153,21 +154,11 @@ struct FirstRunSetupView: View {
         VStack(alignment: .leading, spacing: 20) {
             hero
             permissionStatus
-            HStack {
-                Button(action: onLater) {
-                    Text(strings.firstRunLater)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .padding(.vertical, 8)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                Spacer()
-                Button(primaryTitle, action: primaryAction)
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .keyboardShortcut(.defaultAction)
-            }
+            Button(primaryTitle, action: primaryAction)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .keyboardShortcut(.defaultAction)
+                .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(.horizontal, 24)
         .padding(.top, 40)
@@ -193,17 +184,18 @@ struct FirstRunSetupView: View {
             Text(strings.firstRunIntroduction)
                 .font(.system(size: 14))
                 .foregroundStyle(.secondary)
-            Label {
-                Text(shortcut.displayName)
-                    .font(.system(size: 13, weight: .medium, design: .monospaced))
-            } icon: {
-                Image(systemName: "camera.viewfinder")
-                    .accessibilityHidden(true)
+            HStack(spacing: 8) {
+                shortcutBadge(
+                    strings.firstRunScreenshot,
+                    icon: "camera.viewfinder",
+                    shortcut: screenshotShortcut
+                )
+                shortcutBadge(
+                    strings.firstRunRecording,
+                    icon: "record.circle",
+                    shortcut: recordingShortcut
+                )
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(.regularMaterial, in: Capsule())
-            .accessibilityLabel(shortcut.keyboardShortcut.displayName)
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -219,6 +211,25 @@ struct FirstRunSetupView: View {
                         ))
                 }
         }
+    }
+
+    private func shortcutBadge(_ title: String, icon: String, shortcut: ScreenshotShortcut?) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .foregroundStyle(.secondary)
+            Text(title)
+            Spacer(minLength: 8)
+            Text(shortcut?.displayName ?? strings.firstRunMenuBar)
+                .font(.system(size: 12, weight: .medium, design: shortcut == nil ? .default : .monospaced))
+                .foregroundStyle(shortcut == nil ? .secondary : .primary)
+        }
+        .font(.system(size: 12, weight: .medium))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(shortcut?.keyboardShortcut.displayName ?? strings.firstRunMenuBar)
     }
 
     private var permissionStatus: some View {

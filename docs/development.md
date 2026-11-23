@@ -164,7 +164,8 @@ the replacement and signing checks below with the bundle from
 `.build/app-sandbox/`. Grant Screen Recording if requested, then relaunch.
 
 When testing a first launch without Screen Recording access, confirm the welcome
-window shows the configured screenshot shortcut. In the signed app, choose Later
+window shows the registered screenshot and recording shortcuts. Verify that a
+disabled shortcut points to the menu bar. In the signed app, close the window
 and reopen setup from Capture Screenshot. Start permission setup, confirm the
 guide opens beside System Settings, and drag the app into the list if it is
 missing. Enable access and follow any system prompt to relaunch. The welcome

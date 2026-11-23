@@ -62,10 +62,10 @@ final class FirstRunSetupTests: XCTestCase {
             )
             let view = FirstRunSetupView(
                 strings: strings,
-                shortcut: .default,
+                screenshotShortcut: .default,
+                recordingShortcut: .defaultRecording,
                 icon: NSImage(size: CGSize(width: 64, height: 64)),
                 state: state,
-                onLater: {},
                 onStartCapture: {}
             )
 
