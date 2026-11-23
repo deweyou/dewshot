@@ -10,14 +10,17 @@ enum ScreenRecordingPermission {
         CGRequestScreenCaptureAccess()
     }
 
-    static func openSettings() {
+    @MainActor
+    static func openSettings(strings: AppStrings = .current()) {
         guard let settingsURL = URL(
             string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
         ) else {
             return
         }
 
-        NSWorkspace.shared.open(settingsURL)
+        if NSWorkspace.shared.open(settingsURL), !hasAccess {
+            ScreenRecordingPermissionPanel.shared.show(strings: strings)
+        }
     }
 
     @MainActor
@@ -28,6 +31,7 @@ enum ScreenRecordingPermission {
         alert.addButton(withTitle: strings.screenRecordingPermissionContinue)
         alert.addButton(withTitle: strings.cancel)
 
+        NSApp.activate(ignoringOtherApps: true)
         if alert.runModal() == .alertFirstButtonReturn {
             requestAccessAndOpenSettingsIfNeeded(strings: strings)
         }
@@ -42,7 +46,7 @@ enum ScreenRecordingPermission {
         if hasAccess {
             showRestartRequiredAlert(strings: strings)
         } else {
-            openSettings()
+            openSettings(strings: strings)
         }
     }
 

@@ -1436,9 +1436,9 @@ struct AppStrings {
     var screenRecordingPermissionRequiredMessage: String {
         switch language {
         case .zhHans:
-            "macOS 要求截图工具获得屏幕录制授权。点击继续后，dewShot 会向系统请求权限；如果系统没有弹窗，请在系统设置的“屏幕与系统音频录制”或“屏幕录制”中允许 dewShot，授权后重新打开 dewShot。"
+            "继续后，macOS 会要求你允许 dewShot 截图和录屏。"
         case .en:
-            "macOS requires permission before dewShot can capture the screen. Continue to request access. If no system prompt appears, allow dewShot under Screen & System Audio Recording or Screen Recording in System Settings, then reopen dewShot."
+            "Continue to allow dewShot to take screenshots and record the screen."
         }
     }
 
@@ -1446,6 +1446,29 @@ struct AppStrings {
         switch language {
         case .zhHans: "继续"
         case .en: "Continue"
+        }
+    }
+
+    var screenRecordingGuideTitle: String {
+        switch language {
+        case .zhHans: "开启屏幕录制"
+        case .en: "Allow Screen Recording"
+        }
+    }
+
+    func screenRecordingGuideMessage(appName: String) -> String {
+        switch language {
+        case .zhHans:
+            "在系统设置中打开 \(appName) 的开关。"
+        case .en:
+            "Turn on \(appName) in System Settings."
+        }
+    }
+
+    var screenRecordingGuideDrag: String {
+        switch language {
+        case .zhHans: "列表里没有？拖进去添加"
+        case .en: "Missing from the list? Drag to add."
         }
     }
 

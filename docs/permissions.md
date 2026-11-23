@@ -4,6 +4,11 @@ dewShot needs macOS Screen Recording permission because it captures pixels direc
 
 On recent macOS versions, the permission prompt may mention bypassing the system private window picker or directly accessing screen and audio. That wording is expected for apps that request Screen Recording or Screen & System Audio Recording access.
 
+When dewShot opens the Screen Recording pane, it shows a guide next to System
+Settings. Turn on dewShot if it is already listed. If it is missing, drag the app
+from the guide into the list or use the system add button. Follow any macOS
+prompt to quit and reopen. The guide dismisses when dewShot can detect access.
+
 dewShot's Settings permission section also reports two feature-specific permissions:
 
 - Accessibility allows dewShot to post automatic scroll events for scrolling screenshots.

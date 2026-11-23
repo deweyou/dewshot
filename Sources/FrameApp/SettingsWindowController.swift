@@ -1473,7 +1473,7 @@ private struct PermissionsSettingsView: View {
                 strings.settingsScreenRecordingPermission,
                 purpose: strings.settingsScreenRecordingPurpose,
                 hasAccess: hasScreenRecordingAccess,
-                openSettings: ScreenRecordingPermission.openSettings
+                openSettings: { ScreenRecordingPermission.openSettings(strings: strings) }
             )
 
             SettingsControlDivider()

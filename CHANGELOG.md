@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Show a small permission guide beside System Settings when dewShot needs
+  Screen Recording access. Drag the dewShot icon into the list if it is missing.
+
 - Add a local App Sandbox test build. It asks for a destination folder on first
   save and remembers permission to save screenshots and recordings there.
 
