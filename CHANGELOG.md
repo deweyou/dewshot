@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Show screenshot and recording shortcuts as compact groups of keycaps on first launch.
+- Group screenshot and recording keycaps in a shared shortcut bar on first launch.
   The welcome window guides Screen Recording access and offers a first screenshot.
   Accessibility and Input Monitoring are available as optional setup steps.
 

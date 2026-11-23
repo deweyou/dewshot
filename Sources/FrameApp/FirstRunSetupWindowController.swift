@@ -216,7 +216,7 @@ struct FirstRunSetupView: View {
         let screenshot = shortcutHint(strings.firstRunScreenshot, icon: "camera.viewfinder", shortcut: screenshotShortcut)
         let recording = shortcutHint(strings.firstRunRecording, icon: "record.circle", shortcut: recordingShortcut)
         return ViewThatFits(in: .horizontal) {
-            HStack(spacing: 18) {
+            HStack(spacing: 26) {
                 screenshot
                 recording
             }
@@ -225,6 +225,9 @@ struct FirstRunSetupView: View {
                 recording
             }
         }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 8)
+        .background(.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 11))
     }
 
     private func shortcutHint(_ title: String, icon: String, shortcut: ScreenshotShortcut?) -> some View {
