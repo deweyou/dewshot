@@ -1,4 +1,5 @@
 import AppKit
+import FrameCore
 import SwiftUI
 import XCTest
 @testable import FrameApp
@@ -103,5 +104,22 @@ final class FirstRunSetupTests: XCTestCase {
             }
             XCTAssertEqual(Set(fittedHeights).count, 1)
         }
+    }
+
+    @MainActor
+    func testWelcomeViewWrapsLongShortcutsWithoutClipping() {
+        _ = NSApplication.shared
+        let modifiers = Set(ScreenshotShortcutModifier.allCases)
+        let host = NSHostingView(rootView: FirstRunSetupView(
+            strings: AppStrings(language: .en),
+            screenshotShortcut: ScreenshotShortcut(key: .letter("A"), modifiers: modifiers),
+            recordingShortcut: ScreenshotShortcut(key: .letter("R"), modifiers: modifiers),
+            icon: NSImage(size: CGSize(width: 64, height: 64)),
+            state: FirstRunSetupState(hasAccess: { false }, requestAccess: {}, openSettings: {}),
+            onStartCapture: {}
+        ))
+
+        XCTAssertEqual(host.fittingSize.width, 476)
+        XCTAssertLessThan(host.fittingSize.height, 620)
     }
 }

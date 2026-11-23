@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- Show screenshot and recording shortcuts on first launch, walk through Screen
-  Recording access, and offer a first screenshot from the welcome window.
+- Show screenshot and recording shortcuts as individual keycaps on first launch.
+  The welcome window guides Screen Recording access and offers a first screenshot.
   Accessibility and Input Monitoring are available as optional setup steps.
 
 - Show a small permission guide beside System Settings when dewShot needs

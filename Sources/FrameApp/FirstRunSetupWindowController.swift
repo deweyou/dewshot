@@ -194,18 +194,7 @@ struct FirstRunSetupView: View {
             Text(strings.firstRunIntroduction)
                 .font(.system(size: 14))
                 .foregroundStyle(.secondary)
-            HStack(spacing: 8) {
-                shortcutBadge(
-                    strings.firstRunScreenshot,
-                    icon: "camera.viewfinder",
-                    shortcut: screenshotShortcut
-                )
-                shortcutBadge(
-                    strings.firstRunRecording,
-                    icon: "record.circle",
-                    shortcut: recordingShortcut
-                )
-            }
+            shortcutHints
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -223,20 +212,48 @@ struct FirstRunSetupView: View {
         }
     }
 
-    private func shortcutBadge(_ title: String, icon: String, shortcut: ScreenshotShortcut?) -> some View {
+    private var shortcutHints: some View {
+        let screenshot = shortcutHint(strings.firstRunScreenshot, icon: "camera.viewfinder", shortcut: screenshotShortcut)
+        let recording = shortcutHint(strings.firstRunRecording, icon: "record.circle", shortcut: recordingShortcut)
+        return ViewThatFits(in: .horizontal) {
+            HStack(spacing: 24) {
+                screenshot
+                recording
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                screenshot
+                recording
+            }
+        }
+    }
+
+    private func shortcutHint(_ title: String, icon: String, shortcut: ScreenshotShortcut?) -> some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
                 .foregroundStyle(.secondary)
             Text(title)
-            Spacer(minLength: 8)
-            Text(shortcut?.displayName ?? strings.firstRunMenuBar)
-                .font(.system(size: 12, weight: .medium, design: shortcut == nil ? .default : .monospaced))
-                .foregroundStyle(shortcut == nil ? .secondary : .primary)
+            if let shortcut {
+                HStack(spacing: 4) {
+                    ForEach(Array(shortcut.displayName.enumerated()), id: \.offset) { key in
+                        Text(String(key.element))
+                            .font(.system(size: 12, weight: .medium, design: .monospaced))
+                            .frame(width: 22, height: 24)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 5))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 5)
+                                    .strokeBorder(.primary.opacity(0.12), lineWidth: 1)
+                            }
+                    }
+                }
+                .padding(.leading, 4)
+            } else {
+                Text(strings.firstRunMenuBar)
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 4)
+            }
         }
         .font(.system(size: 12, weight: .medium))
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .fixedSize(horizontal: true, vertical: false)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
         .accessibilityValue(shortcut?.keyboardShortcut.displayName ?? strings.firstRunMenuBar)
