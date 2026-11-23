@@ -55,7 +55,9 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         XCTAssertEqual(panel.frame.size, expectedPreviewSize)
         XCTAssertEqual(contentView.frame.size, expectedPreviewSize)
         XCTAssertEqual(try XCTUnwrap(findPreviewSurface(in: contentView)).frame.size, expectedPreviewSize)
-        XCTAssertNotNil(findButton(in: contentView, accessibilityLabel: "Download"))
+        let overlay = try XCTUnwrap(findView(identifier: "QuickAccessActionOverlay", in: contentView))
+        let toolbar = try XCTUnwrap(overlay.subviews.compactMap { $0 as? NSStackView }.first)
+        XCTAssertEqual(toolbar.arrangedSubviews.compactMap { $0.accessibilityLabel() }, ["Open in Default App", "Save", "Copy"])
         XCTAssertNotNil(findButton(in: contentView, accessibilityLabel: "Copy"))
         XCTAssertNil(findButton(in: contentView, accessibilityLabel: "Preview"))
         let openButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Open in Default App"))
@@ -254,7 +256,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         let panel = try XCTUnwrap(newPreviewPanels(excluding: windowsBeforeShow).first)
         let contentView = try XCTUnwrap(panel.contentView)
         contentView.layoutSubtreeIfNeeded()
-        let downloadButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Download"))
+        let downloadButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Save"))
 
         downloadButton.performClick(nil)
 

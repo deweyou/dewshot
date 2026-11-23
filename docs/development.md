@@ -211,7 +211,7 @@ dewShot directly from the mounted DMG.
 28. Use the screenshot shortcut again, draw a region, click the recording HUD button, and confirm the HUD switches into recording setup without closing the overlay.
 29. Record a short MP4 with cursor enabled. Confirm start shows a brief preparation/loading state instead of a countdown, then switches to elapsed-time recording controls; stop finalizes the file, restart discards the current take and records the same area again, and delete requires confirmation before discarding without Quick Access.
 30. Confirm the menu bar icon becomes a red recording dot while recording and its Stop Recording menu item stops the same active session.
-31. Confirm the completed recording appears in a bottom-left Quick Access card with Download, Copy, a centered play control, Open in Default App, and Close.
+31. Confirm the completed recording appears in a bottom-left Quick Access card with Open in Default App, Save, and Copy in that order, a centered play control, and Close in the corner.
 32. Confirm MP4 playback uses native play, pause, and seek controls with Copy and Download. Choose Open in Default App from the recording card and verify macOS opens a copy.
 33. Confirm Copy places the recording file URL on the pasteboard and Download writes `dewShot yyyy-MM-dd HH.mm.ss.mp4` to the configured screenshot folder.
 34. Repeat with GIF selected and confirm `dewShot yyyy-MM-dd HH.mm.ss.gif` output is produced.

@@ -571,14 +571,14 @@ final class QuickAccessPanelController: NSObject {
             style: .toolbar
         )
 
-        stackView.addArrangedSubview(copyButton)
+        stackView.addArrangedSubview(openExternallyButton)
         stackView.addArrangedSubview(saveButton)
         for button in [ocrButton, pinButton, openExternallyButton] {
             button.contentTintColor = FrameHUDChrome.secondaryIcon
         }
         stackView.addArrangedSubview(ocrButton)
         stackView.addArrangedSubview(pinButton)
-        stackView.addArrangedSubview(openExternallyButton)
+        stackView.addArrangedSubview(copyButton)
 
         contentView.actionsViews = [closeButton, overlayView]
         contentView.addSubview(imageView)
@@ -682,7 +682,15 @@ final class QuickAccessPanelController: NSObject {
         stackView.spacing = 5
         stackView.addArrangedSubview(
             makeIconButton(
-                title: strings.videoQuickAccessDownload,
+                title: strings.quickAccessOpen,
+                symbolName: "arrow.up.forward.app",
+                action: #selector(openExternallyButtonClicked),
+                style: .toolbar
+            )
+        )
+        stackView.addArrangedSubview(
+            makeIconButton(
+                title: strings.quickAccessSave,
                 symbolName: "square.and.arrow.down",
                 action: #selector(downloadRecordingButtonClicked),
                 style: .toolbar
@@ -696,14 +704,6 @@ final class QuickAccessPanelController: NSObject {
                 style: .toolbar
             )
         )
-        let openButton = makeIconButton(
-            title: strings.quickAccessOpen,
-            symbolName: "arrow.up.forward.app",
-            action: #selector(openExternallyButtonClicked),
-            style: .toolbar
-        )
-        stackView.addArrangedSubview(openButton)
-
         let overlayView = NSVisualEffectView()
         overlayView.identifier = NSUserInterfaceItemIdentifier("QuickAccessActionOverlay")
         FrameHUDChrome.configure(overlayView, surface: .overlay, cornerRadius: 14)

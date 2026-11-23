@@ -131,7 +131,10 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
         XCTAssertEqual(overlayView.frame.midX, imageView.frame.midX, accuracy: 0.5)
         XCTAssertLessThan(overlayView.frame.width, imageView.frame.width * 0.8)
 
-        for label in ["保存", "复制", "识别文字", "固定到预览窗口", "在默认 App 中打开"] {
+        let toolbar = try XCTUnwrap(overlayView.subviews.compactMap { $0 as? NSStackView }.first)
+        let buttonLabels = ["在默认 App 中打开", "保存", "识别文字", "固定到预览窗口", "复制"]
+        XCTAssertEqual(toolbar.arrangedSubviews.compactMap { $0.accessibilityLabel() }, buttonLabels)
+        for label in buttonLabels {
             let button = try XCTUnwrap(findButton(in: previewView, accessibilityLabel: label))
             let buttonPoint = NSPoint(x: button.bounds.midX, y: button.bounds.midY)
             let previewPoint = previewView.convert(buttonPoint, from: button)

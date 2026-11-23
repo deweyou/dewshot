@@ -195,8 +195,8 @@ documents the retained implementations for a future release.
 ## Quick Access
 
 - Quick Access is a small fixed post-capture preview with icon-only hover
-  actions for copy, save, open in default app, pin, and close. Lead with copy and save,
-  and give secondary actions quieter icons.
+  actions. For screenshots, order them as Open in Default App, Save, Recognize
+  Text, Pin, and Copy. Keep Close in the corner.
 - Auto-copy is on by default and lives in Capture settings. Copy screenshots
   as images and recordings as files after capture completes, and keep their
   previews available. Copy only the active display's image during a multi-display
@@ -277,7 +277,7 @@ documents the retained implementations for a future release.
   card with the existing previews instead of clearing the stack.
 - Screenshots and recordings share one Quick Access stack and one visual
   language. Recording cards use the centered play affordance to open Preview;
-  hover actions expose Download, Copy, Open in Default App, and Close. The
+  hover toolbar orders Open in Default App, Save, and Copy. Close stays in the corner. The
   first release uses native controls for MP4 playback. In the retained editing
   mode, MP4 windows hide the native AVPlayer
   playback controls and titlebar filename prominence, keep Save Current, Copy,
