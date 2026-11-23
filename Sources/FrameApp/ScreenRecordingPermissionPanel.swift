@@ -40,8 +40,8 @@ final class ScreenRecordingPermissionPanel {
         self.panel = panel
 
         followTask = Task { [weak self] in
-            // System Settings may take a moment to activate after opening its privacy pane.
-            var settingsWasActive = false
+            // A macOS permission prompt can delay activation while Settings is already running.
+            var settingsWasRunning = false
             let launchDeadline = ContinuousClock.now + .seconds(5)
             while !Task.isCancelled, let self {
                 if ScreenRecordingPermission.hasAccess {
@@ -51,18 +51,20 @@ final class ScreenRecordingPermissionPanel {
 
                 let settings = NSWorkspace.shared.frontmostApplication
                 if settings?.bundleIdentifier == Self.settingsBundleID, let settings {
-                    settingsWasActive = true
+                    settingsWasRunning = true
                     self.position(panel, beside: settings.processIdentifier)
                     if !panel.isVisible {
                         panel.orderFrontRegardless()
                     }
                 } else {
-                    if (settingsWasActive && NSRunningApplication.runningApplications(
+                    let settingsIsRunning = !NSRunningApplication.runningApplications(
                         withBundleIdentifier: Self.settingsBundleID
-                    ).isEmpty) || (!settingsWasActive && ContinuousClock.now >= launchDeadline) {
+                    ).isEmpty
+                    if !settingsIsRunning && (settingsWasRunning || ContinuousClock.now >= launchDeadline) {
                         self.dismiss()
                         return
                     }
+                    settingsWasRunning = settingsIsRunning
                     if panel.isVisible {
                         panel.orderOut(nil)
                     }

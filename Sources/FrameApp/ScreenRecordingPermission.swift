@@ -2,6 +2,8 @@ import AppKit
 import CoreGraphics
 
 enum ScreenRecordingPermission {
+    @MainActor private static var isRequestInProgress = false
+
     static var hasAccess: Bool {
         CGPreflightScreenCaptureAccess()
     }
@@ -25,6 +27,10 @@ enum ScreenRecordingPermission {
 
     @MainActor
     static func showMissingPermissionAlert(strings: AppStrings = .current()) {
+        guard !isRequestInProgress else { return }
+        isRequestInProgress = true
+        defer { isRequestInProgress = false }
+
         let alert = NSAlert()
         alert.messageText = strings.screenRecordingPermissionRequiredTitle
         alert.informativeText = strings.screenRecordingPermissionRequiredMessage
