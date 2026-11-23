@@ -4,16 +4,8 @@ import CoreGraphics
 @MainActor
 enum ActiveScreenResolver {
     static func preferredQuickAccessAnchor() -> CGRect? {
-        frontmostWindowRect()
-            ?? mouseScreen()?.visibleFrame
-            ?? NSScreen.main?.visibleFrame
-            ?? NSScreen.screens.first?.visibleFrame
-    }
-
-    static func preferredQuickAccessFollowAnchor() -> CGRect? {
-        mouseScreen()?.visibleFrame
+        NSScreen.main?.visibleFrame
             ?? frontmostWindowRect()
-            ?? NSScreen.main?.visibleFrame
             ?? NSScreen.screens.first?.visibleFrame
     }
 
@@ -47,12 +39,5 @@ enum ActiveScreenResolver {
         }
 
         return layerZeroWindows.compactMap(WindowCandidateProvider.cocoaRect(forWindowInfo:)).first
-    }
-
-    private static func mouseScreen() -> NSScreen? {
-        let mouseLocation = NSEvent.mouseLocation
-        return NSScreen.screens.first { screen in
-            screen.frame.contains(mouseLocation)
-        }
     }
 }

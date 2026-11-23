@@ -9,7 +9,7 @@ import XCTest
 final class RecordingQuickAccessPanelControllerTests: XCTestCase {
     private var retainedPreviewControllers: [QuickAccessPanelController] = []
 
-    func testMP4RecordingQuickAccessExposesEnabledEdit() throws {
+    func testMP4RecordingQuickAccessOpensInDefaultApp() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
         let recording = CapturedRecording(
@@ -24,7 +24,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         let controller = QuickAccessPanelController()
         retainedPreviewControllers.append(controller)
         let expectedPreviewSize = QuickAccessPanelController.recordingPreviewSize(forSourceSize: recording.pixelSize)
-        var editCallCount = 0
+        var openCallCount = 0
 
         controller.show(
             for: recording,
@@ -33,8 +33,8 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             download: { true },
             copy: { true },
             preview: { true },
-            edit: {
-                editCallCount += 1
+            openExternally: {
+                openCallCount += 1
                 return true
             },
             close: {}
@@ -55,17 +55,19 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         XCTAssertEqual(panel.frame.size, expectedPreviewSize)
         XCTAssertEqual(contentView.frame.size, expectedPreviewSize)
         XCTAssertEqual(try XCTUnwrap(findPreviewSurface(in: contentView)).frame.size, expectedPreviewSize)
-        XCTAssertNotNil(findButton(in: contentView, accessibilityLabel: "Download"))
+        let overlay = try XCTUnwrap(findView(identifier: "QuickAccessActionOverlay", in: contentView))
+        let toolbar = try XCTUnwrap(overlay.subviews.compactMap { $0 as? NSStackView }.first)
+        XCTAssertEqual(toolbar.arrangedSubviews.compactMap { $0.accessibilityLabel() }, ["Open in Default App", "Save", "Copy"])
         XCTAssertNotNil(findButton(in: contentView, accessibilityLabel: "Copy"))
         XCTAssertNil(findButton(in: contentView, accessibilityLabel: "Preview"))
-        let editButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Edit"))
-        XCTAssertTrue(editButton.isEnabled)
-        editButton.performClick(nil)
-        XCTAssertEqual(editCallCount, 1)
+        let openButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Open in Default App"))
+        XCTAssertTrue(openButton.isEnabled)
+        openButton.performClick(nil)
+        XCTAssertEqual(openCallCount, 1)
         XCTAssertNotNil(findButton(in: contentView, accessibilityLabel: "Close"))
     }
 
-    func testGIFRecordingQuickAccessKeepsEditDisabled() throws {
+    func testGIFRecordingQuickAccessOpensInDefaultApp() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
         let recording = CapturedRecording(
@@ -79,7 +81,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         )
         let controller = QuickAccessPanelController()
         retainedPreviewControllers.append(controller)
-        var editCallCount = 0
+        var openCallCount = 0
 
         controller.show(
             for: recording,
@@ -88,8 +90,8 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             download: { true },
             copy: { true },
             preview: { true },
-            edit: {
-                editCallCount += 1
+            openExternally: {
+                openCallCount += 1
                 return true
             },
             close: {}
@@ -101,11 +103,10 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         }
         let contentView = try XCTUnwrap(panel.contentView)
         contentView.layoutSubtreeIfNeeded()
-        let editButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Edit"))
-        XCTAssertFalse(editButton.isEnabled)
-        XCTAssertEqual(editButton.toolTip, "MP4 editing only in this version")
-        editButton.performClick(nil)
-        XCTAssertEqual(editCallCount, 0)
+        let openButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Open in Default App"))
+        XCTAssertTrue(openButton.isEnabled)
+        openButton.performClick(nil)
+        XCTAssertEqual(openCallCount, 1)
     }
 
     func testDeliveryFeedbackOutlivesItsPreviewAndIsClickThrough() throws {
@@ -118,7 +119,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         )
         controller.show(
             for: screenshot, preferredAnchor: nil, copy: { true }, save: { true },
-            recognizeText: { true }, openWorkspace: { true }, pin: { true }, close: {}
+            recognizeText: { true }, openExternally: { true }, pin: { true }, close: {}
         )
         defer { controller.temporarilyHidePreviews() }
 
@@ -149,7 +150,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -159,6 +160,16 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         let contentView = try XCTUnwrap(panel.contentView)
         let overlay = try XCTUnwrap(findView(identifier: "QuickAccessActionOverlay", in: contentView) as? NSVisualEffectView)
         let mediaSurface = try XCTUnwrap(contentView.subviews.first)
+        contentView.layoutSubtreeIfNeeded()
+        let toolbar = try XCTUnwrap(overlay.subviews.compactMap { $0 as? NSStackView }.first)
+        let buttons = toolbar.arrangedSubviews.compactMap { $0 as? NSButton }
+
+        XCTAssertEqual(buttons.count, 5)
+        for button in buttons {
+            XCTAssertEqual(button.contentTintColor, FrameHUDChrome.primaryIcon)
+            XCTAssertEqual(button.frame.height, toolbar.bounds.height, accuracy: 0.5)
+            XCTAssertEqual(button.frame.midY, toolbar.bounds.midY, accuracy: 0.5)
+        }
 
         XCTAssertEqual(overlay.appearance?.name, .vibrantDark)
         XCTAssertEqual(overlay.material, .hudWindow)
@@ -168,6 +179,8 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             accuracy: 0.01
         )
         XCTAssertFalse(mediaSurface is NSVisualEffectView)
+        XCTAssertEqual(mediaSurface.layer?.cornerCurve, .continuous)
+        XCTAssertEqual(mediaSurface.layer?.borderWidth, 1)
     }
 
     func testRecordingQuickAccessUsesDeepPlaceholderAndDurationChrome() throws {
@@ -192,7 +205,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             download: { true },
             copy: { true },
             preview: { true },
-            edit: { true },
+            openExternally: { true },
             close: {}
         )
 
@@ -244,7 +257,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             },
             copy: { true },
             preview: { true },
-            edit: { true },
+            openExternally: { true },
             close: {
                 closeCallCount += 1
             }
@@ -253,7 +266,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         let panel = try XCTUnwrap(newPreviewPanels(excluding: windowsBeforeShow).first)
         let contentView = try XCTUnwrap(panel.contentView)
         contentView.layoutSubtreeIfNeeded()
-        let downloadButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Download"))
+        let downloadButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Save"))
 
         downloadButton.performClick(nil)
 
@@ -290,7 +303,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
                 return true
             },
             preview: { true },
-            edit: { true },
+            openExternally: { true },
             close: {
                 closeCallCount += 1
             }
@@ -349,7 +362,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             download: { true },
             copy: { true },
             preview: { true },
-            edit: { true },
+            openExternally: { true },
             close: {}
         )
 
@@ -362,6 +375,9 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         let previewSurface = try XCTUnwrap(findPreviewSurface(in: contentView))
         XCTAssertEqual(previewSurface.frame, contentView.bounds)
         let thumbnailView = try XCTUnwrap(previewSurface as? RecordingThumbnailDrawableForTesting)
+        XCTAssertEqual(previewSurface.layer?.cornerCurve, .continuous)
+        XCTAssertEqual(previewSurface.layer?.borderWidth, 1)
+        XCTAssertTrue(previewSurface.layer?.masksToBounds == true)
         XCTAssertTrue(thumbnailView.lastDrawRectForTesting.contains(contentView.bounds))
         XCTAssertEqual(RecordingThumbnailProvider().thumbnail(for: gifURL)?.size, CGSize(width: 2, height: 2))
     }
@@ -388,7 +404,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             download: { true },
             copy: { true },
             preview: { true },
-            edit: { true },
+            openExternally: { true },
             close: {}
         )
 
@@ -413,7 +429,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         XCTAssertLessThan(drawingRect.height, badge.bounds.height)
     }
 
-    func testClickingRecordingPlayOverlayOpensPreview() throws {
+    func testRecordingPlayOverlayDistinguishesSingleAndDoubleClick() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
         let recording = CapturedRecording(
@@ -428,6 +444,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         let controller = QuickAccessPanelController()
         retainedPreviewControllers.append(controller)
         var previewCallCount = 0
+        var openCallCount = 0
 
         controller.show(
             for: recording,
@@ -439,7 +456,10 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
                 previewCallCount += 1
                 return true
             },
-            edit: { true },
+            openExternally: {
+                openCallCount += 1
+                return true
+            },
             close: {}
         )
 
@@ -451,10 +471,25 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         contentView.layoutSubtreeIfNeeded()
         let windowPoint = contentView.convert(NSPoint(x: contentView.bounds.midX, y: contentView.bounds.midY), to: nil)
 
-        panel.sendEvent(try makeMouseButtonEvent(type: .leftMouseDown, point: windowPoint, panel: panel))
-        panel.sendEvent(try makeMouseButtonEvent(type: .leftMouseUp, point: windowPoint, panel: panel))
+        func click(count: Int) throws {
+            panel.sendEvent(try makeMouseButtonEvent(
+                type: .leftMouseDown, point: windowPoint, panel: panel, clickCount: count
+            ))
+            panel.sendEvent(try makeMouseButtonEvent(
+                type: .leftMouseUp, point: windowPoint, panel: panel, clickCount: count
+            ))
+        }
 
+        try click(count: 1)
+        try click(count: 2)
+        XCTAssertEqual(openCallCount, 1)
+        RunLoop.main.run(until: Date().addingTimeInterval(NSEvent.doubleClickInterval + 0.1))
+        XCTAssertEqual(previewCallCount, 0)
+
+        try click(count: 1)
+        RunLoop.main.run(until: Date().addingTimeInterval(NSEvent.doubleClickInterval + 0.1))
         XCTAssertEqual(previewCallCount, 1)
+        XCTAssertEqual(openCallCount, 1)
     }
 
     func testClickingRecordingPreviewOutsidePlayOverlayDoesNotOpenPreview() throws {
@@ -483,7 +518,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
                 previewCallCount += 1
                 return true
             },
-            edit: { true },
+            openExternally: { true },
             close: {}
         )
 
@@ -528,7 +563,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -539,7 +574,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             download: { true },
             copy: { true },
             preview: { true },
-            edit: { true },
+            openExternally: { true },
             close: {}
         )
 
@@ -554,6 +589,50 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         XCTAssertEqual(sortedPanels.first?.frame.size, CapturePreviewMetrics.quickAccessCardSize)
         XCTAssertEqual(sortedPanels.last?.frame.size, QuickAccessPanelController.recordingPreviewSize(forSourceSize: recording.pixelSize))
         XCTAssertGreaterThan(sortedPanels[1].frame.minY, sortedPanels[0].frame.maxY)
+    }
+
+    func testQuickAccessMovesExistingStackWhenActiveDisplayChanges() throws {
+        _ = NSApplication.shared
+        let firstScreen = try XCTUnwrap(NSScreen.screens.first)
+        guard let secondScreen = NSScreen.screens.first(where: { $0.frame != firstScreen.frame }) else {
+            throw XCTSkip("Requires two non-mirrored displays")
+        }
+        var activeFrame = firstScreen.visibleFrame
+        let controller = QuickAccessPanelController(activeDisplayAnchor: { activeFrame })
+        retainedPreviewControllers.append(controller)
+        let png = try makePNGData()
+        let image = NSImage(size: CGSize(width: 320, height: 180))
+        let first = CapturedScreenshot(pngData: png, image: image, rect: .zero)
+        let second = CapturedScreenshot(pngData: png, image: image, rect: .zero)
+
+        func show(_ screenshot: CapturedScreenshot, on screen: NSScreen) throws -> NSPanel {
+            let existingWindows = Set(NSApp.windows.map(ObjectIdentifier.init))
+            controller.show(
+                for: screenshot, preferredAnchor: screen.visibleFrame,
+                copy: { true }, save: { true }, recognizeText: { true },
+                openExternally: { true }, pin: { true }, close: {}
+            )
+            return try XCTUnwrap(newPreviewPanels(excluding: existingWindows).first)
+        }
+
+        let firstPanel = try show(first, on: firstScreen)
+        defer { _ = controller.closePreview(for: first, notify: false) }
+        let secondPanel = try show(second, on: firstScreen)
+        defer { _ = controller.closePreview(for: second, notify: false) }
+        XCTAssertTrue(firstScreen.visibleFrame.contains(firstPanel.frame))
+        XCTAssertTrue(firstScreen.visibleFrame.contains(secondPanel.frame))
+        let offset = secondPanel.frame.minY - firstPanel.frame.minY
+
+        activeFrame = secondScreen.visibleFrame
+        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+
+        XCTAssertTrue(secondScreen.visibleFrame.contains(firstPanel.frame))
+        XCTAssertTrue(secondScreen.visibleFrame.contains(secondPanel.frame))
+        XCTAssertEqual(secondPanel.frame.minY - firstPanel.frame.minY, offset)
+        XCTAssertTrue(firstPanel.isVisible)
+        XCTAssertTrue(secondPanel.isVisible)
+        XCTAssertTrue(controller.closePreview(for: first, notify: false))
+        XCTAssertTrue(secondScreen.visibleFrame.contains(secondPanel.frame))
     }
 
     func testScreenshotAndRecordingQuickAccessCardsUseSameSize() throws {
@@ -583,7 +662,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -594,7 +673,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             download: { true },
             copy: { true },
             preview: { true },
-            edit: { true },
+            openExternally: { true },
             close: {}
         )
 
@@ -624,7 +703,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -657,7 +736,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -699,7 +778,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -756,7 +835,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             download: { true },
             copy: { true },
             preview: { true },
-            edit: { true },
+            openExternally: { true },
             close: {}
         )
 
@@ -799,7 +878,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -816,7 +895,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             download: { true },
             copy: { true },
             preview: { true },
-            edit: { true },
+            openExternally: { true },
             close: {}
         )
 
@@ -843,14 +922,14 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         controller.show(
             for: first, preferredAnchor: nil, canAutoDismiss: true,
             copy: { true }, save: { true }, recognizeText: { true },
-            openWorkspace: { true }, pin: { true }, close: { closedIDs.append(1) }
+            openExternally: { true }, pin: { true }, close: { closedIDs.append(1) }
         )
         let firstPanel = try XCTUnwrap(newPreviewPanels(excluding: existingWindows).first)
         defer { _ = controller.closePreview(for: first, notify: false) }
 
         controller.show(
             for: second, preferredAnchor: nil, canAutoDismiss: true,
-            download: { true }, copy: { true }, preview: { true }, edit: { true }, close: { closedIDs.append(2) }
+            download: { true }, copy: { true }, preview: { true }, openExternally: { true }, close: { closedIDs.append(2) }
         )
         let start = ProcessInfo.processInfo.systemUptime
         let outside = CGPoint(x: 100_000, y: 100_000)
@@ -874,7 +953,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             let controller = QuickAccessPanelController(dismissalDelay: { delay })
             controller.show(
                 for: screenshot, preferredAnchor: nil, canAutoDismiss: canAutoDismiss,
-                copy: { true }, save: { true }, recognizeText: { true }, openWorkspace: { true }, pin: { true },
+                copy: { true }, save: { true }, recognizeText: { true }, openExternally: { true }, pin: { true },
                 close: { XCTFail("This card should stay open") }
             )
             controller.updatePreviewExpiry(
@@ -1017,7 +1096,12 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         return nil
     }
 
-    private func makeMouseButtonEvent(type: NSEvent.EventType, point: NSPoint, panel: NSPanel) throws -> NSEvent {
+    private func makeMouseButtonEvent(
+        type: NSEvent.EventType,
+        point: NSPoint,
+        panel: NSPanel,
+        clickCount: Int = 1
+    ) throws -> NSEvent {
         try XCTUnwrap(NSEvent.mouseEvent(
             with: type,
             location: point,
@@ -1026,7 +1110,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
             windowNumber: panel.windowNumber,
             context: nil,
             eventNumber: 0,
-            clickCount: 1,
+            clickCount: clickCount,
             pressure: type == .leftMouseDown ? 1 : 0
         ))
     }

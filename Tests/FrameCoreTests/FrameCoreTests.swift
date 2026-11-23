@@ -184,7 +184,7 @@ final class ZFrameCoreTests: XCTestCase {
             timeZone: TimeZone(secondsFromGMT: 0)!
         )
 
-        XCTAssert(naming.filename(for: date) == "Frame 2026-05-18 09.07.06.png")
+        XCTAssert(naming.filename(for: date) == "dewShot 2026-05-18 09.07.06.png")
     }
 
     func testDesktopSaveURLAppendsGeneratedFilename() {

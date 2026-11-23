@@ -136,10 +136,10 @@ final class ReleaseToolingTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 0, result.diagnosticOutput)
         XCTAssertTrue(result.stdout.contains("FRAME_APP_VARIANT=production"), result.diagnosticOutput)
-        XCTAssertTrue(result.stdout.contains("FRAME_APP_NAME=Frame"), result.diagnosticOutput)
+        XCTAssertTrue(result.stdout.contains("FRAME_APP_NAME=dewShot"), result.diagnosticOutput)
         XCTAssertTrue(result.stdout.contains("FRAME_BUNDLE_ID=dev.deweyou.frame"), result.diagnosticOutput)
         XCTAssertTrue(
-            result.stdout.contains("FRAME_APP_PATH=\(repositoryRoot.path)/.build/app/Frame.app"),
+            result.stdout.contains("FRAME_APP_PATH=\(repositoryRoot.path)/.build/app/dewShot.app"),
             result.diagnosticOutput
         )
     }
@@ -156,10 +156,10 @@ final class ReleaseToolingTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 0, result.diagnosticOutput)
         XCTAssertTrue(result.stdout.contains("FRAME_APP_VARIANT=development"), result.diagnosticOutput)
-        XCTAssertTrue(result.stdout.contains("FRAME_APP_NAME=Frame Dev"), result.diagnosticOutput)
+        XCTAssertTrue(result.stdout.contains("FRAME_APP_NAME=dewShot Dev"), result.diagnosticOutput)
         XCTAssertTrue(result.stdout.contains("FRAME_BUNDLE_ID=dev.deweyou.frame.dev"), result.diagnosticOutput)
         XCTAssertTrue(
-            result.stdout.contains("FRAME_APP_PATH=\(repositoryRoot.path)/.build/app/Frame Dev.app"),
+            result.stdout.contains("FRAME_APP_PATH=\(repositoryRoot.path)/.build/app/dewShot Dev.app"),
             result.diagnosticOutput
         )
     }

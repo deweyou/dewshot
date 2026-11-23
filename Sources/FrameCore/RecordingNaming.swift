@@ -14,7 +14,7 @@ public struct RecordingNaming: Sendable {
     public func filename(for date: Date = Date(), format: RecordingFormat) -> String {
         let components = calendar.dateComponents(in: timeZone, from: date)
         return String(
-            format: "Frame %04d-%02d-%02d %02d.%02d.%02d.%@",
+            format: "dewShot %04d-%02d-%02d %02d.%02d.%02d.%@",
             components.year ?? 0,
             components.month ?? 0,
             components.day ?? 0,

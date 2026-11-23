@@ -1,7 +1,11 @@
-# Frame Design
+# dewShot Design
 
-Frame is a quiet native macOS utility. Its interface should feel like a small
+dewShot is a quiet native macOS utility. Its interface should feel like a small
 system tool, not a branded dashboard.
+
+For the first release, active surfaces focus on capture, preview, copy, and
+save. Open in Default App opens a separate copy. The editor design below
+documents the retained implementations for a future release.
 
 ## Product Feel
 
@@ -30,13 +34,13 @@ system tool, not a branded dashboard.
   reset only for custom locations.
 - Use inline shortcut recorders. Accept a letter or number with Command,
   Option, or Control, with Shift available as an additional modifier. Reject
-  duplicates within Frame and enabled macOS shortcuts before saving. Use
+  duplicates within dewShot and enabled macOS shortcuts before saving. Use
   exclusive registration to detect other exclusive reservations. Ask for
   confirmation on common application commands such as Command+A.
 - Keep separate Screen Recording, Accessibility, and Input Monitoring rows.
   Explain each permission's purpose and show granted status or a single link to
   the corresponding System Settings pane. Recheck when the pane appears or
-  Frame becomes active. Explain optional permissions when the user selects
+  dewShot becomes active. Explain optional permissions when the user selects
   automatic scrolling or keystroke hints.
 - In Capture, show the selected OCR language count and open the language
   chooser as a sheet from the entire row.
@@ -88,7 +92,7 @@ system tool, not a branded dashboard.
 - Prefer direct manipulation. Window capture should primarily use hover
   highlight plus click/Enter, not a heavy button workflow.
 - After confirming a screenshot selection, remember it for the next ten minutes,
-  including after Frame restarts. A window selection revalidates its window ID
+  including after dewShot restarts. A window selection revalidates its window ID
   against the current global window list before restoring it, while a region
   selection restores its saved rectangle. Either valid selection suppresses
   hover-based window preselection. A full-screen capture, a missing remembered
@@ -127,7 +131,7 @@ system tool, not a branded dashboard.
   must not show a static placeholder hint. Reintroduce a keyboard hint overlay
   only when it reflects real key activity.
 - Starting a recording enters a short preparation/loading state before frames
-  are written, giving Frame time to settle transient HUD state without making
+  are written, giving dewShot time to settle transient HUD state without making
   the user wait through a visible countdown.
 - Active recording freezes the selected rectangle and replaces size editing
   with elapsed recording time. The action group contains stop, restart, and
@@ -138,7 +142,7 @@ system tool, not a branded dashboard.
   language instead of switching the selection chrome to red.
 - The recording HUD should sit outside the selected region when space allows.
   For full-screen selections it may sit inside the screen so controls remain
-  reachable, but Frame-owned HUDs, recording boundaries, and keyboard hint
+  reachable, but dewShot-owned HUDs, recording boundaries, and keyboard hint
   overlays must not be recorded into the output.
 - Stop actions acknowledge immediately: disable the stop affordance, show a
   stopping state, and keep the app responsive while finalization runs.
@@ -171,7 +175,7 @@ system tool, not a branded dashboard.
   top toolbar keeps a fixed height. This avoids empty preview fill during normal
   window resizing.
 - During a live corner resize, keep the initial resize axis stable until the drag
-  ends so AppKit and Frame do not alternate competing aspect-ratio corrections.
+  ends so AppKit and dewShot do not alternate competing aspect-ratio corrections.
 - Resizable workspace windows must set a minimum width that keeps the full
   toolbar visible at the smallest allowed size.
 - Image Workspace panels use the native macOS window shadow because the surface
@@ -179,9 +183,8 @@ system tool, not a branded dashboard.
   unless the workspace becomes a borderless HUD-like surface again.
 - Pinned windows give the image its own surface below the native titlebar.
   Put output actions in the context menu.
-- Pinned image windows expose Copy, Download, and Edit through the context menu.
-  These actions must not close the pinned window. Edit opens or activates the
-  preview/edit workspace for the same screenshot.
+- Pinned image windows expose Copy, Download, and Open in Default App through
+  the context menu. Keep the pinned window visible when performing these actions.
 - Every icon-only action must keep a tooltip and accessibility label.
 - Video Preview output actions follow the workspace's traffic-light-safe header
   pattern: a compact, right-aligned group of fixed-width icon cells with a
@@ -192,8 +195,13 @@ system tool, not a branded dashboard.
 ## Quick Access
 
 - Quick Access is a small fixed post-capture preview with icon-only hover
-  actions for copy, save, workspace, pin, and close. Lead with copy and save,
-  and give secondary actions quieter icons.
+  actions. For screenshots, order them as Open in Default App, Save, Recognize
+  Text, Pin, and Copy. Keep Close in the corner.
+- Double-click the media in a completed preview to open it in the macOS default app.
+  A single click on a recording's play control opens the built-in player after
+  the system double-click interval.
+- Use one tint for enabled hover toolbar actions. Center the screenshot actions
+  in equal-height buttons and adjust symbol sizes for their visible bounds.
 - Auto-copy is on by default and lives in Capture settings. Copy screenshots
   as images and recordings as files after capture completes, and keep their
   previews available. Copy only the active display's image during a multi-display
@@ -204,16 +212,18 @@ system tool, not a branded dashboard.
   after final stitching and pause it during hover, pointer interaction, OCR,
   or temporary hiding.
 - Keep captured image and video pixels visually true. Apply stable deep glass
-  only to hover action overlays, close/status/duration accessories, fallback
+  only to hover action overlays, close and duration accessories, fallback
   placeholders, and the larger hover preview shell so arbitrary media or
   wallpaper cannot lower control contrast.
-- It anchors to the active screen's bottom-left corner with equal left and
-  bottom padding.
-- While previews are visible, they follow active-screen changes.
+- Keep the OCR spinner on its action button. Show short OCR results in a compact,
+  click-through message centered in the screenshot preview. Dismiss it automatically.
+- Anchor the preview stack to the active screen's bottom-left corner with equal
+  left and bottom padding. Move the stack together when window focus changes
+  displays. Pointer movement alone leaves the stack in place.
 - Multiple previews stack upward from the bottom-left corner.
 - Dragging the preview image outputs image content to targets that accept PNG
   pasteboard drags.
-- Workspace opens a movable preview/edit window that stays open across focus
+- The built-in image editor uses a movable preview/edit window that stays open across focus
   changes. If there are unsaved edits, Escape or the native close control asks
   Save, Don't Save, or Cancel. Save follows the configured Save Current default;
   only an explicit Ask Every Time preference exposes Replace Current / Save As
@@ -272,12 +282,12 @@ system tool, not a branded dashboard.
   card with the existing previews instead of clearing the stack.
 - Screenshots and recordings share one Quick Access stack and one visual
   language. Recording cards use the centered play affordance to open Preview;
-  hover actions expose Download, Copy, Edit, and Close so playback entry is not
-  duplicated. Edit is enabled for MP4 and disabled for GIF. Preview and Edit
-  open the same playable video window; MP4 windows hide the native AVPlayer
+  hover toolbar orders Open in Default App, Save, and Copy. Close stays in the corner. The
+  first release uses native controls for MP4 playback. In the retained editing
+  mode, MP4 windows hide the native AVPlayer
   playback controls and titlebar filename prominence, keep Save Current, Copy,
   and Download in the same right-aligned header row pattern as screenshot
-  editing, and show Frame's compact grouped bottom media control strip by
+  editing, and show dewShot's compact grouped bottom media control strip by
   default. The strip uses a mini timeline for progress/seek, start/end trim
   handles, and read-only start/end time labels, with time labels placed inside
   wide selections, outside narrow selections when room allows, and clamped at
@@ -302,19 +312,20 @@ system tool, not a branded dashboard.
 
 - Capture History is a recovery browser, not a file manager. Prefer preview
   tiles over table rows so screenshot content remains the primary surface.
-- Use a native macOS window with system traffic-light controls, a transparent
-  titlebar, and `fullSizeContentView`. Avoid a fully custom borderless window
-  unless the product intentionally gives up standard window behavior.
+- Use a native macOS window with system traffic-light controls, a material
+  background, a unified AppKit toolbar, and `fullSizeContentView`. Keep the
+  titlebar and window buttons drawn by the system.
 - The titlebar chrome should blend with the content background. Keep the
-  traffic-light safe area clear, and place compact filters in the titlebar
-  rather than adding a separate toolbar band.
+  traffic-light safe area clear and put compact filters at the trailing end of
+  the toolbar. Give More Actions its own glass button, with space between it
+  and the filters. Start the grid below the system toolbar.
 - History tiles follow the Quick Access visual language: rounded image preview,
   fine translucent border, compact metadata, and icon-only hover HUD actions.
 - Single-click selects a history tile. Double-click or Return opens the selected
-  screenshot in the image workspace or recording in Frame's video preview.
+  screenshot as a copy in the default app or recording in dewShot's video preview.
   Restore brings the capture back to the bottom-left Quick Access stack.
   Restored recordings must keep enough media metadata, including duration, for
-  the same Preview and Edit actions available after a fresh recording.
+  the same preview and export actions available after a fresh recording.
 - Recording history tiles should use the first decodable recording frame as the
   preview image and fall back to a lightweight video placeholder only when
   decoding fails.

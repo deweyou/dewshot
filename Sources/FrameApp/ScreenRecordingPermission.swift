@@ -35,9 +35,9 @@ enum ScreenRecordingPermission {
 
     @MainActor
     private static func requestAccessAndOpenSettingsIfNeeded(strings: AppStrings) {
-        NSLog("Frame 正在请求屏幕录制权限")
+        NSLog("dewShot 正在请求屏幕录制权限")
         let didGrantAccess = requestAccess()
-        NSLog("Frame 屏幕录制权限请求结果: \(didGrantAccess)")
+        NSLog("dewShot 屏幕录制权限请求结果: \(didGrantAccess)")
 
         if hasAccess {
             showRestartRequiredAlert(strings: strings)

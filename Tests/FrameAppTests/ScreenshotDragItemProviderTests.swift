@@ -28,7 +28,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             try? FileManager.default.removeItem(at: fileURL.deletingLastPathComponent())
         }
 
-        XCTAssertEqual(fileURL.lastPathComponent, "Frame Screenshot.png")
+        XCTAssertEqual(fileURL.lastPathComponent, "dewShot Screenshot.png")
         XCTAssertEqual(try Data(contentsOf: fileURL), pngData)
     }
 
@@ -50,7 +50,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -131,7 +131,10 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
         XCTAssertEqual(overlayView.frame.midX, imageView.frame.midX, accuracy: 0.5)
         XCTAssertLessThan(overlayView.frame.width, imageView.frame.width * 0.8)
 
-        for label in ["保存", "复制", "识别文字", "固定到预览窗口", "打开预览"] {
+        let toolbar = try XCTUnwrap(overlayView.subviews.compactMap { $0 as? NSStackView }.first)
+        let buttonLabels = ["在默认 App 中打开", "保存", "识别文字", "固定到预览窗口", "复制"]
+        XCTAssertEqual(toolbar.arrangedSubviews.compactMap { $0.accessibilityLabel() }, buttonLabels)
+        for label in buttonLabels {
             let button = try XCTUnwrap(findButton(in: previewView, accessibilityLabel: label))
             let buttonPoint = NSPoint(x: button.bounds.midX, y: button.bounds.midY)
             let previewPoint = previewView.convert(buttonPoint, from: button)
@@ -150,6 +153,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
         )
         let controller = QuickAccessPanelController()
         retainedPreviewControllers.append(controller)
+        var openCallCount = 0
 
         controller.show(
             for: screenshot,
@@ -159,7 +163,10 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: {
+                openCallCount += 1
+                return true
+            },
             pin: { true },
             close: {}
         )
@@ -181,10 +188,19 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
 
         XCTAssertFalse(progressIndicator.isHidden)
         XCTAssertIdentical(previewView.hitTest(closePoint), previewView)
+        let mediaPoint = previewView.convert(
+            NSPoint(x: previewView.bounds.midX, y: previewView.bounds.midY), to: nil
+        )
+        try click(at: mediaPoint, in: panel, count: 2)
+        XCTAssertEqual(openCallCount, 0)
 
         XCTAssertTrue(controller.setScreenshotPending(false, for: screenshot))
         XCTAssertTrue(progressIndicator.isHidden)
         XCTAssertIdentical(previewView.hitTest(closePoint), closeButton)
+        try click(at: mediaPoint, in: panel)
+        XCTAssertEqual(openCallCount, 0)
+        try click(at: mediaPoint, in: panel, count: 2)
+        XCTAssertEqual(openCallCount, 1)
     }
 
     func testQuickAccessToolbarUsesReadableSymbolsWithConsistentScaling() throws {
@@ -208,14 +224,14 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             "复制": "doc.on.doc",
             "识别文字": "character.textbox",
             "固定到预览窗口": "pin",
-            "打开预览": "arrow.up.left.and.arrow.down.right"
+            "在默认 App 中打开": "arrow.up.forward.app"
         ]
         let expectedConfigurationsByLabel = [
-            "保存": NSImage.SymbolConfiguration(pointSize: 12.5, weight: .semibold),
-            "复制": NSImage.SymbolConfiguration(pointSize: 11.5, weight: .semibold),
-            "识别文字": NSImage.SymbolConfiguration(pointSize: 12.5, weight: .semibold),
+            "保存": NSImage.SymbolConfiguration(pointSize: 12, weight: .semibold),
+            "复制": NSImage.SymbolConfiguration(pointSize: 10.5, weight: .semibold),
+            "识别文字": NSImage.SymbolConfiguration(pointSize: 11, weight: .semibold),
             "固定到预览窗口": NSImage.SymbolConfiguration(pointSize: 11.5, weight: .semibold),
-            "打开预览": NSImage.SymbolConfiguration(pointSize: 11.5, weight: .semibold)
+            "在默认 App 中打开": NSImage.SymbolConfiguration(pointSize: 13.5, weight: .semibold)
         ]
 
         for (label, symbolName) in expectedSymbolsByLabel {
@@ -348,7 +364,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
         XCTAssertTrue(panel.isVisible)
     }
 
-    func testQuickAccessOCRStatusDisablesButtonAndShowsMessage() throws {
+    func testQuickAccessOCRCentersResultInPreview() throws {
         _ = NSApplication.shared
         let screenshot = CapturedScreenshot(
             pngData: try makePNGData(),
@@ -366,7 +382,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             copy: { false },
             save: { false },
             recognizeText: { true },
-            openWorkspace: { false },
+            openExternally: { false },
             pin: { false },
             close: {}
         )
@@ -377,22 +393,27 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
         }
         let contentView = try XCTUnwrap(panel.contentView)
         let ocrButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Recognize Text"))
-        let statusLabel = try XCTUnwrap(findTextField(in: contentView, accessibilityLabel: "OCR Status"))
         let progressIndicator = try XCTUnwrap(findProgressIndicator(in: contentView, accessibilityLabel: "Recognizing..."))
 
         controller.setOCRStatus(.recognizing("Recognizing..."), for: screenshot)
 
         XCTAssertFalse(ocrButton.isEnabled)
         XCTAssertFalse(progressIndicator.isHidden)
-        XCTAssertEqual(statusLabel.stringValue, "")
-        XCTAssertEqual(statusLabel.alphaValue, 0, accuracy: 0.01)
-
-        controller.setOCRStatus(.message("No text found", resetAfter: nil), for: screenshot)
+        controller.setOCRStatus(.message("No text found", resetAfter: 2.2), for: screenshot)
 
         XCTAssertTrue(ocrButton.isEnabled)
         XCTAssertTrue(progressIndicator.isHidden)
-        XCTAssertEqual(statusLabel.stringValue, "No text found")
-        XCTAssertEqual(statusLabel.alphaValue, 1, accuracy: 0.01)
+        XCTAssertEqual(ocrButton.toolTip, "Recognize Text")
+        let label = try XCTUnwrap(findTextField(in: contentView, accessibilityLabel: "OCR Status"))
+        let feedback = try XCTUnwrap(label.superview)
+        let imageView = try XCTUnwrap(findPreviewImageView(in: contentView))
+        contentView.layoutSubtreeIfNeeded()
+        XCTAssertFalse(feedback.isHidden)
+        XCTAssertEqual(label.stringValue, "No text found")
+        XCTAssertEqual(feedback.frame.midX, imageView.frame.midX, accuracy: 0.5)
+        XCTAssertEqual(feedback.frame.midY, imageView.frame.midY, accuracy: 0.5)
+        let center = NSPoint(x: feedback.frame.midX, y: feedback.frame.midY)
+        XCTAssertIdentical(contentView.hitTest(center), contentView)
     }
 
     func testQuickAccessCanClosePreviewForMatchingScreenshotOnly() throws {
@@ -418,7 +439,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -429,7 +450,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -469,7 +490,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {
                 closeCount += 1
@@ -482,7 +503,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {
                 closeCount += 1
@@ -526,7 +547,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -568,7 +589,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             copy: { true },
             save: { true },
             recognizeText: { true },
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {
                 closeCount += 1
@@ -681,7 +702,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             copy: copy,
             save: save,
             recognizeText: recognizeText,
-            openWorkspace: { true },
+            openExternally: { true },
             pin: { true },
             close: {}
         )
@@ -761,14 +782,20 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
         let button = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: accessibilityLabel))
         let windowPoint = button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil)
 
-        let mouseDown = try makeMouseButtonEvent(type: .leftMouseDown, point: windowPoint, panel: panel)
-        let mouseUp = try makeMouseButtonEvent(type: .leftMouseUp, point: windowPoint, panel: panel)
-
-        panel.sendEvent(mouseDown)
-        panel.sendEvent(mouseUp)
+        try click(at: windowPoint, in: panel)
     }
 
-    private func makeMouseButtonEvent(type: NSEvent.EventType, point: NSPoint, panel: NSPanel) throws -> NSEvent {
+    private func click(at point: NSPoint, in panel: NSPanel, count: Int = 1) throws {
+        panel.sendEvent(try makeMouseButtonEvent(type: .leftMouseDown, point: point, panel: panel, clickCount: count))
+        panel.sendEvent(try makeMouseButtonEvent(type: .leftMouseUp, point: point, panel: panel, clickCount: count))
+    }
+
+    private func makeMouseButtonEvent(
+        type: NSEvent.EventType,
+        point: NSPoint,
+        panel: NSPanel,
+        clickCount: Int
+    ) throws -> NSEvent {
         try XCTUnwrap(NSEvent.mouseEvent(
             with: type,
             location: point,
@@ -777,7 +804,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             windowNumber: panel.windowNumber,
             context: nil,
             eventNumber: 0,
-            clickCount: 1,
+            clickCount: clickCount,
             pressure: type == .leftMouseDown ? 1 : 0
         ))
     }

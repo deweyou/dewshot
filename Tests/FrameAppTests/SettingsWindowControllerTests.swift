@@ -55,7 +55,7 @@ final class SettingsWindowControllerTests: XCTestCase {
     }
 
     func testScreenshotSettingsIncludeImageWorkspaceSaveCurrentBehavior() {
-        XCTAssertTrue(SettingsScreenshotMetrics.containsImageWorkspaceSaveCurrentBehavior)
+        XCTAssertFalse(SettingsScreenshotMetrics.containsImageWorkspaceSaveCurrentBehavior)
         XCTAssertEqual(ImageWorkspaceSaveCurrentBehavior.allCases, [
             .askEveryTime,
             .replaceCurrent,
@@ -256,7 +256,7 @@ final class SettingsWindowControllerTests: XCTestCase {
 
         XCTAssertEqual(
             strings.settingsShortcutRecorderError(.duplicateShortcut),
-            "Already used by another Frame shortcut"
+            "Already used by another dewShot shortcut"
         )
     }
 

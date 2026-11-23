@@ -37,9 +37,10 @@ jobs:
 
       - name: Verify App Bundle
         run: |
-          test -d .build/app/Frame.app
-          test -x .build/app/Frame.app/Contents/MacOS/Frame
-          plutil -lint .build/app/Frame.app/Contents/Info.plist
-          test "$(plutil -extract CFBundleIdentifier raw .build/app/Frame.app/Contents/Info.plist)" = "dev.deweyou.frame"
-          test "$(plutil -extract LSMinimumSystemVersion raw .build/app/Frame.app/Contents/Info.plist)" = "26.0"
-          codesign -dv .build/app/Frame.app
+          test -d .build/app/dewShot.app
+          test -x .build/app/dewShot.app/Contents/MacOS/dewShot
+          plutil -lint .build/app/dewShot.app/Contents/Info.plist
+          test "$(plutil -extract CFBundleDisplayName raw .build/app/dewShot.app/Contents/Info.plist)" = "dewShot"
+          test "$(plutil -extract CFBundleIdentifier raw .build/app/dewShot.app/Contents/Info.plist)" = "dev.deweyou.frame"
+          test "$(plutil -extract LSMinimumSystemVersion raw .build/app/dewShot.app/Contents/Info.plist)" = "26.0"
+          codesign -dv .build/app/dewShot.app

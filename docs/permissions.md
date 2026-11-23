@@ -1,17 +1,17 @@
 # macOS Permissions
 
-Frame needs macOS Screen Recording permission because it captures pixels directly from the display instead of using the system screenshot picker.
+dewShot needs macOS Screen Recording permission because it captures pixels directly from the display instead of using the system screenshot picker.
 
 On recent macOS versions, the permission prompt may mention bypassing the system private window picker or directly accessing screen and audio. That wording is expected for apps that request Screen Recording or Screen & System Audio Recording access.
 
-Frame's Settings permission section also reports two feature-specific permissions:
+dewShot's Settings permission section also reports two feature-specific permissions:
 
-- Accessibility allows Frame to post automatic scroll events for scrolling screenshots.
+- Accessibility allows dewShot to post automatic scroll events for scrolling screenshots.
 - Input Monitoring allows live keyboard hints during recordings.
 
-Screenshot and recording capture only require Screen Recording. In Frame's
+Screenshot and recording capture only require Screen Recording. In dewShot's
 Permissions pane, granted access shows a checkmark. Missing access shows a link
-to the corresponding macOS settings pane. Frame checks again when the
+to the corresponding macOS settings pane. dewShot checks again when the
 Permissions pane appears or the app becomes active.
 
 When Accessibility access is missing, the automatic scrolling control in the
@@ -26,7 +26,8 @@ closes the full-screen selection so that System Settings can receive input.
 TCC authorization is tied to app identity, path, and code signature. Ad-hoc signing is useful for CI and first-time setup, but it can make macOS treat rebuilt bundles as new apps.
 
 For repeat local testing, sign the `development` variant with Apple
-Development and keep one installed path, `~/Applications/Frame Dev.app`.
+Development and keep one installed path, `~/Applications/dewShot Dev.app`.
+When upgrading from `Frame Dev.app`, macOS may ask for Screen Recording permission again because the installed path changes.
 Follow the [local installation flow](development.md#manual-smoke-test).
 Authorize that installed copy, then quit and reopen it before testing capture.
 
@@ -47,7 +48,7 @@ Developer ID Application and submit it for Apple notarization.
 
 The production and development bundle identifiers have separate TCC records:
 
-- `dev.deweyou.frame` for Frame
-- `dev.deweyou.frame.dev` for Frame Dev
+- `dev.deweyou.frame` for dewShot
+- `dev.deweyou.frame.dev` for dewShot Dev
 
 See [Signing and development-device migration](signing-and-device-migration.md) before setting up or replacing a development Mac.

@@ -3,9 +3,9 @@ import AVKit
 
 @MainActor
 final class QuickAccessPanelController: NSObject {
-    static let previewWindowTitle = "Frame Quick Access Preview"
-    static let hoverPreviewWindowTitle = "Frame Quick Access Hover Preview"
-    static let deliveryFeedbackWindowTitle = "Frame Quick Access Feedback"
+    static let previewWindowTitle = "dewShot Quick Access Preview"
+    static let hoverPreviewWindowTitle = "dewShot Quick Access Hover Preview"
+    static let deliveryFeedbackWindowTitle = "dewShot Quick Access Feedback"
     static let defaultHoverPreviewDelayForTesting: TimeInterval = 2
 
     private typealias ConfirmableAction = () -> Bool
@@ -14,25 +14,35 @@ final class QuickAccessPanelController: NSObject {
     private let thumbnailProvider: RecordingThumbnailProvider
     private let hoverPreviewDelay: TimeInterval
     private let dismissalDelay: () -> TimeInterval?
+    private let activeDisplayAnchor: () -> CGRect?
     private let hoverPreviewController = QuickAccessHoverPreviewController()
     private weak var hoverPreviewOwner: QuickAccessPreviewItem?
     private var previewItems: [QuickAccessPreviewItem] = []
     private var dismissalTimer: Timer?
     private var deliveryFeedbackPanel: NSPanel?
     private var deliveryFeedbackTimer: Timer?
-    private var activeScreenObserver: NSObjectProtocol?
-    private var followActiveScreenTimer: Timer?
+    private var screenConfigurationObserver: NSObjectProtocol?
+    private var activeDisplayTimer: Timer?
     private var currentPreviewScreenID: CGDirectDisplayID?
     private var isPreviewRestorationSuppressed = false
 
     init(
         thumbnailProvider: RecordingThumbnailProvider = RecordingThumbnailProvider(),
         hoverPreviewDelay: TimeInterval = QuickAccessPanelController.defaultHoverPreviewDelayForTesting,
-        dismissalDelay: @escaping () -> TimeInterval? = { SettingsStore.quickAccessDismissal().delay }
+        dismissalDelay: @escaping () -> TimeInterval? = { SettingsStore.quickAccessDismissal().delay },
+        activeDisplayAnchor: @escaping () -> CGRect? = { ActiveScreenResolver.preferredQuickAccessAnchor() }
     ) {
         self.thumbnailProvider = thumbnailProvider
         self.hoverPreviewDelay = hoverPreviewDelay
         self.dismissalDelay = dismissalDelay
+        self.activeDisplayAnchor = activeDisplayAnchor
+    }
+
+    isolated deinit {
+        activeDisplayTimer?.invalidate()
+        if let screenConfigurationObserver {
+            NotificationCenter.default.removeObserver(screenConfigurationObserver)
+        }
     }
 
     func show(
@@ -45,12 +55,13 @@ final class QuickAccessPanelController: NSObject {
         copy: @escaping () -> Bool,
         save: @escaping () -> Bool,
         recognizeText: @escaping () -> Bool,
-        openWorkspace: @escaping () -> Bool,
+        openExternally: @escaping () -> Bool,
         pin: @escaping () -> Bool,
         close: @escaping () -> Void
     ) {
         let panel = makePanel(for: captured.image)
         let content = makeContentView(for: captured, strings: strings, isPending: isPending)
+        content.view.onOpenRequested = openExternally
         panel.contentView = content.view
         let item = QuickAccessPreviewItem(
             screenshotID: captured.id,
@@ -58,7 +69,7 @@ final class QuickAccessPanelController: NSObject {
             panel: panel,
             ocrButton: content.ocrButton,
             ocrProgressIndicator: content.ocrProgressIndicator,
-            statusLabel: content.statusLabel,
+            ocrFeedback: content.ocrFeedback,
             screenshotImageView: content.imageView,
             screenshotContentView: content.view,
             pendingProgressIndicator: content.pendingProgressIndicator,
@@ -66,12 +77,11 @@ final class QuickAccessPanelController: NSObject {
             copy: copy,
             save: save,
             recognizeText: recognizeText,
-            openWorkspace: openWorkspace,
+            openExternally: openExternally,
             pin: pin,
             downloadRecording: nil,
             copyRecording: nil,
             previewRecording: nil,
-            editRecording: nil,
             hoverPreviewMedia: .image(captured.image),
             isInUse: isInUse,
             close: close
@@ -80,8 +90,8 @@ final class QuickAccessPanelController: NSObject {
         if canAutoDismiss && !isPending {
             startCountdown(for: item)
         }
-        repositionPreviewStack(preferredAnchor: preferredAnchor, force: true)
-        startFollowingActiveScreen()
+        layoutPreviewStack(preferredAnchor: preferredAnchor)
+        observeDisplays()
 
         panel.orderFrontRegardless()
     }
@@ -94,7 +104,7 @@ final class QuickAccessPanelController: NSObject {
         download: @escaping () -> Bool,
         copy: @escaping () -> Bool,
         preview: @escaping () -> Bool,
-        edit: @escaping () -> Bool,
+        openExternally: @escaping () -> Bool,
         close: @escaping () -> Void
     ) {
         restoreTemporarilyHiddenPreviews()
@@ -112,6 +122,7 @@ final class QuickAccessPanelController: NSObject {
             strings: strings,
             preview: preview
         )
+        content.onOpenRequested = openExternally
         content.frame = CGRect(origin: .zero, size: previewSize)
         content.autoresizingMask = [.width, .height]
         panel.contentView = content
@@ -121,7 +132,7 @@ final class QuickAccessPanelController: NSObject {
             panel: panel,
             ocrButton: nil,
             ocrProgressIndicator: nil,
-            statusLabel: nil,
+            ocrFeedback: nil,
             screenshotImageView: nil,
             screenshotContentView: nil,
             pendingProgressIndicator: nil,
@@ -129,12 +140,11 @@ final class QuickAccessPanelController: NSObject {
             copy: nil,
             save: nil,
             recognizeText: nil,
-            openWorkspace: nil,
+            openExternally: openExternally,
             pin: nil,
             downloadRecording: download,
             copyRecording: copy,
             previewRecording: preview,
-            editRecording: edit,
             hoverPreviewMedia: .recording(recording),
             close: close
         )
@@ -142,8 +152,8 @@ final class QuickAccessPanelController: NSObject {
         if canAutoDismiss {
             startCountdown(for: item)
         }
-        repositionPreviewStack(preferredAnchor: preferredAnchor, force: true)
-        startFollowingActiveScreen()
+        layoutPreviewStack(preferredAnchor: preferredAnchor)
+        observeDisplays()
 
         panel.orderFrontRegardless()
         content.layoutSubtreeIfNeeded()
@@ -335,7 +345,7 @@ final class QuickAccessPanelController: NSObject {
         }
         guard let ocrButton = item.ocrButton,
               let ocrProgressIndicator = item.ocrProgressIndicator,
-              let statusLabel = item.statusLabel else {
+              let ocrFeedback = item.ocrFeedback else {
             return
         }
 
@@ -350,8 +360,7 @@ final class QuickAccessPanelController: NSObject {
             ocrButton.toolTip = accessibilityLabel
             ocrProgressIndicator.stopAnimation(nil)
             ocrProgressIndicator.isHidden = true
-            statusLabel.alphaValue = 0
-            statusLabel.stringValue = ""
+            ocrFeedback.message = nil
         case let .recognizing(message):
             ocrButton.isEnabled = false
             ocrButton.alphaValue = 0.18
@@ -359,32 +368,21 @@ final class QuickAccessPanelController: NSObject {
             ocrButton.toolTip = nil
             ocrProgressIndicator.isHidden = false
             ocrProgressIndicator.startAnimation(nil)
-            statusLabel.alphaValue = 0
-            statusLabel.stringValue = ""
+            ocrFeedback.message = nil
         case let .message(message, resetAfter):
             ocrButton.isEnabled = true
             ocrButton.alphaValue = 1
+            ocrButton.setAccessibilityHelp(ocrButton.accessibilityLabel())
+            ocrButton.toolTip = ocrButton.accessibilityLabel()
             ocrProgressIndicator.stopAnimation(nil)
             ocrProgressIndicator.isHidden = true
-            statusLabel.stringValue = message
-            statusLabel.alphaValue = 1
-            if let resetAfter {
-                let workItem = DispatchWorkItem { [weak self, weak item] in
-                    guard let self,
-                          let item,
-                          self.previewItems.contains(where: { $0 === item }) else {
-                        return
-                    }
+            ocrFeedback.message = message
 
-                    item.statusLabel?.alphaValue = 0
-                    item.statusLabel?.stringValue = ""
-                }
-                item.statusResetWorkItem = workItem
-                DispatchQueue.main.asyncAfter(
-                    deadline: .now() + .milliseconds(Int(resetAfter * 1000)),
-                    execute: workItem
-                )
+            let workItem = DispatchWorkItem { [weak ocrFeedback] in
+                ocrFeedback?.message = nil
             }
+            item.statusResetWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + resetAfter, execute: workItem)
         }
     }
 
@@ -429,7 +427,7 @@ final class QuickAccessPanelController: NSObject {
             return
         }
 
-        repositionPreviewStack(preferredAnchor: ActiveScreenResolver.preferredQuickAccessFollowAnchor(), force: true)
+        layoutPreviewStack()
         let now = ProcessInfo.processInfo.systemUptime
         for item in hiddenItems {
             item.isTemporarilyHidden = false
@@ -448,6 +446,15 @@ final class QuickAccessPanelController: NSObject {
     private func restoreTemporarilyHiddenPanel(_ panel: NSPanel) {
         panel.alphaValue = 1
         panel.ignoresMouseEvents = false
+    }
+
+    private func configurePreviewEdge(_ view: NSView) {
+        view.wantsLayer = true
+        view.layer?.cornerRadius = 12
+        view.layer?.cornerCurve = .continuous
+        view.layer?.masksToBounds = true
+        view.layer?.borderWidth = 1
+        view.layer?.borderColor = NSColor.white.withAlphaComponent(0.32).cgColor
     }
 
     private func makePanel(for image: NSImage) -> NSPanel {
@@ -503,12 +510,7 @@ final class QuickAccessPanelController: NSObject {
 
         let imageView = AspectFillImageView(image: screenshot.image)
         imageView.translatesAutoresizingMaskIntoConstraints = false
-        imageView.wantsLayer = true
-        imageView.layer?.cornerRadius = 12
-        imageView.layer?.cornerCurve = .continuous
-        imageView.layer?.masksToBounds = true
-        imageView.layer?.borderWidth = 0.5
-        imageView.layer?.borderColor = NSColor.white.withAlphaComponent(0.32).cgColor
+        configurePreviewEdge(imageView)
         imageView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
 
         let overlayView = NSVisualEffectView()
@@ -517,16 +519,7 @@ final class QuickAccessPanelController: NSObject {
         FrameHUDChrome.configure(overlayView, surface: .overlay, cornerRadius: 14)
         overlayView.alphaValue = 0
 
-        let statusLabel = NSTextField(labelWithString: "")
-        statusLabel.translatesAutoresizingMaskIntoConstraints = false
-        statusLabel.alignment = .center
-        statusLabel.font = .systemFont(ofSize: 11, weight: .medium)
-        statusLabel.textColor = FrameHUDChrome.primaryIcon
-        statusLabel.lineBreakMode = .byTruncatingTail
-        statusLabel.alphaValue = 0
-        statusLabel.wantsLayer = true
-        FrameHUDChrome.configureAccessoryChip(statusLabel.layer, cornerRadius: 10)
-        statusLabel.setAccessibilityLabel("OCR Status")
+        let ocrFeedback = QuickAccessOCRFeedback()
 
         let pendingProgressIndicator = NSProgressIndicator()
         pendingProgressIndicator.translatesAutoresizingMaskIntoConstraints = false
@@ -584,27 +577,23 @@ final class QuickAccessPanelController: NSObject {
             action: #selector(pinButtonClicked),
             style: .toolbar
         )
-        let openWorkspaceButton = makeIconButton(
+        let openExternallyButton = makeIconButton(
             title: strings.quickAccessOpen,
-            symbolName: "arrow.up.left.and.arrow.down.right",
-            action: #selector(openWorkspaceButtonClicked),
+            symbolName: "arrow.up.forward.app",
+            action: #selector(openExternallyButtonClicked),
             style: .toolbar
         )
 
-        stackView.addArrangedSubview(copyButton)
-        stackView.addArrangedSubview(saveButton)
-        for button in [ocrButton, pinButton, openWorkspaceButton] {
-            button.contentTintColor = FrameHUDChrome.secondaryIcon
+        for button in [openExternallyButton, saveButton, ocrButton, pinButton, copyButton] {
+            stackView.addArrangedSubview(button)
+            button.heightAnchor.constraint(equalTo: stackView.heightAnchor).isActive = true
         }
-        stackView.addArrangedSubview(ocrButton)
-        stackView.addArrangedSubview(pinButton)
-        stackView.addArrangedSubview(openWorkspaceButton)
 
         contentView.actionsViews = [closeButton, overlayView]
         contentView.addSubview(imageView)
         contentView.addSubview(overlayView)
         contentView.addSubview(closeButton)
-        contentView.addSubview(statusLabel)
+        contentView.addSubview(ocrFeedback)
         contentView.addSubview(pendingProgressIndicator)
         overlayView.addSubview(stackView)
         overlayView.addSubview(ocrProgressIndicator)
@@ -620,10 +609,9 @@ final class QuickAccessPanelController: NSObject {
             overlayView.widthAnchor.constraint(equalToConstant: 154),
             overlayView.heightAnchor.constraint(equalToConstant: 28),
 
-            statusLabel.centerXAnchor.constraint(equalTo: imageView.centerXAnchor),
-            statusLabel.bottomAnchor.constraint(equalTo: overlayView.topAnchor, constant: -6),
-            statusLabel.widthAnchor.constraint(lessThanOrEqualTo: imageView.widthAnchor, constant: -24),
-            statusLabel.heightAnchor.constraint(equalToConstant: 22),
+            ocrFeedback.centerXAnchor.constraint(equalTo: imageView.centerXAnchor),
+            ocrFeedback.centerYAnchor.constraint(equalTo: imageView.centerYAnchor),
+            ocrFeedback.widthAnchor.constraint(lessThanOrEqualTo: imageView.widthAnchor, constant: -24),
 
             pendingProgressIndicator.centerXAnchor.constraint(equalTo: imageView.centerXAnchor),
             pendingProgressIndicator.centerYAnchor.constraint(equalTo: imageView.centerYAnchor),
@@ -649,7 +637,7 @@ final class QuickAccessPanelController: NSObject {
             imageView: imageView,
             ocrButton: ocrButton,
             ocrProgressIndicator: ocrProgressIndicator,
-            statusLabel: statusLabel,
+            ocrFeedback: ocrFeedback,
             pendingProgressIndicator: pendingProgressIndicator
         )
     }
@@ -686,6 +674,7 @@ final class QuickAccessPanelController: NSObject {
             FrameHUDChrome.configure(visualEffectView, surface: .overlay, cornerRadius: 12)
             previewSurface = visualEffectView
         }
+        configurePreviewEdge(previewSurface)
 
         let playImageView = NSImageView(
             image: NSImage(systemSymbolName: "play.circle.fill", accessibilityDescription: strings.videoQuickAccessPreview) ?? NSImage()
@@ -702,7 +691,15 @@ final class QuickAccessPanelController: NSObject {
         stackView.spacing = 5
         stackView.addArrangedSubview(
             makeIconButton(
-                title: strings.videoQuickAccessDownload,
+                title: strings.quickAccessOpen,
+                symbolName: "arrow.up.forward.app",
+                action: #selector(openExternallyButtonClicked),
+                style: .toolbar
+            )
+        )
+        stackView.addArrangedSubview(
+            makeIconButton(
+                title: strings.quickAccessSave,
                 symbolName: "square.and.arrow.down",
                 action: #selector(downloadRecordingButtonClicked),
                 style: .toolbar
@@ -716,20 +713,6 @@ final class QuickAccessPanelController: NSObject {
                 style: .toolbar
             )
         )
-        let editButton = makeIconButton(
-            title: strings.videoQuickAccessEdit,
-            symbolName: "slider.horizontal.3",
-            action: #selector(editRecordingButtonClicked),
-            style: .toolbar
-        )
-        if recording.format != .mp4 {
-            editButton.isEnabled = false
-            editButton.contentTintColor = FrameHUDChrome.disabledIcon
-            editButton.toolTip = strings.videoEditingMP4Only
-            editButton.setAccessibilityHelp(strings.videoEditingMP4Only)
-        }
-        stackView.addArrangedSubview(editButton)
-
         let overlayView = NSVisualEffectView()
         overlayView.identifier = NSUserInterfaceItemIdentifier("QuickAccessActionOverlay")
         FrameHUDChrome.configure(overlayView, surface: .overlay, cornerRadius: 14)
@@ -817,9 +800,16 @@ final class QuickAccessPanelController: NSObject {
         case .floatingCorner:
             9.5
         case .toolbar:
+            // Match the visible glyph sizes. SF Symbols draw different bounds at the same point size.
             switch symbolName {
-            case "square.and.arrow.down", "character.textbox":
-                12.5
+            case "arrow.up.forward.app":
+                13.5
+            case "square.and.arrow.down":
+                12
+            case "character.textbox":
+                11
+            case "doc.on.doc":
+                10.5
             default:
                 11.5
             }
@@ -937,50 +927,68 @@ final class QuickAccessPanelController: NSObject {
         hoverPreviewController.close()
     }
 
-    private func startFollowingActiveScreen() {
-        guard followActiveScreenTimer == nil else {
-            return
-        }
+    private func observeDisplays() {
+        guard screenConfigurationObserver == nil else { return }
 
-        activeScreenObserver = NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didActivateApplicationNotification,
+        screenConfigurationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                self?.repositionPreviewStack(preferredAnchor: ActiveScreenResolver.preferredQuickAccessFollowAnchor())
+                self?.layoutPreviewStack()
             }
         }
 
-        followActiveScreenTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.repositionPreviewStack(preferredAnchor: ActiveScreenResolver.preferredQuickAccessFollowAnchor())
+        // Changing key windows within the same app can change the active display.
+        let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.followActiveDisplay()
             }
         }
+        timer.tolerance = 0.05
+        activeDisplayTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
     }
 
-    private func stopFollowingActiveScreenIfNeeded() {
-        guard previewItems.isEmpty else {
-            return
+    private func stopObservingDisplaysIfNeeded() {
+        guard previewItems.isEmpty else { return }
+        activeDisplayTimer?.invalidate()
+        activeDisplayTimer = nil
+        if let screenConfigurationObserver {
+            NotificationCenter.default.removeObserver(screenConfigurationObserver)
+            self.screenConfigurationObserver = nil
         }
-
-        if let activeScreenObserver {
-            NSWorkspace.shared.notificationCenter.removeObserver(activeScreenObserver)
-            self.activeScreenObserver = nil
-        }
-
-        followActiveScreenTimer?.invalidate()
-        followActiveScreenTimer = nil
         currentPreviewScreenID = nil
     }
 
-    private func repositionPreviewStack(preferredAnchor: CGRect?, force: Bool = false) {
-        let targetScreen = preferredScreen(for: preferredAnchor)
-        let targetScreenID = displayID(for: targetScreen)
-        guard force || targetScreenID != currentPreviewScreenID else {
-            return
-        }
+    private func followActiveDisplay() {
+        guard previewItems.contains(where: { !$0.isTemporarilyHidden }),
+              let screen = preferredScreen(for: activeDisplayAnchor()),
+              displayID(for: screen) != currentPreviewScreenID else { return }
+        layoutPreviewStack(on: screen)
+    }
 
+    private func layoutPreviewStack(preferredAnchor: CGRect? = nil) {
+        guard !previewItems.isEmpty else { return }
+
+        let currentScreen = currentPreviewScreenID.flatMap { id in
+            NSScreen.screens.first { displayID(for: $0) == id }
+        }
+        let targetScreen = currentScreen ?? preferredScreen(for: preferredAnchor ?? activeDisplayAnchor())
+        layoutPreviewStack(on: targetScreen)
+    }
+
+    private func layoutPreviewStack(on targetScreen: NSScreen?) {
+        let targetScreenID = displayID(for: targetScreen)
+        if targetScreenID != currentPreviewScreenID {
+            closeDeliveryFeedback()
+            closeHoverPreview()
+            for item in previewItems {
+                item.hoverPreviewWorkItem?.cancel()
+                item.hoverPreviewWorkItem = nil
+            }
+        }
         currentPreviewScreenID = targetScreenID
         let visibleFrame = targetScreen?.visibleFrame
             ?? NSScreen.main?.visibleFrame
@@ -1011,12 +1019,14 @@ final class QuickAccessPanelController: NSObject {
 
     private func preferredScreen(for preferredAnchor: CGRect?) -> NSScreen? {
         let fallbackScreen = NSScreen.main ?? NSScreen.screens.first
-        let anchorFrame = preferredAnchor ?? fallbackScreen?.visibleFrame ?? .zero
-        return NSScreen.screens
-            .max { firstScreen, secondScreen in
-                intersectionArea(firstScreen.frame, anchorFrame) < intersectionArea(secondScreen.frame, anchorFrame)
-            }
-            ?? fallbackScreen
+        guard let preferredAnchor else { return fallbackScreen }
+        let bestMatch = NSScreen.screens.max {
+            intersectionArea($0.frame, preferredAnchor) < intersectionArea($1.frame, preferredAnchor)
+        }
+        guard let bestMatch, intersectionArea(bestMatch.frame, preferredAnchor) > 0 else {
+            return fallbackScreen
+        }
+        return bestMatch
     }
 
     private func displayID(for screen: NSScreen?) -> CGDirectDisplayID? {
@@ -1065,12 +1075,12 @@ final class QuickAccessPanelController: NSObject {
         }
     }
 
-    @objc private func openWorkspaceButtonClicked(_ sender: NSButton) {
+    @objc private func openExternallyButtonClicked(_ sender: NSButton) {
         guard let item = previewItem(for: sender.window) else {
             return
         }
 
-        _ = item.openWorkspace?()
+        _ = item.openExternally?()
     }
 
     @objc private func pinButtonClicked(_ sender: NSButton) {
@@ -1103,14 +1113,6 @@ final class QuickAccessPanelController: NSObject {
         }
     }
 
-    @objc private func editRecordingButtonClicked(_ sender: NSButton) {
-        guard let item = previewItem(for: sender.window) else {
-            return
-        }
-
-        _ = item.editRecording?()
-    }
-
     @objc private func closeButtonClicked(_ sender: NSButton) {
         guard let item = previewItem(for: sender.window) else {
             return
@@ -1136,8 +1138,8 @@ final class QuickAccessPanelController: NSObject {
         item.panel.close()
         previewItems.removeAll { $0 === item }
         stopDismissalTimerIfNeeded()
-        repositionPreviewStack(preferredAnchor: ActiveScreenResolver.preferredQuickAccessFollowAnchor(), force: true)
-        stopFollowingActiveScreenIfNeeded()
+        layoutPreviewStack()
+        stopObservingDisplaysIfNeeded()
         if notify {
             item.close()
         }
@@ -1156,7 +1158,7 @@ final class QuickAccessPanelController: NSObject {
         previewItems.removeAll()
         stopDismissalTimerIfNeeded()
         closeHoverPreview()
-        stopFollowingActiveScreenIfNeeded()
+        stopObservingDisplaysIfNeeded()
     }
 
     private func closeOrphanPreviewPanels() {
@@ -1179,7 +1181,47 @@ struct QuickAccessHoverPreviewMetricsForTesting {
 enum QuickAccessOCRStatus: Equatable {
     case idle(accessibilityLabel: String)
     case recognizing(String)
-    case message(String, resetAfter: TimeInterval?)
+    case message(String, resetAfter: TimeInterval)
+}
+
+private final class QuickAccessOCRFeedback: NSView {
+    private let label = NSTextField(labelWithString: "")
+
+    var message: String? {
+        didSet {
+            label.stringValue = message ?? ""
+            isHidden = message == nil
+        }
+    }
+
+    init() {
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        isHidden = true
+        wantsLayer = true
+        layer?.backgroundColor = NSColor(white: 0.08, alpha: 0.76).cgColor
+        layer?.cornerRadius = 8
+        layer?.cornerCurve = .continuous
+
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = .systemFont(ofSize: 11, weight: .medium)
+        label.textColor = .white
+        label.alignment = .center
+        label.lineBreakMode = .byTruncatingTail
+        label.setAccessibilityLabel("OCR Status")
+        addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+            label.topAnchor.constraint(equalTo: topAnchor, constant: 5),
+            label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -5),
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 }
 
 private struct QuickAccessContent {
@@ -1187,7 +1229,7 @@ private struct QuickAccessContent {
     let imageView: AspectFillImageView
     let ocrButton: NSButton
     let ocrProgressIndicator: NSProgressIndicator
-    let statusLabel: NSTextField
+    let ocrFeedback: QuickAccessOCRFeedback
     let pendingProgressIndicator: NSProgressIndicator
 }
 
@@ -1202,7 +1244,7 @@ private final class QuickAccessPreviewItem {
     let panel: NSPanel
     let ocrButton: NSButton?
     let ocrProgressIndicator: NSProgressIndicator?
-    let statusLabel: NSTextField?
+    let ocrFeedback: QuickAccessOCRFeedback?
     weak var screenshotImageView: AspectFillImageView?
     weak var screenshotContentView: ScreenshotPreviewView?
     weak var pendingProgressIndicator: NSProgressIndicator?
@@ -1210,12 +1252,11 @@ private final class QuickAccessPreviewItem {
     let copy: (() -> Bool)?
     let save: (() -> Bool)?
     let recognizeText: (() -> Bool)?
-    let openWorkspace: (() -> Bool)?
+    let openExternally: (() -> Bool)?
     let pin: (() -> Bool)?
     let downloadRecording: (() -> Bool)?
     let copyRecording: (() -> Bool)?
     let previewRecording: (() -> Bool)?
-    let editRecording: (() -> Bool)?
     var hoverPreviewMedia: QuickAccessHoverPreviewMedia
     let close: () -> Void
     let isInUse: () -> Bool
@@ -1232,7 +1273,7 @@ private final class QuickAccessPreviewItem {
         panel: NSPanel,
         ocrButton: NSButton?,
         ocrProgressIndicator: NSProgressIndicator?,
-        statusLabel: NSTextField?,
+        ocrFeedback: QuickAccessOCRFeedback?,
         screenshotImageView: AspectFillImageView?,
         screenshotContentView: ScreenshotPreviewView?,
         pendingProgressIndicator: NSProgressIndicator?,
@@ -1240,12 +1281,11 @@ private final class QuickAccessPreviewItem {
         copy: (() -> Bool)?,
         save: (() -> Bool)?,
         recognizeText: (() -> Bool)?,
-        openWorkspace: (() -> Bool)?,
+        openExternally: (() -> Bool)?,
         pin: (() -> Bool)?,
         downloadRecording: (() -> Bool)?,
         copyRecording: (() -> Bool)?,
         previewRecording: (() -> Bool)?,
-        editRecording: (() -> Bool)?,
         hoverPreviewMedia: QuickAccessHoverPreviewMedia,
         isInUse: @escaping () -> Bool = { false },
         close: @escaping () -> Void
@@ -1255,7 +1295,7 @@ private final class QuickAccessPreviewItem {
         self.panel = panel
         self.ocrButton = ocrButton
         self.ocrProgressIndicator = ocrProgressIndicator
-        self.statusLabel = statusLabel
+        self.ocrFeedback = ocrFeedback
         self.screenshotImageView = screenshotImageView
         self.screenshotContentView = screenshotContentView
         self.pendingProgressIndicator = pendingProgressIndicator
@@ -1263,12 +1303,11 @@ private final class QuickAccessPreviewItem {
         self.copy = copy
         self.save = save
         self.recognizeText = recognizeText
-        self.openWorkspace = openWorkspace
+        self.openExternally = openExternally
         self.pin = pin
         self.downloadRecording = downloadRecording
         self.copyRecording = copyRecording
         self.previewRecording = previewRecording
-        self.editRecording = editRecording
         self.hoverPreviewMedia = hoverPreviewMedia
         self.isInUse = isInUse
         self.close = close
@@ -1448,11 +1487,13 @@ private class ScreenshotPreviewView: NSView {
     var actionsViews: [NSView] = []
     var onHoverChanged: ((Bool) -> Void)?
     var onPointerDown: (() -> Void)?
+    var onOpenRequested: (() -> Bool)?
 
     private var trackingArea: NSTrackingArea?
     private var pendingHideActionsWorkItem: DispatchWorkItem?
     private var areActionsVisible = false
     private var areActionsEnabled = true
+    private var didDrag = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -1501,8 +1542,27 @@ private class ScreenshotPreviewView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        didDrag = false
         onPointerDown?()
         super.mouseDown(with: event)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        didDrag = true
+        super.mouseDragged(with: event)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard event.clickCount == 2, isMediaClick(event) else {
+            super.mouseUp(with: event)
+            return
+        }
+        _ = onOpenRequested?()
+    }
+
+    func isMediaClick(_ event: NSEvent) -> Bool {
+        let point = convert(event.locationInWindow, from: nil)
+        return areActionsEnabled && !didDrag && hitTest(point) === self
     }
 
     override func mouseMoved(with event: NSEvent) {
@@ -1706,6 +1766,7 @@ private final class RecordingQuickAccessContentView: ScreenshotPreviewView {
     private weak var overlayView: NSView?
     private weak var actionsView: NSView?
     private weak var closeButton: NSButton?
+    private var pendingPlayClick: DispatchWorkItem?
     private var floatingButtonDiameter: CGFloat = 20
     var preferredContentSize: CGSize = .zero {
         didSet {
@@ -1725,16 +1786,30 @@ private final class RecordingQuickAccessContentView: ScreenshotPreviewView {
         preferredContentSize == .zero ? super.intrinsicContentSize : preferredContentSize
     }
 
+    override func mouseDown(with event: NSEvent) {
+        if event.clickCount == 2 {
+            pendingPlayClick?.cancel()
+            pendingPlayClick = nil
+        }
+        super.mouseDown(with: event)
+    }
+
     override func mouseUp(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        guard bounds.contains(point),
-              isPointInPlayOverlay(point),
-              !isPointInActionControls(point) else {
+        guard event.clickCount == 1, isMediaClick(event), isPointInPlayOverlay(point) else {
             super.mouseUp(with: event)
             return
         }
 
-        _ = onPreviewRequested?()
+        // Give the second click a chance to open the recording externally.
+        pendingPlayClick?.cancel()
+        let playClick = DispatchWorkItem { [weak self] in
+            guard let self, self.window?.isVisible == true else { return }
+            self.pendingPlayClick = nil
+            _ = self.onPreviewRequested?()
+        }
+        pendingPlayClick = playClick
+        DispatchQueue.main.asyncAfter(deadline: .now() + NSEvent.doubleClickInterval, execute: playClick)
     }
 
     override func cursorUpdate(with event: NSEvent) {
@@ -2124,14 +2199,7 @@ private final class RecordingThumbnailImageView: NSView, RecordingThumbnailDrawa
         nil
     }
 
-    override var isOpaque: Bool {
-        true
-    }
-
     override func draw(_ dirtyRect: NSRect) {
-        let clipPath = NSBezierPath(roundedRect: bounds, xRadius: 12, yRadius: 12)
-        clipPath.addClip()
-
         NSColor.windowBackgroundColor.setFill()
         bounds.fill()
 
@@ -2143,11 +2211,6 @@ private final class RecordingThumbnailImageView: NSView, RecordingThumbnailDrawa
             operation: .copy,
             fraction: 1
         )
-
-        NSColor.white.withAlphaComponent(0.32).setStroke()
-        let border = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.25, dy: 0.25), xRadius: 12, yRadius: 12)
-        border.lineWidth = 0.5
-        border.stroke()
     }
 
     private func drawRectForCurrentBounds() -> CGRect {

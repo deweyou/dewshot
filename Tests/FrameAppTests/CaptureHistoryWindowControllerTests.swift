@@ -88,7 +88,17 @@ final class CaptureHistoryWindowControllerTests: XCTestCase {
         XCTAssertEqual(controller.selectedFilter, .all)
         XCTAssertEqual(controller.visibleColumnIdentifiers(), [])
         XCTAssertEqual(controller.visibleTileCount(), 1)
-        XCTAssertTrue(controller.usesTransparentTitlebar)
+        let window = try XCTUnwrap(NSApp.windows.first { $0.title == "Capture History" && $0.isVisible })
+        XCTAssertFalse(window.titlebarAppearsTransparent)
+        XCTAssertEqual(window.toolbarStyle, .unified)
+        XCTAssertNotNil(window.standardWindowButton(.closeButton))
+        XCTAssertNotNil(window.standardWindowButton(.miniaturizeButton))
+        XCTAssertNotNil(window.standardWindowButton(.zoomButton))
+        XCTAssertNotNil(window.toolbar)
+        let contentView = try XCTUnwrap(window.contentView)
+        contentView.layoutSubtreeIfNeeded()
+        let scrollView = try XCTUnwrap(findView(in: contentView, ofType: NSScrollView.self))
+        XCTAssertEqual(scrollView.convert(scrollView.bounds, to: nil).maxY, window.contentLayoutRect.maxY, accuracy: 0.5)
     }
 
     @MainActor
@@ -160,22 +170,36 @@ final class CaptureHistoryWindowControllerTests: XCTestCase {
             controller.close()
         }
 
-        let contentView = try XCTUnwrap(NSApp.windows.first {
-            $0.title == "Capture History" && $0.isVisible
-        }?.contentView)
-        contentView.layoutSubtreeIfNeeded()
-
-        XCTAssertNil(findView(in: contentView, ofType: NSSegmentedControl.self))
-        let filterControl = try XCTUnwrap(findView(in: contentView, accessibilityLabel: "Capture History Filter"))
+        let window = try XCTUnwrap(NSApp.windows.first { $0.title == "Capture History" && $0.isVisible })
+        let toolbar = try XCTUnwrap(window.toolbar)
+        XCTAssertEqual(toolbar.displayMode, .iconOnly)
+        XCTAssertEqual(toolbar.items.map(\.itemIdentifier), [.flexibleSpace, .init("CaptureHistoryFilter"), .space, .init("CaptureHistoryMore")])
+        let filterControl = try XCTUnwrap(toolbar.items.first { $0.itemIdentifier.rawValue == "CaptureHistoryFilter" }?.view)
+        filterControl.layoutSubtreeIfNeeded()
+        XCTAssertEqual(filterControl.accessibilityLabel(), "Capture History Filter")
+        XCTAssertTrue(filterControl.window === window)
+        XCTAssertGreaterThan(filterControl.frame.height, 0)
         XCTAssertEqual(filterControl.layer?.cornerRadius ?? 0, filterControl.frame.height / 2, accuracy: 1)
+        let moreButton = try XCTUnwrap(toolbar.items.last?.view as? NSPopUpButton)
+        let filterFrame = filterControl.convert(filterControl.bounds, to: nil)
+        let moreFrame = moreButton.convert(moreButton.bounds, to: nil)
+        XCTAssertGreaterThanOrEqual(moreFrame.minX - filterFrame.maxX, 8)
+        XCTAssertEqual(moreFrame.height, filterFrame.height, accuracy: 1)
+        XCTAssertTrue(moreButton.pullsDown)
+        XCTAssertEqual(moreButton.accessibilityLabel(), "More Actions")
+        if #available(macOS 26.0, *) {
+            XCTAssertEqual(moreButton.bezelStyle, .glass)
+        }
 
         let buttons = findButtons(in: filterControl)
         XCTAssertEqual(buttons.map(\.title), ["All", "Screenshots", "Recordings"])
         XCTAssertTrue(buttons.allSatisfy { $0.acceptsFirstMouse(for: nil) })
+        XCTAssertEqual(buttons.map(\.contentTintColor), [.controlAccentColor, .labelColor, .labelColor])
 
         buttons[1].performClick(nil)
         XCTAssertEqual(controller.selectedFilter, .screenshots)
         XCTAssertEqual(controller.visibleRecords(), [screenshot])
+        XCTAssertEqual(buttons.map(\.contentTintColor), [.labelColor, .controlAccentColor, .labelColor])
 
         buttons[2].performClick(nil)
         XCTAssertEqual(controller.selectedFilter, .recordings)
@@ -192,16 +216,53 @@ final class CaptureHistoryWindowControllerTests: XCTestCase {
             controller.close()
         }
 
-        let contentView = try XCTUnwrap(NSApp.windows.first {
-            $0.title == "捕获历史" && $0.isVisible
-        }?.contentView)
-        contentView.layoutSubtreeIfNeeded()
-
-        let filterControl = try XCTUnwrap(findView(in: contentView, accessibilityLabel: "捕获历史筛选"))
+        let window = try XCTUnwrap(NSApp.windows.first { $0.title == "捕获历史" && $0.isVisible })
+        let filterControl = try XCTUnwrap(window.toolbar?.items.first { $0.itemIdentifier.rawValue == "CaptureHistoryFilter" }?.view)
+        filterControl.layoutSubtreeIfNeeded()
+        XCTAssertEqual(filterControl.accessibilityLabel(), "捕获历史筛选")
         let buttons = findButtons(in: filterControl)
         XCTAssertEqual(buttons.map(\.title), ["全部", "截图", "录屏"])
         XCTAssertLessThanOrEqual(filterControl.frame.width, 152)
         XCTAssertGreaterThanOrEqual(buttons.map(\.frame.width).min() ?? 0, 40)
+    }
+
+    @MainActor
+    func testClearHistoryMenuConfirmsAndClearsAllKindsFromAFilteredView() throws {
+        let screenshot = try addRecord(kind: .screenshot, date: Date(timeIntervalSince1970: 100))
+        let recording = try addRecord(kind: .recording, date: Date(timeIntervalSince1970: 101))
+        let savedFile = rootDirectory.appendingPathComponent("saved.png")
+        let savedData = Data([1, 2, 3])
+        try savedData.write(to: savedFile)
+        var shouldClear = false
+        var confirmations = 0
+        let controller = CaptureHistoryWindowController(store: store, confirmClear: { _ in
+            confirmations += 1
+            return shouldClear
+        })
+
+        controller.show(strings: AppStrings(language: .en))
+        defer { controller.close() }
+        controller.setFilter(.screenshots)
+        let window = try XCTUnwrap(NSApp.windows.first { $0.title == "Capture History" && $0.isVisible })
+        let moreButton = try XCTUnwrap(window.toolbar?.items.last?.view as? NSPopUpButton)
+        let clearItem = try XCTUnwrap(moreButton.menu?.item(withTitle: "Clear History…"))
+        let action = try XCTUnwrap(clearItem.action)
+        XCTAssertTrue(clearItem.isEnabled)
+        XCTAssertEqual(controller.visibleRecords(), [screenshot])
+
+        XCTAssertTrue(NSApp.sendAction(action, to: clearItem.target, from: clearItem))
+        XCTAssertEqual(confirmations, 1)
+        XCTAssertEqual(try store.records(), [recording, screenshot])
+
+        shouldClear = true
+        XCTAssertTrue(NSApp.sendAction(action, to: clearItem.target, from: clearItem))
+        XCTAssertEqual(confirmations, 2)
+        XCTAssertTrue(try store.records().isEmpty)
+        XCTAssertTrue(controller.visibleRecords().isEmpty)
+        XCTAssertFalse(clearItem.isEnabled)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.fileURL(for: screenshot).path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.fileURL(for: recording).path))
+        XCTAssertEqual(try Data(contentsOf: savedFile), savedData)
     }
 
     @MainActor
@@ -349,6 +410,45 @@ final class CaptureHistoryWindowControllerTests: XCTestCase {
     }
 
     @MainActor
+    func testTileHoverFollowsPointerWhenTrackingEventsAreMissedOrStale() throws {
+        let record = try addRecord(kind: .screenshot, date: Date(timeIntervalSince1970: 100))
+        let controller = CaptureHistoryWindowController(store: store)
+        controller.show(strings: AppStrings(language: .en))
+        defer { controller.close() }
+        let window = try XCTUnwrap(NSApp.windows.first { $0.title == "Capture History" && $0.isVisible })
+        let contentView = try XCTUnwrap(window.contentView)
+        let grid = try XCTUnwrap(findView(in: contentView, ofType: NSScrollView.self)?.documentView)
+        contentView.layoutSubtreeIfNeeded()
+        let tile = try XCTUnwrap(grid.subviews.first { $0.identifier?.rawValue == record.id.uuidString })
+        let inside = tile.convert(NSPoint(x: tile.bounds.midX, y: tile.bounds.midY), to: nil)
+        let outside = tile.convert(NSPoint(x: tile.bounds.maxX + 5, y: tile.bounds.midY), to: nil)
+
+        func trackingEvent(_ type: NSEvent.EventType, at location: NSPoint) throws -> NSEvent {
+            try XCTUnwrap(NSEvent.enterExitEvent(
+                with: type, location: location, modifierFlags: [], timestamp: 0,
+                windowNumber: window.windowNumber, context: nil, eventNumber: 0,
+                trackingNumber: 0, userData: nil
+            ))
+        }
+
+        controller.setActionsVisible(false, for: record)
+        tile.mouseMoved(with: try XCTUnwrap(NSEvent.mouseEvent(
+            with: .mouseMoved, location: inside, modifierFlags: [], timestamp: 0,
+            windowNumber: window.windowNumber, context: nil, eventNumber: 0,
+            clickCount: 0, pressure: 0
+        )))
+        XCTAssertTrue(controller.areActionsVisible(for: record))
+
+        tile.mouseExited(with: try trackingEvent(.mouseExited, at: inside))
+        XCTAssertTrue(controller.areActionsVisible(for: record))
+
+        tile.mouseExited(with: try trackingEvent(.mouseExited, at: outside))
+        XCTAssertFalse(controller.areActionsVisible(for: record))
+        tile.mouseEntered(with: try trackingEvent(.mouseEntered, at: outside))
+        XCTAssertFalse(controller.areActionsVisible(for: record))
+    }
+
+    @MainActor
     func testTileActionButtonsExposePointerCursorAndTooltips() throws {
         _ = try addRecord(kind: .screenshot, date: Date(timeIntervalSince1970: 100))
         let controller = CaptureHistoryWindowController(store: store)
@@ -461,21 +561,6 @@ final class CaptureHistoryWindowControllerTests: XCTestCase {
         }
 
         return buttons
-    }
-
-    @MainActor
-    private func findView(in view: NSView, accessibilityLabel: String) -> NSView? {
-        if view.accessibilityLabel() == accessibilityLabel {
-            return view
-        }
-
-        for subview in view.subviews {
-            if let matchingView = findView(in: subview, accessibilityLabel: accessibilityLabel) {
-                return matchingView
-            }
-        }
-
-        return nil
     }
 
     @MainActor

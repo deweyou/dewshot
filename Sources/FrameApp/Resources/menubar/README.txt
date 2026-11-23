@@ -1,4 +1,4 @@
-Menu bar icon for Frame
+Menu bar icon for dewShot
 
 FrameStatusIconTemplate.png (+ @2x, @3x)
 - Pure black, transparent background.

@@ -25,11 +25,11 @@ fi
 
 case "$APP_VARIANT" in
     production)
-        APP_NAME="Frame"
+        APP_NAME="dewShot"
         BUNDLE_IDENTIFIER="dev.deweyou.frame"
         ;;
     development)
-        APP_NAME="Frame Dev"
+        APP_NAME="dewShot Dev"
         BUNDLE_IDENTIFIER="dev.deweyou.frame.dev"
         ;;
     *)
@@ -42,7 +42,7 @@ APP_DIR="$APP_OUTPUT_ROOT/$APP_NAME.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
-EXECUTABLE_PATH="$ROOT_DIR/.build/release/Frame"
+EXECUTABLE_PATH="$ROOT_DIR/.build/release/dewShot"
 CODESIGN_IDENTITY="${FRAME_CODESIGN_IDENTITY:--}"
 VERSION_SOURCE="$ROOT_DIR/Sources/FrameCore/FrameVersion.swift"
 APP_RESOURCES_DIR="$ROOT_DIR/Sources/FrameApp/Resources"
@@ -67,7 +67,7 @@ FRAME_BUILD="$(
 )"
 
 if [[ -z "$FRAME_SHORT_VERSION" || -z "$FRAME_BUILD" ]]; then
-    echo "Unable to read Frame version constants from $VERSION_SOURCE" >&2
+    echo "Unable to read dewShot version constants from $VERSION_SOURCE" >&2
     exit 1
 fi
 
@@ -88,45 +88,22 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
     <key>CFBundleIdentifier</key>
     <string>$BUNDLE_IDENTIFIER</string>
     <key>CFBundleExecutable</key>
-    <string>Frame</string>
+    <string>dewShot</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleIconFile</key>
-    <string>Frame</string>
+    <string>dewShot</string>
     <key>CFBundleShortVersionString</key>
     <string>$FRAME_SHORT_VERSION</string>
     <key>CFBundleVersion</key>
     <string>$FRAME_BUILD</string>
-    <key>CFBundleDocumentTypes</key>
-    <array>
-        <dict>
-            <key>CFBundleTypeName</key>
-            <string>Frame Image Project</string>
-            <key>CFBundleTypeRole</key>
-            <string>Editor</string>
-            <key>LSHandlerRank</key>
-            <string>Owner</string>
-            <key>LSItemContentTypes</key>
-            <array><string>dev.deweyou.frame.image-project</string></array>
-        </dict>
-        <dict>
-            <key>CFBundleTypeName</key>
-            <string>Image</string>
-            <key>CFBundleTypeRole</key>
-            <string>Editor</string>
-            <key>LSHandlerRank</key>
-            <string>Alternate</string>
-            <key>LSItemContentTypes</key>
-            <array><string>public.image</string></array>
-        </dict>
-    </array>
     <key>UTExportedTypeDeclarations</key>
     <array>
         <dict>
             <key>UTTypeIdentifier</key>
             <string>dev.deweyou.frame.image-project</string>
             <key>UTTypeDescription</key>
-            <string>Frame Image Project</string>
+            <string>dewShot Image Project</string>
             <key>UTTypeConformsTo</key>
             <array><string>public.data</string><string>public.content</string></array>
             <key>UTTypeTagSpecification</key>
@@ -148,10 +125,10 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
 </plist>
 PLIST
 
-cp "$EXECUTABLE_PATH" "$MACOS_DIR/Frame"
-chmod +x "$MACOS_DIR/Frame"
+cp "$EXECUTABLE_PATH" "$MACOS_DIR/dewShot"
+chmod +x "$MACOS_DIR/dewShot"
 
-cp "$APP_RESOURCES_DIR/Frame.icns" "$RESOURCES_DIR/Frame.icns"
+cp "$APP_RESOURCES_DIR/dewShot.icns" "$RESOURCES_DIR/dewShot.icns"
 mkdir -p "$RESOURCES_DIR/menubar"
 cp "$APP_RESOURCES_DIR"/menubar/FrameStatusIcon*.png "$RESOURCES_DIR/menubar/"
 cp "$APP_RESOURCES_DIR"/menubar/FrameStatusIconTemplate*.png "$RESOURCES_DIR/"

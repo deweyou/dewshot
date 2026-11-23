@@ -18,7 +18,9 @@ enum CaptureHistoryFilter: Int, CaseIterable {
 }
 
 @MainActor
-final class CaptureHistoryWindowController: NSObject {
+final class CaptureHistoryWindowController: NSObject, NSToolbarDelegate {
+    private static let filterItemID = NSToolbarItem.Identifier("CaptureHistoryFilter")
+    private static let moreItemID = NSToolbarItem.Identifier("CaptureHistoryMore")
     private let store: CaptureHistoryStore
     private let thumbnailProvider: RecordingThumbnailProvider
     private let open: (CaptureHistoryRecord) -> Void
@@ -30,6 +32,7 @@ final class CaptureHistoryWindowController: NSObject {
     private let startCapture: (CaptureHistoryFilter) -> Void
     private let openHistorySettings: () -> Void
     private let confirmDelete: (CaptureHistoryRecord, AppStrings) -> Bool
+    private let confirmClear: @MainActor (AppStrings) -> Bool
     private var window: NSWindow?
     private var gridView: CaptureHistoryGridView?
     private var emptyStateView: NSStackView?
@@ -37,9 +40,11 @@ final class CaptureHistoryWindowController: NSObject {
     private var emptyMessage: NSTextField?
     private var emptyAction: NSButton?
     private var filterControl: CaptureHistoryFilterControl?
+    private weak var clearHistoryMenuItem: NSMenuItem?
     private var tileViewsByRecordID: [UUID: CaptureHistoryTileView] = [:]
     private var activeHoverRecordID: UUID?
     private var records: [CaptureHistoryRecord] = []
+    private var hasStoredRecords = false
     private var strings = AppStrings.current()
 
     private(set) var selectedFilter: CaptureHistoryFilter = .all
@@ -57,7 +62,8 @@ final class CaptureHistoryWindowController: NSObject {
         openHistorySettings: @escaping () -> Void = {},
         confirmDelete: @escaping (CaptureHistoryRecord, AppStrings) -> Bool = { _, strings in
             CaptureHistoryDeletionConfirmation.confirm(strings: strings)
-        }
+        },
+        confirmClear: @escaping @MainActor (AppStrings) -> Bool = CaptureHistoryDeletionConfirmation.confirmClear
     ) {
         self.store = store
         self.thumbnailProvider = thumbnailProvider
@@ -70,15 +76,12 @@ final class CaptureHistoryWindowController: NSObject {
         self.startCapture = startCapture
         self.openHistorySettings = openHistorySettings
         self.confirmDelete = confirmDelete
+        self.confirmClear = confirmClear
         super.init()
     }
 
     var isWindowVisible: Bool {
         window?.isVisible == true
-    }
-
-    var usesTransparentTitlebar: Bool {
-        window?.titlebarAppearsTransparent == true
     }
 
     func show(strings: AppStrings) {
@@ -104,11 +107,16 @@ final class CaptureHistoryWindowController: NSObject {
         window.isReleasedWhenClosed = false
         window.animationBehavior = .none
         window.titleVisibility = .visible
-        window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
+        window.toolbarStyle = .unified
         window.isMovableByWindowBackground = true
-        window.backgroundColor = .clear
-        window.isOpaque = false
-        window.contentView = makeContentView()
+        window.acceptsMouseMovedEvents = true
+        let toolbar = NSToolbar(identifier: "dewShotCaptureHistory")
+        toolbar.displayMode = .iconOnly
+        toolbar.allowsUserCustomization = false
+        toolbar.delegate = self
+        window.toolbar = toolbar
+        configureContent(in: window)
         window.initialFirstResponder = gridView
         window.center()
         self.window = window
@@ -130,6 +138,7 @@ final class CaptureHistoryWindowController: NSObject {
         emptyMessage = nil
         emptyAction = nil
         filterControl = nil
+        clearHistoryMenuItem = nil
         tileViewsByRecordID = [:]
         activeHoverRecordID = nil
     }
@@ -225,23 +234,100 @@ final class CaptureHistoryWindowController: NSObject {
         return true
     }
 
-    private func makeContentView() -> NSView {
-        let materialView = NSVisualEffectView()
-        materialView.material = .windowBackground
-        materialView.blendingMode = .behindWindow
-        materialView.state = .active
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        [.flexibleSpace, Self.filterItemID, .space, Self.moreItemID]
+    }
 
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        toolbarDefaultItemIdentifiers(toolbar)
+    }
+
+    func toolbar(
+        _ toolbar: NSToolbar,
+        itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier,
+        willBeInsertedIntoToolbar flag: Bool
+    ) -> NSToolbarItem? {
+        if itemIdentifier == Self.moreItemID {
+            return makeMoreItem(willBeInserted: flag)
+        }
+        guard itemIdentifier == Self.filterItemID else { return nil }
         let filterControl = CaptureHistoryFilterControl(strings: strings)
         filterControl.selectedFilter = selectedFilter
         filterControl.onSelectionChange = { [weak self] filter in
             self?.setFilter(filter)
         }
-        filterControl.translatesAutoresizingMaskIntoConstraints = false
-        self.filterControl = filterControl
+        if flag {
+            self.filterControl = filterControl
+        }
 
-        let toolbarView = NSView()
-        toolbarView.translatesAutoresizingMaskIntoConstraints = false
-        toolbarView.addSubview(filterControl)
+        let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+        item.label = strings.captureHistoryFilterAccessibilityLabel
+        item.view = filterControl
+        return item
+    }
+
+    private func makeMoreItem(willBeInserted: Bool) -> NSToolbarItem {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        let clearItem = NSMenuItem(
+            title: strings.settingsCaptureHistoryClear + "…",
+            action: #selector(clearHistory),
+            keyEquivalent: ""
+        )
+        clearItem.target = self
+        clearItem.isEnabled = hasStoredRecords
+        menu.addItem(clearItem)
+        if willBeInserted {
+            clearHistoryMenuItem = clearItem
+        }
+
+        let title = strings.captureHistoryMoreActions
+        let image = NSImage(systemSymbolName: "ellipsis", accessibilityDescription: title) ?? NSImage()
+        let button = NSPopUpButton(image: image, pullDownMenu: menu)
+        if #available(macOS 26.0, *) {
+            button.bezelStyle = .glass
+        } else {
+            button.bezelStyle = .rounded
+        }
+        (button.cell as? NSPopUpButtonCell)?.arrowPosition = .noArrow
+        button.toolTip = title
+        button.setAccessibilityLabel(title)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: 42),
+            button.heightAnchor.constraint(equalToConstant: 32),
+        ])
+
+        let item = NSToolbarItem(itemIdentifier: Self.moreItemID)
+        item.label = title
+        item.view = button
+        let overflowItem = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        overflowItem.submenu = menu
+        item.menuFormRepresentation = overflowItem
+        return item
+    }
+
+    @objc private func clearHistory() {
+        guard hasStoredRecords, confirmClear(strings) else { return }
+        do {
+            try store.clear()
+        } catch {
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = strings.settingsCaptureHistoryClearFailed(errorDescription: error.localizedDescription)
+            alert.runModal()
+        }
+        reloadRecords()
+        reloadGrid()
+    }
+
+    private func configureContent(in window: NSWindow) {
+        let materialView = NSVisualEffectView()
+        materialView.material = .windowBackground
+        materialView.blendingMode = .behindWindow
+        materialView.state = .active
+        window.contentView = materialView
+        let contentTop = (window.contentLayoutGuide as? NSLayoutGuide)?.topAnchor ?? materialView.topAnchor
 
         let gridView = CaptureHistoryGridView()
         gridView.translatesAutoresizingMaskIntoConstraints = false
@@ -280,23 +366,13 @@ final class CaptureHistoryWindowController: NSObject {
         self.emptyMessage = emptyMessage
         self.emptyAction = emptyAction
 
-        materialView.addSubview(toolbarView)
         materialView.addSubview(scrollView)
         materialView.addSubview(emptyState)
 
         NSLayoutConstraint.activate([
-            toolbarView.leadingAnchor.constraint(equalTo: materialView.leadingAnchor),
-            toolbarView.trailingAnchor.constraint(equalTo: materialView.trailingAnchor),
-            toolbarView.topAnchor.constraint(equalTo: materialView.topAnchor),
-            toolbarView.heightAnchor.constraint(equalToConstant: 46),
-
-            filterControl.trailingAnchor.constraint(equalTo: toolbarView.trailingAnchor, constant: -18),
-            filterControl.topAnchor.constraint(equalTo: toolbarView.topAnchor, constant: 2),
-            filterControl.heightAnchor.constraint(equalToConstant: 32),
-
             scrollView.leadingAnchor.constraint(equalTo: materialView.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: materialView.trailingAnchor),
-            scrollView.topAnchor.constraint(equalTo: toolbarView.bottomAnchor),
+            scrollView.topAnchor.constraint(equalTo: contentTop),
             scrollView.bottomAnchor.constraint(equalTo: materialView.bottomAnchor),
 
             gridView.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
@@ -309,8 +385,6 @@ final class CaptureHistoryWindowController: NSObject {
             emptyState.leadingAnchor.constraint(greaterThanOrEqualTo: materialView.leadingAnchor, constant: 24),
             emptyState.trailingAnchor.constraint(lessThanOrEqualTo: materialView.trailingAnchor, constant: -24),
         ])
-
-        return materialView
     }
 
     private func reloadGrid() {
@@ -348,7 +422,7 @@ final class CaptureHistoryWindowController: NSObject {
 
     private var emptyReason: EmptyReason {
         if !isHistoryEnabled() { return .disabled }
-        if selectedFilter != .all, let allRecords = try? store.records(kind: nil), !allRecords.isEmpty {
+        if selectedFilter != .all, hasStoredRecords {
             return .filter
         }
         return .noCaptures
@@ -382,7 +456,14 @@ final class CaptureHistoryWindowController: NSObject {
     }
 
     private func reloadRecords() {
-        records = (try? store.records(kind: selectedFilter.kind)) ?? []
+        let storedRecords = (try? store.records()) ?? []
+        hasStoredRecords = !storedRecords.isEmpty
+        clearHistoryMenuItem?.isEnabled = hasStoredRecords
+        if let kind = selectedFilter.kind {
+            records = storedRecords.filter { $0.kind == kind }
+        } else {
+            records = storedRecords
+        }
     }
 
     private func previewImage(for record: CaptureHistoryRecord) -> NSImage {
@@ -416,14 +497,15 @@ final class CaptureHistoryWindowController: NSObject {
     }
 
     private func setActionsVisible(_ isVisible: Bool, forRecordID recordID: UUID) {
-        if isVisible {
-            activeHoverRecordID = recordID
-        } else if activeHoverRecordID == recordID {
-            activeHoverRecordID = nil
-        }
+        let previous = activeHoverRecordID
+        guard isVisible ? previous != recordID : previous == recordID else { return }
+        activeHoverRecordID = isVisible ? recordID : nil
 
-        for (tileRecordID, tileView) in tileViewsByRecordID {
-            tileView.setActionsVisible(tileRecordID == activeHoverRecordID)
+        if let previous {
+            tileViewsByRecordID[previous]?.setActionsVisible(false)
+        }
+        if isVisible {
+            tileViewsByRecordID[recordID]?.setActionsVisible(true)
         }
     }
 }
@@ -523,6 +605,17 @@ private final class CaptureHistoryFilterControl: NSVisualEffectView {
 
 @MainActor
 private enum CaptureHistoryDeletionConfirmation {
+    static func confirmClear(strings: AppStrings) -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = strings.settingsCaptureHistoryClearConfirmationTitle
+        alert.informativeText = strings.settingsCaptureHistoryClearConfirmationMessage
+        alert.addButton(withTitle: strings.cancel)
+        let clearButton = alert.addButton(withTitle: strings.settingsCaptureHistoryClear)
+        clearButton.hasDestructiveAction = true
+        return alert.runModal() == .alertSecondButtonReturn
+    }
+
     static func confirm(strings: AppStrings) -> Bool {
         let alert = NSAlert()
         alert.alertStyle = .warning
@@ -581,6 +674,11 @@ private final class CaptureHistoryFilterButton: NSButton {
         super.layout()
         hoverLayer.frame = bounds
         hoverLayer.cornerRadius = bounds.height / 2
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateAppearance()
     }
 
     override func updateTrackingAreas() {
@@ -644,6 +742,7 @@ private final class CaptureHistoryFilterButton: NSButton {
         isBordered = false
         bezelStyle = .regularSquare
         setButtonType(.momentaryPushIn)
+        font = .systemFont(ofSize: 13, weight: .semibold)
         focusRingType = .none
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
@@ -653,16 +752,11 @@ private final class CaptureHistoryFilterButton: NSButton {
     }
 
     private func updateAppearance() {
-        hoverLayer.backgroundColor = backgroundColor.cgColor
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            hoverLayer.backgroundColor = backgroundColor.cgColor
+        }
         hoverLayer.opacity = isFilterSelected || isHovering ? 1 : 0
-        let textColor = isFilterSelected ? NSColor.controlAccentColor : NSColor.labelColor
-        attributedTitle = NSAttributedString(
-            string: title,
-            attributes: [
-                .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
-                .foregroundColor: textColor,
-            ]
-        )
+        contentTintColor = isFilterSelected ? .controlAccentColor : .labelColor
     }
 
     private var backgroundColor: NSColor {
@@ -836,7 +930,7 @@ private final class CaptureHistoryTileView: NSView {
     var onHoverChanged: ((CaptureHistoryRecord, Bool) -> Void)?
 
     var areActionsVisible: Bool {
-        actionsView.alphaValue > 0
+        !actionsView.isHidden
     }
 
     var actionButtons: [NSButton] {
@@ -893,7 +987,7 @@ private final class CaptureHistoryTileView: NSView {
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel("\(accessibilityTitle), \(timeText), \(metadata)")
-        setAccessibilityHelp(strings.captureHistoryOpen)
+        setAccessibilityHelp(record.kind == .screenshot ? strings.quickAccessOpen : strings.captureHistoryOpen)
 
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
@@ -924,7 +1018,7 @@ private final class CaptureHistoryTileView: NSView {
         actionsView.layer?.cornerRadius = 14
         actionsView.layer?.cornerCurve = .continuous
         actionsView.layer?.masksToBounds = true
-        actionsView.alphaValue = 0
+        actionsView.isHidden = true
 
         deleteActionView.material = .hudWindow
         deleteActionView.blendingMode = .withinWindow
@@ -934,7 +1028,7 @@ private final class CaptureHistoryTileView: NSView {
         deleteActionView.layer?.cornerRadius = 12
         deleteActionView.layer?.cornerCurve = .continuous
         deleteActionView.layer?.masksToBounds = true
-        deleteActionView.alphaValue = 0
+        deleteActionView.isHidden = true
 
         let actionsStack = NSStackView()
         actionsStack.orientation = .horizontal
@@ -1043,13 +1137,11 @@ private final class CaptureHistoryTileView: NSView {
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
-        if let trackingArea {
-            removeTrackingArea(trackingArea)
-        }
+        guard trackingArea == nil else { return }
 
         let trackingArea = NSTrackingArea(
-            rect: bounds,
-            options: [.activeAlways, .mouseEnteredAndExited, .inVisibleRect],
+            rect: .zero,
+            options: [.activeAlways, .mouseEnteredAndExited, .mouseMoved, .inVisibleRect],
             owner: self,
             userInfo: nil
         )
@@ -1090,16 +1182,25 @@ private final class CaptureHistoryTileView: NSView {
     }
 
     override func mouseEntered(with event: NSEvent) {
-        onHoverChanged?(record, true)
+        updateHover(at: event.locationInWindow)
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        updateHover(at: event.locationInWindow)
     }
 
     override func mouseExited(with event: NSEvent) {
-        onHoverChanged?(record, false)
+        updateHover(at: event.locationInWindow)
+    }
+
+    private func updateHover(at windowPoint: NSPoint) {
+        let isHovered = bounds.intersection(visibleRect).contains(convert(windowPoint, from: nil))
+        onHoverChanged?(record, isHovered)
     }
 
     func setActionsVisible(_ isVisible: Bool) {
-        actionsView.animator().alphaValue = isVisible ? 1 : 0
-        deleteActionView.animator().alphaValue = isVisible ? 1 : 0
+        actionsView.isHidden = !isVisible
+        deleteActionView.isHidden = !isVisible
         applyHoverAppearance(isVisible)
     }
 

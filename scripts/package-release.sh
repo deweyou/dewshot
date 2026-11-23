@@ -16,16 +16,16 @@ FRAME_BUILD="$(
 )"
 
 if [[ -z "$FRAME_SHORT_VERSION" || -z "$FRAME_BUILD" ]]; then
-    echo "Unable to read Frame version constants from $VERSION_SOURCE" >&2
+    echo "Unable to read dewShot version constants from $VERSION_SOURCE" >&2
     exit 1
 fi
 
-ARTIFACT_NAME="Frame-$FRAME_SHORT_VERSION-build.$FRAME_BUILD"
+ARTIFACT_NAME="dewShot-$FRAME_SHORT_VERSION-build.$FRAME_BUILD"
 RELEASE_DIR="$OUTPUT_ROOT/$ARTIFACT_NAME"
 ZIP_PATH="$RELEASE_DIR/$ARTIFACT_NAME.zip"
 DMG_PATH="$RELEASE_DIR/$ARTIFACT_NAME.dmg"
 DMG_STAGE_DIR="$RELEASE_DIR/dmg-stage"
-APP_DIR="$ROOT_DIR/.build/app/Frame.app"
+APP_DIR="$ROOT_DIR/.build/app/dewShot.app"
 
 rm -rf "$RELEASE_DIR"
 mkdir -p "$RELEASE_DIR" "$DMG_STAGE_DIR"
@@ -45,10 +45,10 @@ fi
 
 ditto -c -k --keepParent "$APP_DIR" "$ZIP_PATH"
 
-ditto "$APP_DIR" "$DMG_STAGE_DIR/Frame.app"
+ditto "$APP_DIR" "$DMG_STAGE_DIR/dewShot.app"
 ln -s /Applications "$DMG_STAGE_DIR/Applications"
 hdiutil create \
-    -volname "Frame $FRAME_SHORT_VERSION" \
+    -volname "dewShot $FRAME_SHORT_VERSION" \
     -srcfolder "$DMG_STAGE_DIR" \
     -ov \
     -format UDZO \

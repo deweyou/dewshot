@@ -2,30 +2,29 @@
 
 ## Unreleased
 
-- Add a right inspector to the image editor, open by default, with contextual
-  shape, text, and redaction controls. Group image commands and zoom
-  together and remove individual outlines from the image commands. Use a
-  shared editor background and inset the expanded canvas.
-  Restore compact controls when the inspector is collapsed. Support italic
-  annotation text and changing a selected redaction's mode.
+- Double-click a screenshot or recording in Quick Access to open it in the macOS default app.
 
-- Center frequently used markup tools in the image editor toolbar and give
-  them larger targets. Use the lower row for image commands, styles, and
-  crop controls. Match the capture launcher’s capsule shapes in the markup
-  group, selected tools, and editor commands. Center the label and arrow
-  together on toolbar menu buttons.
+- Align Quick Access screenshot toolbar icons and use a consistent color for enabled actions.
 
-- Open local images and clipboard images in the redesigned editor. Crop on
-  the canvas, resize by pixels or percent, rotate, flip, and see zoom and
-  pixel dimensions while editing.
-- Adjust exposure, contrast, and saturation, extend the canvas, remove the
-  background, and combine images. Save a local project with editable objects.
-- Drag shape handles and arrow endpoints directly. Edit and wrap text in place,
-  cancel text changes with Escape, and choose line, arrow, text, and fill styles.
-  Add numbered stamps, a spotlight, live mosaic, blur, and solid redaction.
-- Copy or export the rendered image as PNG, JPEG, HEIC, or TIFF while keeping
-  the editor open. Replacing the current history image preserves editable
-  objects and undo in the current session.
+- Put Open in Default App and Save first in Quick Access for screenshots and recordings, with Copy at the end.
+
+- Open Quick Access on the active display and move existing previews together when window focus switches displays.
+
+- Use a continuous outline around the rounded edges of screenshot and recording previews.
+
+- Apply the system accent color to the selected Capture History filter on first open.
+
+- Add Clear History to its own menu alongside the Capture History filters, with confirmation before deleting cached screenshots and recordings.
+
+- Keep Capture History tile actions visible while the pointer is over the tile and hide them immediately when it leaves.
+
+- Use a native unified toolbar and system window controls in Capture History, with compact filters and no duplicate caption.
+
+- Center short text-recognition results in the Quick Access screenshot preview, clear of its toolbar.
+
+- Focus the first release on capture, preview, copy, and save. Open copies of screenshots and recordings in the macOS default app while the built-in editors are deferred.
+
+- Rename the app to dewShot. New captures and release downloads use the new name.
 
 - Automatically dismiss corner previews after 30 seconds by default. Choose
   10 seconds, 30 seconds, 1 minute, or Never in Capture settings.
@@ -36,8 +35,8 @@
   standard-size menu items.
 - Automatically copy finished screenshots and screen recordings to the clipboard
   while keeping their corner previews. Turn this off in Capture settings.
-- Simplify the image editor and recording player headers, separate pinned-image
-  window controls from the image, and show timeline thumbnails for longer MP4s.
+- Simplify the recording player header and separate pinned-image window controls
+  from the image.
 - Give Capture History a window title, clearer tile metadata, and actions that
   match empty, filtered, or disabled history.
 - Label scrolling capture’s Start and Finish controls, clarify its toolbar icon,
@@ -60,10 +59,10 @@
   Use softer icon and dimension colors in both appearances.
 - Require macOS 26 or later.
 
-- Open history screenshots in the editor or recordings in the player with a
-  double-click or Return.
+- Open a copy of a history screenshot in the default app or play a recording
+  with a double-click or Return.
 
-- Switch OCR results between selectable full text and individual blocks. Frame
+- Switch OCR results between selectable full text and individual blocks. dewShot
   remembers the last view.
 
 - Explain when scrolling capture stops and how to continue or finish with the
@@ -73,14 +72,10 @@
 
 - Keep the Start Recording title visible on its red button.
 
-- Keep explicitly replaced and newly saved screenshot edits in capture history.
-  Copying or exporting an image delivers the current edit without changing its
-  history entry.
-
 - Add a Launch at Login setting backed by macOS Service Management, with
   approval and failure feedback that reflects the system's real login-item state.
-- Separate development and production packaging as `Frame Dev`
-  (`dev.deweyou.frame.dev`) and `Frame` (`dev.deweyou.frame`), and document
+- Separate development and production packaging as `dewShot Dev`
+  (`dev.deweyou.frame.dev`) and `dewShot` (`dev.deweyou.frame`), and document
   signing setup and recovery for a new development Mac.
 - Make screenshot and screen recording discoverable as separate menu actions,
   with native shortcut labels that follow the configured shortcuts.
@@ -108,8 +103,6 @@
   visible content moves between samples.
 - Prevent scrolling screenshots from repeating earlier page sections when the
   captured page jumps back to a previously sampled position.
-- Keep extra-tall screenshots inside a screen-bounded editing viewport with
-  pinch-to-zoom and two-finger vertical navigation to reach the full image.
 
 ## 0.1.2 - 2026-07-12
 
