@@ -348,7 +348,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
         XCTAssertTrue(panel.isVisible)
     }
 
-    func testQuickAccessOCRStatusDisablesButtonAndShowsMessage() throws {
+    func testQuickAccessOCRShowsResultOutsidePreview() throws {
         _ = NSApplication.shared
         let screenshot = CapturedScreenshot(
             pngData: try makePNGData(),
@@ -377,22 +377,26 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
         }
         let contentView = try XCTUnwrap(panel.contentView)
         let ocrButton = try XCTUnwrap(findButton(in: contentView, accessibilityLabel: "Recognize Text"))
-        let statusLabel = try XCTUnwrap(findTextField(in: contentView, accessibilityLabel: "OCR Status"))
         let progressIndicator = try XCTUnwrap(findProgressIndicator(in: contentView, accessibilityLabel: "Recognizing..."))
 
         controller.setOCRStatus(.recognizing("Recognizing..."), for: screenshot)
 
         XCTAssertFalse(ocrButton.isEnabled)
         XCTAssertFalse(progressIndicator.isHidden)
-        XCTAssertEqual(statusLabel.stringValue, "")
-        XCTAssertEqual(statusLabel.alphaValue, 0, accuracy: 0.01)
-
-        controller.setOCRStatus(.message("No text found", resetAfter: nil), for: screenshot)
+        controller.setOCRStatus(.message("No text found", resetAfter: 2.2), for: screenshot)
 
         XCTAssertTrue(ocrButton.isEnabled)
         XCTAssertTrue(progressIndicator.isHidden)
-        XCTAssertEqual(statusLabel.stringValue, "No text found")
-        XCTAssertEqual(statusLabel.alphaValue, 1, accuracy: 0.01)
+        XCTAssertEqual(ocrButton.toolTip, "Recognize Text")
+        XCTAssertNil(findTextField(in: contentView, accessibilityLabel: "OCR Status"))
+        let feedback = try XCTUnwrap(NSApp.windows.first {
+            $0.title == QuickAccessPanelController.deliveryFeedbackWindowTitle && $0.isVisible
+        })
+        defer { controller.temporarilyHidePreviews() }
+        XCTAssertTrue(feedback.ignoresMouseEvents)
+        XCTAssertFalse(feedback.frame.intersects(panel.frame))
+        let text = feedback.contentView?.subviews.compactMap { ($0 as? NSTextField)?.stringValue }
+        XCTAssertEqual(text, ["No text found"])
     }
 
     func testQuickAccessCanClosePreviewForMatchingScreenshotOnly() throws {

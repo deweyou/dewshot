@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Show Quick Access text-recognition results beside the preview stack to keep screenshots clear.
+
 - Focus the first release on capture, preview, copy, and save. Open copies of screenshots and recordings in the macOS default app while the built-in editors are deferred.
 
 - Rename the app to dewShot. New captures and release downloads use the new name.

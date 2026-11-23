@@ -207,9 +207,11 @@ documents the retained implementations for a future release.
   after final stitching and pause it during hover, pointer interaction, OCR,
   or temporary hiding.
 - Keep captured image and video pixels visually true. Apply stable deep glass
-  only to hover action overlays, close/status/duration accessories, fallback
+  only to hover action overlays, close and duration accessories, fallback
   placeholders, and the larger hover preview shell so arbitrary media or
   wallpaper cannot lower control contrast.
+- Keep the OCR spinner on its action button. Show short OCR results outside the
+  preview stack in a click-through bubble that dismisses automatically.
 - It anchors to the active screen's bottom-left corner with equal left and
   bottom padding.
 - While previews are visible, they follow active-screen changes.

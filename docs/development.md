@@ -199,7 +199,7 @@ dewShot directly from the mounted DMG.
 16. Take multiple screenshots and confirm previews stack upward from the bottom-left corner.
 17. Confirm the Quick Access preview cannot be moved by dragging its background.
 18. Drag the preview image into a rich-text TextEdit document or Notes note and confirm the target receives image content.
-19. Hover the preview and confirm icon-only save, copy, open in default app, pin, and close actions appear in a stable deep-glass action overlay while the captured pixels stay unchanged. Confirm the close control and OCR status use the same dark accessory treatment.
+19. Hover the preview and confirm icon-only save, copy, open in default app, pin, and close actions appear in a stable deep-glass action overlay while the captured pixels stay unchanged. Try OCR on a region with no text and confirm the result appears outside the preview stack and dismisses automatically.
 20. Confirm copy places an image on the pasteboard.
 21. Confirm save writes `dewShot yyyy-MM-dd HH.mm.ss.png` to the configured screenshot folder, or Desktop after reset.
 22. Double-click an eligible app window, capture it, and confirm the output uses the selected window screenshot style. Confirm Original keeps the cropped raw window output without an added background canvas while region screenshots remain undecorated.
