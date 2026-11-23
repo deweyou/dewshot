@@ -910,7 +910,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             strings: strings,
             canAutoDismiss: canAutoDismiss,
             download: { [weak self] in
-                guard let self, let savedURL = self.saveRecordingFile(recording.fileURL, format: recording.format) else {
+                guard let self, let savedURL = self.saveRecordingFile(from: recording.fileURL, format: recording.format) else {
                     return false
                 }
                 self.showQuickAccessSavedFeedback(for: recording.id, fileURL: savedURL)
@@ -1226,7 +1226,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 savedURL = saveScreenshotFile(try screenshot(from: record))
             case .recording:
                 guard let format = recordingFormat(for: record) else { return }
-                savedURL = try recordingFileWriter.copyRecording(
+                savedURL = saveRecordingFile(
                     from: captureHistoryStore.fileURL(for: record), format: format, date: record.createdAt
                 )
             }
@@ -1584,14 +1584,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func downloadRecordingFile(_ fileURL: URL, format: RecordingFormat) -> Bool {
-        saveRecordingFile(fileURL, format: format) != nil
+        saveRecordingFile(from: fileURL, format: format) != nil
     }
 
-    private func saveRecordingFile(_ fileURL: URL, format: RecordingFormat) -> URL? {
+    private func saveRecordingFile(
+        from fileURL: URL, format: RecordingFormat, date: Date = Date()
+    ) -> URL? {
         saveCaptureFile { directory in
             let saveURL = try recordingFileWriter.copyRecording(
                 from: fileURL,
                 format: format,
+                date: date,
                 directory: directory
             )
             NSLog("dewShot 已保存录屏：\(saveURL.path)")

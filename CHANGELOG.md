@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Reuse the authorized save folder when saving a recording from History in the
+  Mac App Store build.
+
 - Assign a filename when taking a screenshot and keep it in History. Reuse an
   identical PNG in the save folder and keep different screenshots with colliding
   filenames as separate files.
