@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Show Quick Access text-recognition results beside the preview stack to keep screenshots clear.
+- Center short text-recognition results in the Quick Access screenshot preview, clear of its toolbar.
 
 - Focus the first release on capture, preview, copy, and save. Open copies of screenshots and recordings in the macOS default app while the built-in editors are deferred.
 

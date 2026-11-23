@@ -210,8 +210,8 @@ documents the retained implementations for a future release.
   only to hover action overlays, close and duration accessories, fallback
   placeholders, and the larger hover preview shell so arbitrary media or
   wallpaper cannot lower control contrast.
-- Keep the OCR spinner on its action button. Show short OCR results outside the
-  preview stack in a click-through bubble that dismisses automatically.
+- Keep the OCR spinner on its action button. Show short OCR results in a compact,
+  click-through message centered in the screenshot preview. Dismiss it automatically.
 - It anchors to the active screen's bottom-left corner with equal left and
   bottom padding.
 - While previews are visible, they follow active-screen changes.

@@ -348,7 +348,7 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
         XCTAssertTrue(panel.isVisible)
     }
 
-    func testQuickAccessOCRShowsResultOutsidePreview() throws {
+    func testQuickAccessOCRCentersResultInPreview() throws {
         _ = NSApplication.shared
         let screenshot = CapturedScreenshot(
             pngData: try makePNGData(),
@@ -388,15 +388,16 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
         XCTAssertTrue(ocrButton.isEnabled)
         XCTAssertTrue(progressIndicator.isHidden)
         XCTAssertEqual(ocrButton.toolTip, "Recognize Text")
-        XCTAssertNil(findTextField(in: contentView, accessibilityLabel: "OCR Status"))
-        let feedback = try XCTUnwrap(NSApp.windows.first {
-            $0.title == QuickAccessPanelController.deliveryFeedbackWindowTitle && $0.isVisible
-        })
-        defer { controller.temporarilyHidePreviews() }
-        XCTAssertTrue(feedback.ignoresMouseEvents)
-        XCTAssertFalse(feedback.frame.intersects(panel.frame))
-        let text = feedback.contentView?.subviews.compactMap { ($0 as? NSTextField)?.stringValue }
-        XCTAssertEqual(text, ["No text found"])
+        let label = try XCTUnwrap(findTextField(in: contentView, accessibilityLabel: "OCR Status"))
+        let feedback = try XCTUnwrap(label.superview)
+        let imageView = try XCTUnwrap(findPreviewImageView(in: contentView))
+        contentView.layoutSubtreeIfNeeded()
+        XCTAssertFalse(feedback.isHidden)
+        XCTAssertEqual(label.stringValue, "No text found")
+        XCTAssertEqual(feedback.frame.midX, imageView.frame.midX, accuracy: 0.5)
+        XCTAssertEqual(feedback.frame.midY, imageView.frame.midY, accuracy: 0.5)
+        let center = NSPoint(x: feedback.frame.midX, y: feedback.frame.midY)
+        XCTAssertIdentical(contentView.hitTest(center), contentView)
     }
 
     func testQuickAccessCanClosePreviewForMatchingScreenshotOnly() throws {
