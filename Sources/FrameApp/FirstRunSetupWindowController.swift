@@ -157,14 +157,14 @@ struct FirstRunSetupView: View {
     let state: FirstRunSetupState
     let onStartCapture: () -> Void
 
+    @State private var primaryActionIsHovered = false
     private let permissionRefresh = Timer.publish(every: 0.7, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             hero
-            permissionStatus
-            optionalPermissions
             primaryButton
+            optionalPermissions
         }
         .padding(.horizontal, 24)
         .padding(.top, 40)
@@ -254,28 +254,6 @@ struct FirstRunSetupView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
         .accessibilityValue(shortcut?.keyboardShortcut.displayName ?? strings.firstRunMenuBar)
-    }
-
-    private var permissionStatus: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: state.phase == .ready ? "checkmark.circle.fill" : "record.circle")
-                .font(.system(size: 21, weight: .medium))
-                .foregroundStyle(state.phase == .ready ? Color.green : Color.accentColor)
-                .frame(width: 26)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 5) {
-                Text(strings.settingsScreenRecordingPermission)
-                    .font(.system(size: 14, weight: .semibold))
-                Text(permissionMessage)
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(minHeight: 34, alignment: .topLeading)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 2)
-        .accessibilityElement(children: .combine)
     }
 
     private var optionalPermissions: some View {
@@ -374,26 +352,38 @@ struct FirstRunSetupView: View {
 
     private var primaryButton: some View {
         Button(action: primaryAction) {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Image(systemName: primaryIcon)
-                    .font(.system(size: 17, weight: .medium))
-                    .frame(width: 22)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 36, height: 36)
+                    .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
                     .accessibilityHidden(true)
-                Text(primaryTitle)
-                    .font(.system(size: 14, weight: .semibold))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(primaryTitle)
+                        .font(.system(size: 14, weight: .semibold))
+                    Text(permissionMessage)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(minHeight: 30, alignment: .topLeading)
+                }
                 Spacer(minLength: 8)
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .frame(width: 24, height: 24)
-                    .background(.white.opacity(0.16), in: Circle())
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 27, height: 27)
+                    .background(Color.accentColor.opacity(0.12), in: Circle())
                     .accessibilityHidden(true)
             }
-            .padding(.horizontal, 13)
-            .frame(minHeight: 46)
-            .contentShape(RoundedRectangle(cornerRadius: 12))
+            .padding(12)
+            .contentShape(RoundedRectangle(cornerRadius: 13))
         }
-        .buttonStyle(FirstRunActionButtonStyle())
+        .buttonStyle(FirstRunActionButtonStyle(isHovered: primaryActionIsHovered))
+        .onHover { primaryActionIsHovered = $0 }
         .keyboardShortcut(.defaultAction)
+        .accessibilityLabel(primaryTitle)
+        .accessibilityHint(permissionMessage)
     }
 
     private func primaryAction() {
@@ -406,21 +396,19 @@ struct FirstRunSetupView: View {
 }
 
 private struct FirstRunActionButtonStyle: ButtonStyle {
+    let isHovered: Bool
+
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .foregroundStyle(.white)
+        let card = RoundedRectangle(cornerRadius: 13)
+        let isHighlighted = isHovered || configuration.isPressed
+        return configuration.label
+            .foregroundStyle(.primary)
             .background {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.linearGradient(
-                        colors: [Color(red: 0.12, green: 0.28, blue: 0.57), Color(red: 0.17, green: 0.36, blue: 0.73)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ))
+                card
+                    .fill(Color.accentColor.opacity(isHighlighted ? 0.11 : 0.055))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 12)
-                            .strokeBorder(.white.opacity(0.18), lineWidth: 1)
+                        card.strokeBorder(Color.accentColor.opacity(isHighlighted ? 0.42 : 0.24), lineWidth: 1)
                     }
             }
-            .opacity(configuration.isPressed ? 0.83 : 1)
     }
 }

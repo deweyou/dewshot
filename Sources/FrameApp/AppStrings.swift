@@ -1442,15 +1442,15 @@ struct AppStrings {
 
     var firstRunPermissionExplanation: String {
         switch language {
-        case .zhHans: "macOS 需要你先允许 dewShot 读取屏幕，才能截图和录屏。"
-        case .en: "Allow dewShot to access the screen before taking screenshots or recording."
+        case .zhHans: "允许 dewShot 读取屏幕，即可截图和录屏。"
+        case .en: "Allow screen access to take screenshots and record."
         }
     }
 
     var firstRunPermissionWaiting: String {
         switch language {
-        case .zhHans: "请在系统设置中打开 dewShot 的开关。如果 macOS 提示重开，请选择「退出并重新打开」。"
-        case .en: "Turn on dewShot in System Settings. If macOS asks you to reopen, choose Quit & Reopen."
+        case .zhHans: "在系统设置开启权限，按提示重开 dewShot。"
+        case .en: "Enable access in System Settings and reopen if prompted."
         }
     }
 
@@ -1491,8 +1491,8 @@ struct AppStrings {
 
     var firstRunReady: String {
         switch language {
-        case .zhHans: "权限已开启，试一次截图吧。"
-        case .en: "Screen recording is enabled. Try your first screenshot."
+        case .zhHans: "屏幕录制权限已开启。"
+        case .en: "Screen recording permission is enabled."
         }
     }
 
