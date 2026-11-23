@@ -20,6 +20,7 @@ enum CaptureHistoryFilter: Int, CaseIterable {
 @MainActor
 final class CaptureHistoryWindowController: NSObject, NSToolbarDelegate {
     private static let filterItemID = NSToolbarItem.Identifier("CaptureHistoryFilter")
+    private static let moreItemID = NSToolbarItem.Identifier("CaptureHistoryMore")
     private let store: CaptureHistoryStore
     private let thumbnailProvider: RecordingThumbnailProvider
     private let open: (CaptureHistoryRecord) -> Void
@@ -31,6 +32,7 @@ final class CaptureHistoryWindowController: NSObject, NSToolbarDelegate {
     private let startCapture: (CaptureHistoryFilter) -> Void
     private let openHistorySettings: () -> Void
     private let confirmDelete: (CaptureHistoryRecord, AppStrings) -> Bool
+    private let confirmClear: @MainActor (AppStrings) -> Bool
     private var window: NSWindow?
     private var gridView: CaptureHistoryGridView?
     private var emptyStateView: NSStackView?
@@ -38,9 +40,11 @@ final class CaptureHistoryWindowController: NSObject, NSToolbarDelegate {
     private var emptyMessage: NSTextField?
     private var emptyAction: NSButton?
     private var filterControl: CaptureHistoryFilterControl?
+    private weak var clearHistoryMenuItem: NSMenuItem?
     private var tileViewsByRecordID: [UUID: CaptureHistoryTileView] = [:]
     private var activeHoverRecordID: UUID?
     private var records: [CaptureHistoryRecord] = []
+    private var hasStoredRecords = false
     private var strings = AppStrings.current()
 
     private(set) var selectedFilter: CaptureHistoryFilter = .all
@@ -58,7 +62,8 @@ final class CaptureHistoryWindowController: NSObject, NSToolbarDelegate {
         openHistorySettings: @escaping () -> Void = {},
         confirmDelete: @escaping (CaptureHistoryRecord, AppStrings) -> Bool = { _, strings in
             CaptureHistoryDeletionConfirmation.confirm(strings: strings)
-        }
+        },
+        confirmClear: @escaping @MainActor (AppStrings) -> Bool = CaptureHistoryDeletionConfirmation.confirmClear
     ) {
         self.store = store
         self.thumbnailProvider = thumbnailProvider
@@ -71,6 +76,7 @@ final class CaptureHistoryWindowController: NSObject, NSToolbarDelegate {
         self.startCapture = startCapture
         self.openHistorySettings = openHistorySettings
         self.confirmDelete = confirmDelete
+        self.confirmClear = confirmClear
         super.init()
     }
 
@@ -132,6 +138,7 @@ final class CaptureHistoryWindowController: NSObject, NSToolbarDelegate {
         emptyMessage = nil
         emptyAction = nil
         filterControl = nil
+        clearHistoryMenuItem = nil
         tileViewsByRecordID = [:]
         activeHoverRecordID = nil
     }
@@ -228,7 +235,7 @@ final class CaptureHistoryWindowController: NSObject, NSToolbarDelegate {
     }
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.flexibleSpace, Self.filterItemID]
+        [.flexibleSpace, Self.filterItemID, Self.moreItemID]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -240,6 +247,9 @@ final class CaptureHistoryWindowController: NSObject, NSToolbarDelegate {
         itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier,
         willBeInsertedIntoToolbar flag: Bool
     ) -> NSToolbarItem? {
+        if itemIdentifier == Self.moreItemID {
+            return makeMoreItem(willBeInserted: flag)
+        }
         guard itemIdentifier == Self.filterItemID else { return nil }
         let filterControl = CaptureHistoryFilterControl(strings: strings)
         filterControl.selectedFilter = selectedFilter
@@ -254,6 +264,45 @@ final class CaptureHistoryWindowController: NSObject, NSToolbarDelegate {
         item.label = strings.captureHistoryFilterAccessibilityLabel
         item.view = filterControl
         return item
+    }
+
+    private func makeMoreItem(willBeInserted: Bool) -> NSMenuToolbarItem {
+        let item = NSMenuToolbarItem(itemIdentifier: Self.moreItemID)
+        item.label = strings.captureHistoryMoreActions
+        item.toolTip = strings.captureHistoryMoreActions
+        item.image = NSImage(systemSymbolName: "ellipsis", accessibilityDescription: item.label)
+        item.isBordered = true
+        item.showsIndicator = false
+
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        let clearItem = NSMenuItem(
+            title: strings.settingsCaptureHistoryClear + "…",
+            action: #selector(clearHistory),
+            keyEquivalent: ""
+        )
+        clearItem.target = self
+        clearItem.isEnabled = hasStoredRecords
+        menu.addItem(clearItem)
+        item.menu = menu
+        if willBeInserted {
+            clearHistoryMenuItem = clearItem
+        }
+        return item
+    }
+
+    @objc private func clearHistory() {
+        guard hasStoredRecords, confirmClear(strings) else { return }
+        do {
+            try store.clear()
+        } catch {
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = strings.settingsCaptureHistoryClearFailed(errorDescription: error.localizedDescription)
+            alert.runModal()
+        }
+        reloadRecords()
+        reloadGrid()
     }
 
     private func configureContent(in window: NSWindow) {
@@ -357,7 +406,7 @@ final class CaptureHistoryWindowController: NSObject, NSToolbarDelegate {
 
     private var emptyReason: EmptyReason {
         if !isHistoryEnabled() { return .disabled }
-        if selectedFilter != .all, let allRecords = try? store.records(kind: nil), !allRecords.isEmpty {
+        if selectedFilter != .all, hasStoredRecords {
             return .filter
         }
         return .noCaptures
@@ -391,7 +440,14 @@ final class CaptureHistoryWindowController: NSObject, NSToolbarDelegate {
     }
 
     private func reloadRecords() {
-        records = (try? store.records(kind: selectedFilter.kind)) ?? []
+        let storedRecords = (try? store.records()) ?? []
+        hasStoredRecords = !storedRecords.isEmpty
+        clearHistoryMenuItem?.isEnabled = hasStoredRecords
+        if let kind = selectedFilter.kind {
+            records = storedRecords.filter { $0.kind == kind }
+        } else {
+            records = storedRecords
+        }
     }
 
     private func previewImage(for record: CaptureHistoryRecord) -> NSImage {
@@ -533,6 +589,17 @@ private final class CaptureHistoryFilterControl: NSVisualEffectView {
 
 @MainActor
 private enum CaptureHistoryDeletionConfirmation {
+    static func confirmClear(strings: AppStrings) -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = strings.settingsCaptureHistoryClearConfirmationTitle
+        alert.informativeText = strings.settingsCaptureHistoryClearConfirmationMessage
+        alert.addButton(withTitle: strings.cancel)
+        let clearButton = alert.addButton(withTitle: strings.settingsCaptureHistoryClear)
+        clearButton.hasDestructiveAction = true
+        return alert.runModal() == .alertSecondButtonReturn
+    }
+
     static func confirm(strings: AppStrings) -> Bool {
         let alert = NSAlert()
         alert.alertStyle = .warning

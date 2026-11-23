@@ -36,7 +36,7 @@ final class AppStringsTests: XCTestCase {
         XCTAssertEqual(strings.settingsCaptureHistoryClearConfirmationTitle, "Clear local history?")
         XCTAssertEqual(
             strings.settingsCaptureHistoryClearConfirmationMessage,
-            "This removes dewShot's cached screenshots and recordings. Files you saved elsewhere are not affected."
+            "This deletes all screenshots and recordings cached by dewShot. Files saved elsewhere will be kept."
         )
         XCTAssertEqual(strings.settingsCaptureHistoryCleared, "Local history cleared")
         XCTAssertEqual(strings.windowScreenshotDecorationStyleName(.softBackdrop), "Soft Backdrop")
@@ -90,7 +90,7 @@ final class AppStringsTests: XCTestCase {
         XCTAssertEqual(strings.settingsCaptureHistoryClearConfirmationTitle, "清空本地历史？")
         XCTAssertEqual(
             strings.settingsCaptureHistoryClearConfirmationMessage,
-            "这会移除 dewShot 缓存的截图和录屏。你已另存到其他位置的文件不受影响。"
+            "这会删除 dewShot 缓存中的全部截图和录屏。已另存的文件会保留。"
         )
         XCTAssertEqual(strings.settingsCaptureHistoryCleared, "本地历史已清空")
         XCTAssertEqual(strings.windowScreenshotDecorationStyleName(.softBackdrop), "柔和背景")

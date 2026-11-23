@@ -173,8 +173,8 @@ final class CaptureHistoryWindowControllerTests: XCTestCase {
         let window = try XCTUnwrap(NSApp.windows.first { $0.title == "Capture History" && $0.isVisible })
         let toolbar = try XCTUnwrap(window.toolbar)
         XCTAssertEqual(toolbar.displayMode, .iconOnly)
-        XCTAssertEqual(toolbar.items.map(\.itemIdentifier.rawValue), ["NSToolbarFlexibleSpaceItem", "CaptureHistoryFilter"])
-        let filterControl = try XCTUnwrap(toolbar.items.last?.view)
+        XCTAssertEqual(toolbar.items.map(\.itemIdentifier.rawValue), ["NSToolbarFlexibleSpaceItem", "CaptureHistoryFilter", "CaptureHistoryMore"])
+        let filterControl = try XCTUnwrap(toolbar.items.first { $0.itemIdentifier.rawValue == "CaptureHistoryFilter" }?.view)
         filterControl.layoutSubtreeIfNeeded()
         XCTAssertEqual(filterControl.accessibilityLabel(), "Capture History Filter")
         XCTAssertTrue(filterControl.window === window)
@@ -205,13 +205,52 @@ final class CaptureHistoryWindowControllerTests: XCTestCase {
         }
 
         let window = try XCTUnwrap(NSApp.windows.first { $0.title == "捕获历史" && $0.isVisible })
-        let filterControl = try XCTUnwrap(window.toolbar?.items.last?.view)
+        let filterControl = try XCTUnwrap(window.toolbar?.items.first { $0.itemIdentifier.rawValue == "CaptureHistoryFilter" }?.view)
         filterControl.layoutSubtreeIfNeeded()
         XCTAssertEqual(filterControl.accessibilityLabel(), "捕获历史筛选")
         let buttons = findButtons(in: filterControl)
         XCTAssertEqual(buttons.map(\.title), ["全部", "截图", "录屏"])
         XCTAssertLessThanOrEqual(filterControl.frame.width, 152)
         XCTAssertGreaterThanOrEqual(buttons.map(\.frame.width).min() ?? 0, 40)
+    }
+
+    @MainActor
+    func testClearHistoryMenuConfirmsAndClearsAllKindsFromAFilteredView() throws {
+        let screenshot = try addRecord(kind: .screenshot, date: Date(timeIntervalSince1970: 100))
+        let recording = try addRecord(kind: .recording, date: Date(timeIntervalSince1970: 101))
+        let savedFile = rootDirectory.appendingPathComponent("saved.png")
+        let savedData = Data([1, 2, 3])
+        try savedData.write(to: savedFile)
+        var shouldClear = false
+        var confirmations = 0
+        let controller = CaptureHistoryWindowController(store: store, confirmClear: { _ in
+            confirmations += 1
+            return shouldClear
+        })
+
+        controller.show(strings: AppStrings(language: .en))
+        defer { controller.close() }
+        controller.setFilter(.screenshots)
+        let window = try XCTUnwrap(NSApp.windows.first { $0.title == "Capture History" && $0.isVisible })
+        let moreItem = try XCTUnwrap(window.toolbar?.items.last as? NSMenuToolbarItem)
+        let clearItem = try XCTUnwrap(moreItem.menu.item(withTitle: "Clear History…"))
+        let action = try XCTUnwrap(clearItem.action)
+        XCTAssertTrue(clearItem.isEnabled)
+        XCTAssertEqual(controller.visibleRecords(), [screenshot])
+
+        XCTAssertTrue(NSApp.sendAction(action, to: clearItem.target, from: clearItem))
+        XCTAssertEqual(confirmations, 1)
+        XCTAssertEqual(try store.records(), [recording, screenshot])
+
+        shouldClear = true
+        XCTAssertTrue(NSApp.sendAction(action, to: clearItem.target, from: clearItem))
+        XCTAssertEqual(confirmations, 2)
+        XCTAssertTrue(try store.records().isEmpty)
+        XCTAssertTrue(controller.visibleRecords().isEmpty)
+        XCTAssertFalse(clearItem.isEnabled)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.fileURL(for: screenshot).path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.fileURL(for: recording).path))
+        XCTAssertEqual(try Data(contentsOf: savedFile), savedData)
     }
 
     @MainActor

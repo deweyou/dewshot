@@ -547,8 +547,8 @@ struct AppStrings {
 
     var settingsCaptureHistoryClearConfirmationMessage: String {
         switch language {
-        case .zhHans: "这会移除 dewShot 缓存的截图和录屏。你已另存到其他位置的文件不受影响。"
-        case .en: "This removes dewShot's cached screenshots and recordings. Files you saved elsewhere are not affected."
+        case .zhHans: "这会删除 dewShot 缓存中的全部截图和录屏。已另存的文件会保留。"
+        case .en: "This deletes all screenshots and recordings cached by dewShot. Files saved elsewhere will be kept."
         }
     }
 
@@ -1071,6 +1071,13 @@ struct AppStrings {
         switch language {
         case .zhHans: "捕获历史"
         case .en: "Capture History"
+        }
+    }
+
+    var captureHistoryMoreActions: String {
+        switch language {
+        case .zhHans: "更多操作"
+        case .en: "More Actions"
         }
     }
 

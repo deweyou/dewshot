@@ -176,7 +176,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 SettingsStore.resetScreenshotDirectory()
             },
             onClearCaptureHistory: { [weak self] in
-                try self?.captureHistoryStore.clear()
+                guard let self else { return }
+                try self.captureHistoryStore.clear()
+                self.captureHistoryWindowController?.refreshRecords()
             }
         )
     }
