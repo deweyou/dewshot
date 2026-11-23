@@ -163,8 +163,8 @@ struct FirstRunSetupView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             hero
-            primaryButton
             optionalPermissions
+            primaryButton
         }
         .padding(.horizontal, 24)
         .padding(.top, 40)
@@ -359,24 +359,26 @@ struct FirstRunSetupView: View {
                     .frame(width: 36, height: 36)
                     .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
                     .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(spacing: 4) {
                     Text(primaryTitle)
                         .font(.system(size: 14, weight: .semibold))
                     Text(permissionMessage)
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
-                        .frame(minHeight: 30, alignment: .topLeading)
                 }
-                Spacer(minLength: 8)
+                .frame(maxWidth: .infinity)
                 Image(systemName: "arrow.right")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
                     .frame(width: 27, height: 27)
                     .background(Color.accentColor.opacity(0.12), in: Circle())
+                    .frame(width: 36)
                     .accessibilityHidden(true)
             }
             .padding(12)
+            .frame(minHeight: 76)
             .contentShape(RoundedRectangle(cornerRadius: 13))
         }
         .buttonStyle(FirstRunActionButtonStyle(isHovered: primaryActionIsHovered))
