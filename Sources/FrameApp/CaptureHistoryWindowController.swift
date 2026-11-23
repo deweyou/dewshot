@@ -676,6 +676,11 @@ private final class CaptureHistoryFilterButton: NSButton {
         hoverLayer.cornerRadius = bounds.height / 2
     }
 
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateAppearance()
+    }
+
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
 
@@ -737,6 +742,7 @@ private final class CaptureHistoryFilterButton: NSButton {
         isBordered = false
         bezelStyle = .regularSquare
         setButtonType(.momentaryPushIn)
+        font = .systemFont(ofSize: 13, weight: .semibold)
         focusRingType = .none
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
@@ -746,16 +752,11 @@ private final class CaptureHistoryFilterButton: NSButton {
     }
 
     private func updateAppearance() {
-        hoverLayer.backgroundColor = backgroundColor.cgColor
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            hoverLayer.backgroundColor = backgroundColor.cgColor
+        }
         hoverLayer.opacity = isFilterSelected || isHovering ? 1 : 0
-        let textColor = isFilterSelected ? NSColor.controlAccentColor : NSColor.labelColor
-        attributedTitle = NSAttributedString(
-            string: title,
-            attributes: [
-                .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
-                .foregroundColor: textColor,
-            ]
-        )
+        contentTintColor = isFilterSelected ? .controlAccentColor : .labelColor
     }
 
     private var backgroundColor: NSColor {

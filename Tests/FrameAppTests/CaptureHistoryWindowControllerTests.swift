@@ -194,10 +194,12 @@ final class CaptureHistoryWindowControllerTests: XCTestCase {
         let buttons = findButtons(in: filterControl)
         XCTAssertEqual(buttons.map(\.title), ["All", "Screenshots", "Recordings"])
         XCTAssertTrue(buttons.allSatisfy { $0.acceptsFirstMouse(for: nil) })
+        XCTAssertEqual(buttons.map(\.contentTintColor), [.controlAccentColor, .labelColor, .labelColor])
 
         buttons[1].performClick(nil)
         XCTAssertEqual(controller.selectedFilter, .screenshots)
         XCTAssertEqual(controller.visibleRecords(), [screenshot])
+        XCTAssertEqual(buttons.map(\.contentTintColor), [.labelColor, .controlAccentColor, .labelColor])
 
         buttons[2].performClick(nil)
         XCTAssertEqual(controller.selectedFilter, .recordings)

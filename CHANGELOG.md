@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Apply the system accent color to the selected Capture History filter on first open.
+
 - Add Clear History to its own menu alongside the Capture History filters, with confirmation before deleting cached screenshots and recordings.
 
 - Keep Capture History tile actions visible while the pointer is over the tile and hide them immediately when it leaves.
