@@ -216,11 +216,11 @@ struct FirstRunSetupView: View {
         let screenshot = shortcutHint(strings.firstRunScreenshot, icon: "camera.viewfinder", shortcut: screenshotShortcut)
         let recording = shortcutHint(strings.firstRunRecording, icon: "record.circle", shortcut: recordingShortcut)
         return ViewThatFits(in: .horizontal) {
-            HStack(spacing: 24) {
+            HStack(spacing: 18) {
                 screenshot
                 recording
             }
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 screenshot
                 recording
             }
@@ -233,7 +233,7 @@ struct FirstRunSetupView: View {
                 .foregroundStyle(.secondary)
             Text(title)
             if let shortcut {
-                HStack(spacing: 4) {
+                HStack(spacing: 3) {
                     ForEach(Array(shortcut.displayName.enumerated()), id: \.offset) { key in
                         Text(String(key.element))
                             .font(.system(size: 12, weight: .medium, design: .monospaced))
@@ -245,11 +245,11 @@ struct FirstRunSetupView: View {
                             }
                     }
                 }
-                .padding(.leading, 4)
+                .padding(.leading, 2)
             } else {
                 Text(strings.firstRunMenuBar)
                     .foregroundStyle(.secondary)
-                    .padding(.leading, 4)
+                    .padding(.leading, 2)
             }
         }
         .font(.system(size: 12, weight: .medium))
