@@ -307,12 +307,12 @@ documents the retained implementations for a future release.
 
 - Capture History is a recovery browser, not a file manager. Prefer preview
   tiles over table rows so screenshot content remains the primary surface.
-- Use a native macOS window with system traffic-light controls, a transparent
-  titlebar, and `fullSizeContentView`. Avoid a fully custom borderless window
-  unless the product intentionally gives up standard window behavior.
+- Use a native macOS window with system traffic-light controls, a material
+  background, a unified AppKit toolbar, and `fullSizeContentView`. Keep the
+  titlebar and window buttons drawn by the system.
 - The titlebar chrome should blend with the content background. Keep the
-  traffic-light safe area clear, and place compact filters in the titlebar
-  rather than adding a separate toolbar band.
+  traffic-light safe area clear and put compact filters at the trailing end of
+  the toolbar. Start the grid below the system toolbar.
 - History tiles follow the Quick Access visual language: rounded image preview,
   fine translucent border, compact metadata, and icon-only hover HUD actions.
 - Single-click selects a history tile. Double-click or Return opens the selected

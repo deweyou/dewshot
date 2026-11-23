@@ -18,7 +18,8 @@ enum CaptureHistoryFilter: Int, CaseIterable {
 }
 
 @MainActor
-final class CaptureHistoryWindowController: NSObject {
+final class CaptureHistoryWindowController: NSObject, NSToolbarDelegate {
+    private static let filterItemID = NSToolbarItem.Identifier("CaptureHistoryFilter")
     private let store: CaptureHistoryStore
     private let thumbnailProvider: RecordingThumbnailProvider
     private let open: (CaptureHistoryRecord) -> Void
@@ -77,10 +78,6 @@ final class CaptureHistoryWindowController: NSObject {
         window?.isVisible == true
     }
 
-    var usesTransparentTitlebar: Bool {
-        window?.titlebarAppearsTransparent == true
-    }
-
     func show(strings: AppStrings) {
         self.strings = strings
         reloadRecords()
@@ -104,12 +101,15 @@ final class CaptureHistoryWindowController: NSObject {
         window.isReleasedWhenClosed = false
         window.animationBehavior = .none
         window.titleVisibility = .visible
-        window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
+        window.toolbarStyle = .unified
         window.isMovableByWindowBackground = true
         window.acceptsMouseMovedEvents = true
-        window.backgroundColor = .clear
-        window.isOpaque = false
-        window.contentView = makeContentView()
+        let toolbar = NSToolbar(identifier: "dewShotCaptureHistory")
+        toolbar.allowsUserCustomization = false
+        toolbar.delegate = self
+        window.toolbar = toolbar
+        configureContent(in: window)
         window.initialFirstResponder = gridView
         window.center()
         self.window = window
@@ -226,23 +226,42 @@ final class CaptureHistoryWindowController: NSObject {
         return true
     }
 
-    private func makeContentView() -> NSView {
-        let materialView = NSVisualEffectView()
-        materialView.material = .windowBackground
-        materialView.blendingMode = .behindWindow
-        materialView.state = .active
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        [.flexibleSpace, Self.filterItemID]
+    }
 
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        toolbarDefaultItemIdentifiers(toolbar)
+    }
+
+    func toolbar(
+        _ toolbar: NSToolbar,
+        itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier,
+        willBeInsertedIntoToolbar flag: Bool
+    ) -> NSToolbarItem? {
+        guard itemIdentifier == Self.filterItemID else { return nil }
         let filterControl = CaptureHistoryFilterControl(strings: strings)
         filterControl.selectedFilter = selectedFilter
         filterControl.onSelectionChange = { [weak self] filter in
             self?.setFilter(filter)
         }
-        filterControl.translatesAutoresizingMaskIntoConstraints = false
-        self.filterControl = filterControl
+        if flag {
+            self.filterControl = filterControl
+        }
 
-        let toolbarView = NSView()
-        toolbarView.translatesAutoresizingMaskIntoConstraints = false
-        toolbarView.addSubview(filterControl)
+        let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+        item.label = strings.captureHistoryFilterAccessibilityLabel
+        item.view = filterControl
+        return item
+    }
+
+    private func configureContent(in window: NSWindow) {
+        let materialView = NSVisualEffectView()
+        materialView.material = .windowBackground
+        materialView.blendingMode = .behindWindow
+        materialView.state = .active
+        window.contentView = materialView
+        let contentTop = (window.contentLayoutGuide as? NSLayoutGuide)?.topAnchor ?? materialView.topAnchor
 
         let gridView = CaptureHistoryGridView()
         gridView.translatesAutoresizingMaskIntoConstraints = false
@@ -281,23 +300,13 @@ final class CaptureHistoryWindowController: NSObject {
         self.emptyMessage = emptyMessage
         self.emptyAction = emptyAction
 
-        materialView.addSubview(toolbarView)
         materialView.addSubview(scrollView)
         materialView.addSubview(emptyState)
 
         NSLayoutConstraint.activate([
-            toolbarView.leadingAnchor.constraint(equalTo: materialView.leadingAnchor),
-            toolbarView.trailingAnchor.constraint(equalTo: materialView.trailingAnchor),
-            toolbarView.topAnchor.constraint(equalTo: materialView.topAnchor),
-            toolbarView.heightAnchor.constraint(equalToConstant: 46),
-
-            filterControl.trailingAnchor.constraint(equalTo: toolbarView.trailingAnchor, constant: -18),
-            filterControl.centerYAnchor.constraint(equalTo: toolbarView.centerYAnchor),
-            filterControl.heightAnchor.constraint(equalToConstant: 32),
-
             scrollView.leadingAnchor.constraint(equalTo: materialView.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: materialView.trailingAnchor),
-            scrollView.topAnchor.constraint(equalTo: toolbarView.bottomAnchor),
+            scrollView.topAnchor.constraint(equalTo: contentTop),
             scrollView.bottomAnchor.constraint(equalTo: materialView.bottomAnchor),
 
             gridView.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
@@ -310,8 +319,6 @@ final class CaptureHistoryWindowController: NSObject {
             emptyState.leadingAnchor.constraint(greaterThanOrEqualTo: materialView.leadingAnchor, constant: 24),
             emptyState.trailingAnchor.constraint(lessThanOrEqualTo: materialView.trailingAnchor, constant: -24),
         ])
-
-        return materialView
     }
 
     private func reloadGrid() {

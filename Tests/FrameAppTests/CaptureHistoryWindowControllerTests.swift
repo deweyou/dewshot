@@ -88,7 +88,17 @@ final class CaptureHistoryWindowControllerTests: XCTestCase {
         XCTAssertEqual(controller.selectedFilter, .all)
         XCTAssertEqual(controller.visibleColumnIdentifiers(), [])
         XCTAssertEqual(controller.visibleTileCount(), 1)
-        XCTAssertTrue(controller.usesTransparentTitlebar)
+        let window = try XCTUnwrap(NSApp.windows.first { $0.title == "Capture History" && $0.isVisible })
+        XCTAssertFalse(window.titlebarAppearsTransparent)
+        XCTAssertEqual(window.toolbarStyle, .unified)
+        XCTAssertNotNil(window.standardWindowButton(.closeButton))
+        XCTAssertNotNil(window.standardWindowButton(.miniaturizeButton))
+        XCTAssertNotNil(window.standardWindowButton(.zoomButton))
+        XCTAssertNotNil(window.toolbar)
+        let contentView = try XCTUnwrap(window.contentView)
+        contentView.layoutSubtreeIfNeeded()
+        let scrollView = try XCTUnwrap(findView(in: contentView, ofType: NSScrollView.self))
+        XCTAssertEqual(scrollView.convert(scrollView.bounds, to: nil).maxY, window.contentLayoutRect.maxY, accuracy: 0.5)
     }
 
     @MainActor
@@ -160,19 +170,15 @@ final class CaptureHistoryWindowControllerTests: XCTestCase {
             controller.close()
         }
 
-        let contentView = try XCTUnwrap(NSApp.windows.first {
-            $0.title == "Capture History" && $0.isVisible
-        }?.contentView)
-        contentView.layoutSubtreeIfNeeded()
-
-        XCTAssertNil(findView(in: contentView, ofType: NSSegmentedControl.self))
-        let filterControl = try XCTUnwrap(findView(in: contentView, accessibilityLabel: "Capture History Filter"))
+        let window = try XCTUnwrap(NSApp.windows.first { $0.title == "Capture History" && $0.isVisible })
+        let toolbar = try XCTUnwrap(window.toolbar)
+        XCTAssertEqual(toolbar.items.map(\.itemIdentifier.rawValue), ["NSToolbarFlexibleSpaceItem", "CaptureHistoryFilter"])
+        let filterControl = try XCTUnwrap(toolbar.items.last?.view)
+        filterControl.layoutSubtreeIfNeeded()
+        XCTAssertEqual(filterControl.accessibilityLabel(), "Capture History Filter")
+        XCTAssertTrue(filterControl.window === window)
+        XCTAssertGreaterThan(filterControl.frame.height, 0)
         XCTAssertEqual(filterControl.layer?.cornerRadius ?? 0, filterControl.frame.height / 2, accuracy: 1)
-        let header = try XCTUnwrap(filterControl.superview)
-        let topInset = header.bounds.maxY - filterControl.frame.maxY
-        let bottomInset = filterControl.frame.minY - header.bounds.minY
-        XCTAssertGreaterThanOrEqual(topInset, 6)
-        XCTAssertEqual(topInset, bottomInset, accuracy: 0.5)
 
         let buttons = findButtons(in: filterControl)
         XCTAssertEqual(buttons.map(\.title), ["All", "Screenshots", "Recordings"])
@@ -197,12 +203,10 @@ final class CaptureHistoryWindowControllerTests: XCTestCase {
             controller.close()
         }
 
-        let contentView = try XCTUnwrap(NSApp.windows.first {
-            $0.title == "捕获历史" && $0.isVisible
-        }?.contentView)
-        contentView.layoutSubtreeIfNeeded()
-
-        let filterControl = try XCTUnwrap(findView(in: contentView, accessibilityLabel: "捕获历史筛选"))
+        let window = try XCTUnwrap(NSApp.windows.first { $0.title == "捕获历史" && $0.isVisible })
+        let filterControl = try XCTUnwrap(window.toolbar?.items.last?.view)
+        filterControl.layoutSubtreeIfNeeded()
+        XCTAssertEqual(filterControl.accessibilityLabel(), "捕获历史筛选")
         let buttons = findButtons(in: filterControl)
         XCTAssertEqual(buttons.map(\.title), ["全部", "截图", "录屏"])
         XCTAssertLessThanOrEqual(filterControl.frame.width, 152)
@@ -505,21 +509,6 @@ final class CaptureHistoryWindowControllerTests: XCTestCase {
         }
 
         return buttons
-    }
-
-    @MainActor
-    private func findView(in view: NSView, accessibilityLabel: String) -> NSView? {
-        if view.accessibilityLabel() == accessibilityLabel {
-            return view
-        }
-
-        for subview in view.subviews {
-            if let matchingView = findView(in: subview, accessibilityLabel: accessibilityLabel) {
-                return matchingView
-            }
-        }
-
-        return nil
     }
 
     @MainActor

@@ -4,7 +4,7 @@
 
 - Keep Capture History tile actions visible while the pointer is over the tile and hide them immediately when it leaves.
 
-- Center the Capture History filter vertically in its header to give it more room above.
+- Use a native unified toolbar and system window controls in Capture History.
 
 - Center short text-recognition results in the Quick Access screenshot preview, clear of its toolbar.
 
