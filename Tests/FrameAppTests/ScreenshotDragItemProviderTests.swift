@@ -214,11 +214,11 @@ final class ScreenshotDragItemProviderTests: XCTestCase {
             "在默认 App 中打开": "arrow.up.forward.app"
         ]
         let expectedConfigurationsByLabel = [
-            "保存": NSImage.SymbolConfiguration(pointSize: 12.5, weight: .semibold),
-            "复制": NSImage.SymbolConfiguration(pointSize: 11.5, weight: .semibold),
-            "识别文字": NSImage.SymbolConfiguration(pointSize: 12.5, weight: .semibold),
+            "保存": NSImage.SymbolConfiguration(pointSize: 12, weight: .semibold),
+            "复制": NSImage.SymbolConfiguration(pointSize: 10.5, weight: .semibold),
+            "识别文字": NSImage.SymbolConfiguration(pointSize: 11, weight: .semibold),
             "固定到预览窗口": NSImage.SymbolConfiguration(pointSize: 11.5, weight: .semibold),
-            "在默认 App 中打开": NSImage.SymbolConfiguration(pointSize: 11.5, weight: .semibold)
+            "在默认 App 中打开": NSImage.SymbolConfiguration(pointSize: 13.5, weight: .semibold)
         ]
 
         for (label, symbolName) in expectedSymbolsByLabel {

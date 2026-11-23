@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Align Quick Access screenshot toolbar icons and use a consistent color for enabled actions.
+
 - Put Open in Default App and Save first in Quick Access for screenshots and recordings, with Copy at the end.
 
 - Open Quick Access on the active display and move existing previews together when window focus switches displays.

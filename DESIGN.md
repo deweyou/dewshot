@@ -197,6 +197,8 @@ documents the retained implementations for a future release.
 - Quick Access is a small fixed post-capture preview with icon-only hover
   actions. For screenshots, order them as Open in Default App, Save, Recognize
   Text, Pin, and Copy. Keep Close in the corner.
+- Use one tint for enabled hover toolbar actions. Center the screenshot actions
+  in equal-height buttons and adjust symbol sizes for their visible bounds.
 - Auto-copy is on by default and lives in Capture settings. Copy screenshots
   as images and recordings as files after capture completes, and keep their
   previews available. Copy only the active display's image during a multi-display

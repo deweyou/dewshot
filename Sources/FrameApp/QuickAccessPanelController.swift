@@ -582,14 +582,10 @@ final class QuickAccessPanelController: NSObject {
             style: .toolbar
         )
 
-        stackView.addArrangedSubview(openExternallyButton)
-        stackView.addArrangedSubview(saveButton)
-        for button in [ocrButton, pinButton, openExternallyButton] {
-            button.contentTintColor = FrameHUDChrome.secondaryIcon
+        for button in [openExternallyButton, saveButton, ocrButton, pinButton, copyButton] {
+            stackView.addArrangedSubview(button)
+            button.heightAnchor.constraint(equalTo: stackView.heightAnchor).isActive = true
         }
-        stackView.addArrangedSubview(ocrButton)
-        stackView.addArrangedSubview(pinButton)
-        stackView.addArrangedSubview(copyButton)
 
         contentView.actionsViews = [closeButton, overlayView]
         contentView.addSubview(imageView)
@@ -802,9 +798,16 @@ final class QuickAccessPanelController: NSObject {
         case .floatingCorner:
             9.5
         case .toolbar:
+            // Match the visible glyph sizes. SF Symbols draw different bounds at the same point size.
             switch symbolName {
-            case "square.and.arrow.down", "character.textbox":
-                12.5
+            case "arrow.up.forward.app":
+                13.5
+            case "square.and.arrow.down":
+                12
+            case "character.textbox":
+                11
+            case "doc.on.doc":
+                10.5
             default:
                 11.5
             }

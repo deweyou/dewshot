@@ -160,6 +160,16 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         let contentView = try XCTUnwrap(panel.contentView)
         let overlay = try XCTUnwrap(findView(identifier: "QuickAccessActionOverlay", in: contentView) as? NSVisualEffectView)
         let mediaSurface = try XCTUnwrap(contentView.subviews.first)
+        contentView.layoutSubtreeIfNeeded()
+        let toolbar = try XCTUnwrap(overlay.subviews.compactMap { $0 as? NSStackView }.first)
+        let buttons = toolbar.arrangedSubviews.compactMap { $0 as? NSButton }
+
+        XCTAssertEqual(buttons.count, 5)
+        for button in buttons {
+            XCTAssertEqual(button.contentTintColor, FrameHUDChrome.primaryIcon)
+            XCTAssertEqual(button.frame.height, toolbar.bounds.height, accuracy: 0.5)
+            XCTAssertEqual(button.frame.midY, toolbar.bounds.midY, accuracy: 0.5)
+        }
 
         XCTAssertEqual(overlay.appearance?.name, .vibrantDark)
         XCTAssertEqual(overlay.material, .hudWindow)
