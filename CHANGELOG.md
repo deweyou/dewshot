@@ -3,7 +3,8 @@
 ## Unreleased
 
 - Show screenshot and recording shortcuts, guide Screen Recording access, and
-  offer a first screenshot from the welcome window.
+  offer a first screenshot from the welcome window. A full-width button shows
+  the current step.
   Accessibility and Input Monitoring are available as optional setup steps.
 
 - Show a small permission guide beside System Settings when dewShot needs

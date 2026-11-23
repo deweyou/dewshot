@@ -164,11 +164,7 @@ struct FirstRunSetupView: View {
             hero
             permissionStatus
             optionalPermissions
-            Button(primaryTitle, action: primaryAction)
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .keyboardShortcut(.defaultAction)
-                .frame(maxWidth: .infinity, alignment: .trailing)
+            primaryButton
         }
         .padding(.horizontal, 24)
         .padding(.top, 40)
@@ -368,11 +364,63 @@ struct FirstRunSetupView: View {
         }
     }
 
+    private var primaryIcon: String {
+        switch state.phase {
+        case .needsPermission: "record.circle"
+        case .waitingForPermission: "gearshape"
+        case .ready: "camera.viewfinder"
+        }
+    }
+
+    private var primaryButton: some View {
+        Button(action: primaryAction) {
+            HStack(spacing: 10) {
+                Image(systemName: primaryIcon)
+                    .font(.system(size: 17, weight: .medium))
+                    .frame(width: 22)
+                    .accessibilityHidden(true)
+                Text(primaryTitle)
+                    .font(.system(size: 14, weight: .semibold))
+                Spacer(minLength: 8)
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 24, height: 24)
+                    .background(.white.opacity(0.16), in: Circle())
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 13)
+            .frame(minHeight: 46)
+            .contentShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(FirstRunActionButtonStyle())
+        .keyboardShortcut(.defaultAction)
+    }
+
     private func primaryAction() {
         if state.phase == .ready {
             onStartCapture()
         } else {
             state.requestPermission()
         }
+    }
+}
+
+private struct FirstRunActionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(.white)
+            .background {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(.linearGradient(
+                        colors: [Color(red: 0.12, green: 0.28, blue: 0.57), Color(red: 0.17, green: 0.36, blue: 0.73)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(.white.opacity(0.18), lineWidth: 1)
+                    }
+            }
+            .opacity(configuration.isPressed ? 0.83 : 1)
     }
 }
