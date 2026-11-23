@@ -26,11 +26,11 @@ fi
 case "$APP_VARIANT" in
     production)
         APP_NAME="dewShot"
-        BUNDLE_IDENTIFIER="dev.deweyou.frame"
+        BUNDLE_IDENTIFIER="dev.deweyou.dewshot"
         ;;
     development)
         APP_NAME="dewShot Dev"
-        BUNDLE_IDENTIFIER="dev.deweyou.frame.dev"
+        BUNDLE_IDENTIFIER="dev.deweyou.dewshot.dev"
         ;;
     *)
         echo "Unsupported FRAME_APP_VARIANT: $APP_VARIANT (expected production or development)" >&2

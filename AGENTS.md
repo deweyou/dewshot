@@ -16,7 +16,7 @@ swift build
 scripts/package-app.sh
 ```
 
-The packaging script creates the production `.build/app/dewShot.app` by default. Set `FRAME_APP_VARIANT=development` to create `.build/app/dewShot Dev.app` with bundle identifier `dev.deweyou.frame.dev`. It uses ad-hoc signing by default, or `FRAME_CODESIGN_IDENTITY` when a stable local Code Signing identity is available.
+The packaging script creates the production `.build/app/dewShot.app` by default. Set `FRAME_APP_VARIANT=development` to create `.build/app/dewShot Dev.app` with bundle identifier `dev.deweyou.dewshot.dev`. It uses ad-hoc signing by default, or `FRAME_CODESIGN_IDENTITY` when a stable local Code Signing identity is available.
 
 For user-facing GUI changes, final handoff must explicitly ask whether to replace the local test app unless the user already declined or replacement was already completed in the same turn.
 

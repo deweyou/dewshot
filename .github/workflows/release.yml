@@ -67,7 +67,7 @@ jobs:
           test -f "$release_dir/${{ steps.version.outputs.artifact_name }}.zip"
           test -f "$release_dir/${{ steps.version.outputs.artifact_name }}.dmg"
           test -f "$release_dir/SHA256SUMS"
-          test "$(plutil -extract CFBundleIdentifier raw .build/app/dewShot.app/Contents/Info.plist)" = "dev.deweyou.frame"
+          test "$(plutil -extract CFBundleIdentifier raw .build/app/dewShot.app/Contents/Info.plist)" = "dev.deweyou.dewshot"
           test "$(plutil -extract LSMinimumSystemVersion raw .build/app/dewShot.app/Contents/Info.plist)" = "26.0"
           (cd "$release_dir" && shasum -a 256 -c SHA256SUMS)
           hdiutil verify "$release_dir/${{ steps.version.outputs.artifact_name }}.dmg"

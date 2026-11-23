@@ -176,7 +176,7 @@ final class CaptureHistoryStore {
             .first
             ?? fileManager.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support", isDirectory: true)
         // Keep existing history available after the product rename to dewShot.
-        let appDirectoryName = bundleIdentifier == "dev.deweyou.frame.dev" ? "Frame Dev" : "Frame"
+        let appDirectoryName = bundleIdentifier == "dev.deweyou.dewshot.dev" ? "Frame Dev" : "Frame"
         return applicationSupport
             .appendingPathComponent(appDirectoryName, isDirectory: true)
             .appendingPathComponent("History", isDirectory: true)

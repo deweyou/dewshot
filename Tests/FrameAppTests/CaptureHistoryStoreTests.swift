@@ -23,8 +23,8 @@ final class CaptureHistoryStoreTests: XCTestCase {
     }
 
     func testDefaultRootDirectorySeparatesDevelopmentHistoryFromProduction() {
-        let production = CaptureHistoryStore.defaultRootDirectory(bundleIdentifier: "dev.deweyou.frame")
-        let development = CaptureHistoryStore.defaultRootDirectory(bundleIdentifier: "dev.deweyou.frame.dev")
+        let production = CaptureHistoryStore.defaultRootDirectory(bundleIdentifier: "dev.deweyou.dewshot")
+        let development = CaptureHistoryStore.defaultRootDirectory(bundleIdentifier: "dev.deweyou.dewshot.dev")
 
         XCTAssertTrue(production.path.hasSuffix("/Application Support/Frame/History"))
         XCTAssertTrue(development.path.hasSuffix("/Application Support/Frame Dev/History"))

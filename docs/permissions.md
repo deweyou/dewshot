@@ -27,7 +27,8 @@ TCC authorization is tied to app identity, path, and code signature. Ad-hoc sign
 
 For repeat local testing, sign the `development` variant with Apple
 Development and keep one installed path, `~/Applications/dewShot Dev.app`.
-When upgrading from `Frame Dev.app`, macOS may ask for Screen Recording permission again because the installed path changes.
+When upgrading from a build with a Frame bundle identifier, grant Screen
+Recording and any optional capture permissions again for the new app identity.
 Follow the [local installation flow](development.md#manual-smoke-test).
 Authorize that installed copy, then quit and reopen it before testing capture.
 
@@ -36,7 +37,7 @@ Authorize that installed copy, then quit and reopen it before testing capture.
 If macOS keeps a stale entry for a previous local build:
 
 ```sh
-tccutil reset ScreenCapture dev.deweyou.frame.dev
+tccutil reset ScreenCapture dev.deweyou.dewshot.dev
 ```
 
 Then reopen the current app bundle and request permission again.
@@ -48,7 +49,7 @@ Developer ID Application and submit it for Apple notarization.
 
 The production and development bundle identifiers have separate TCC records:
 
-- `dev.deweyou.frame` for dewShot
-- `dev.deweyou.frame.dev` for dewShot Dev
+- `dev.deweyou.dewshot` for dewShot
+- `dev.deweyou.dewshot.dev` for dewShot Dev
 
 See [Signing and development-device migration](signing-and-device-migration.md) before setting up or replacing a development Mac.

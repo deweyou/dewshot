@@ -37,8 +37,8 @@ The packaging script owns the registered app identity mapping. Callers select a 
 
 | Variant | App name | Bundle identifier | Output |
 | --- | --- | --- | --- |
-| `production` (default) | dewShot | `dev.deweyou.frame` | `.build/app/dewShot.app` |
-| `development` | dewShot Dev | `dev.deweyou.frame.dev` | `.build/app/dewShot Dev.app` |
+| `production` (default) | dewShot | `dev.deweyou.dewshot` | `.build/app/dewShot.app` |
+| `development` | dewShot Dev | `dev.deweyou.dewshot.dev` | `.build/app/dewShot Dev.app` |
 
 Inspect the resolved configuration without building:
 
@@ -177,7 +177,7 @@ dewShot directly from the mounted DMG.
    ```
 
    Check for an Apple Development authority, a Team ID, and
-   `Identifier=dev.deweyou.frame.dev`. The directory in `frame_previous`
+   `Identifier=dev.deweyou.dewshot.dev`. The directory in `frame_previous`
    holds the previous bundle for rollback.
 
 3. Grant Screen Recording permission when prompted.
@@ -239,7 +239,7 @@ CI does not grant Screen Recording permission or run full desktop GUI smoke test
 When testing repeated local builds, reset the app permission entry:
 
 ```sh
-tccutil reset ScreenCapture dev.deweyou.frame.dev
+tccutil reset ScreenCapture dev.deweyou.dewshot.dev
 ```
 
 Then reopen the exact app bundle you want to authorize.

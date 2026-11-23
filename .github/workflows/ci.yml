@@ -41,6 +41,6 @@ jobs:
           test -x .build/app/dewShot.app/Contents/MacOS/dewShot
           plutil -lint .build/app/dewShot.app/Contents/Info.plist
           test "$(plutil -extract CFBundleDisplayName raw .build/app/dewShot.app/Contents/Info.plist)" = "dewShot"
-          test "$(plutil -extract CFBundleIdentifier raw .build/app/dewShot.app/Contents/Info.plist)" = "dev.deweyou.frame"
+          test "$(plutil -extract CFBundleIdentifier raw .build/app/dewShot.app/Contents/Info.plist)" = "dev.deweyou.dewshot"
           test "$(plutil -extract LSMinimumSystemVersion raw .build/app/dewShot.app/Contents/Info.plist)" = "26.0"
           codesign -dv .build/app/dewShot.app

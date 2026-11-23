@@ -75,8 +75,9 @@
 - Add a Launch at Login setting backed by macOS Service Management, with
   approval and failure feedback that reflects the system's real login-item state.
 - Separate development and production packaging as `dewShot Dev`
-  (`dev.deweyou.frame.dev`) and `dewShot` (`dev.deweyou.frame`), and document
-  signing setup and recovery for a new development Mac.
+  (`dev.deweyou.dewshot.dev`) and `dewShot` (`dev.deweyou.dewshot`), and document
+  signing setup and recovery for a new development Mac. Builds with these
+  identifiers require fresh macOS permissions when upgrading from Frame.
 - Make screenshot and screen recording discoverable as separate menu actions,
   with native shortcut labels that follow the configured shortcuts.
 - Show Screen Recording, Accessibility, and Input Monitoring together in
