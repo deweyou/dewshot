@@ -3,8 +3,18 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_VARIANT="${FRAME_APP_VARIANT:-production}"
-APP_OUTPUT_ROOT="${FRAME_APP_OUTPUT_ROOT:-$ROOT_DIR/.build/app}"
+APP_SANDBOX="${FRAME_APP_SANDBOX:-0}"
 PRINT_CONFIGURATION=false
+
+case "$APP_SANDBOX" in
+    0) DEFAULT_OUTPUT_ROOT="$ROOT_DIR/.build/app" ;;
+    1) DEFAULT_OUTPUT_ROOT="$ROOT_DIR/.build/app-sandbox" ;;
+    *)
+        echo "Unsupported FRAME_APP_SANDBOX: $APP_SANDBOX (expected 0 or 1)" >&2
+        exit 64
+        ;;
+esac
+APP_OUTPUT_ROOT="${FRAME_APP_OUTPUT_ROOT:-$DEFAULT_OUTPUT_ROOT}"
 
 case "${1:-}" in
     "")
@@ -133,7 +143,11 @@ mkdir -p "$RESOURCES_DIR/menubar"
 cp "$APP_RESOURCES_DIR"/menubar/FrameStatusIcon*.png "$RESOURCES_DIR/menubar/"
 cp "$APP_RESOURCES_DIR"/menubar/FrameStatusIconTemplate*.png "$RESOURCES_DIR/"
 
-codesign --force --sign "$CODESIGN_IDENTITY" "$APP_DIR"
+SIGNING_OPTIONS=(--force --sign "$CODESIGN_IDENTITY")
+if [[ "$APP_SANDBOX" == 1 ]]; then
+    SIGNING_OPTIONS+=(--entitlements "$ROOT_DIR/scripts/app-sandbox.entitlements")
+fi
+codesign "${SIGNING_OPTIONS[@]}" "$APP_DIR"
 
 echo "Packaged $APP_DIR"
 echo "Variant: $APP_VARIANT ($BUNDLE_IDENTIFIER)"

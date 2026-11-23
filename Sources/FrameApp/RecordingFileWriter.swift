@@ -16,8 +16,13 @@ final class RecordingFileWriter {
         self.saveDirectory = saveDirectory
     }
 
-    func copyRecording(from sourceURL: URL, format: RecordingFormat, date: Date = Date()) throws -> URL {
-        let directory = try saveDirectory()
+    func copyRecording(
+        from sourceURL: URL,
+        format: RecordingFormat,
+        date: Date = Date(),
+        directory: URL? = nil
+    ) throws -> URL {
+        let directory = try directory ?? saveDirectory()
         let destination = directory.appendingPathComponent(
             naming.filename(for: date, format: format),
             isDirectory: false

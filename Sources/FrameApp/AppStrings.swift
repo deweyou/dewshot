@@ -395,6 +395,13 @@ struct AppStrings {
         }
     }
 
+    var settingsSaveFolderOnFirstSave: String {
+        switch language {
+        case .zhHans: "首次保存时选择文件夹"
+        case .en: "Choose a folder on first save"
+        }
+    }
+
     var settingsWindowScreenshotDecorationStyle: String {
         switch language {
         case .zhHans: "窗口截图样式"

@@ -173,7 +173,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.chooseScreenshotDirectory()
             },
             onResetScreenshotDirectory: {
-                SettingsStore.resetScreenshotDirectory()
+                CaptureSaveDirectory().reset()
             },
             onClearCaptureHistory: { [weak self] in
                 guard let self else { return }
@@ -1534,13 +1534,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func saveScreenshotFile(_ screenshot: CapturedScreenshot) -> URL? {
-        do {
-            let saveURL = try ScreenshotFileWriter(strings: strings).write(pngData: screenshot.pngData)
+        saveCaptureFile { directory in
+            let saveURL = try ScreenshotFileWriter(strings: strings).write(
+                pngData: screenshot.pngData,
+                directory: directory
+            )
             NSLog("dewShot 已保存截图：\(saveURL.path)")
             return saveURL
-        } catch {
-            showQuickAccessFailedAlert(title: strings.saveFailedTitle, error: error)
-            return nil
         }
     }
 
@@ -1563,13 +1563,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func saveRecordingFile(_ fileURL: URL, format: RecordingFormat) -> URL? {
-        do {
+        saveCaptureFile { directory in
             let saveURL = try recordingFileWriter.copyRecording(
                 from: fileURL,
-                format: format
+                format: format,
+                directory: directory
             )
             NSLog("dewShot 已保存录屏：\(saveURL.path)")
             return saveURL
+        }
+    }
+
+    private func saveCaptureFile(_ write: (URL?) throws -> URL) -> URL? {
+        do {
+            guard CaptureSaveDirectory.isSandboxed else { return try write(nil) }
+            let saveDirectory = CaptureSaveDirectory()
+            do {
+                return try saveDirectory.withAccess(write)
+            } catch CaptureSaveDirectory.AccessError.selectionRequired {
+                guard chooseScreenshotDirectory() != nil else { return nil }
+                return try saveDirectory.withAccess(write)
+            }
         } catch {
             showQuickAccessFailedAlert(title: strings.saveFailedTitle, error: error)
             return nil
@@ -1614,12 +1628,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.allowsMultipleSelection = false
         panel.canCreateDirectories = true
 
+        NSApp.activate(ignoringOtherApps: true)
         guard panel.runModal() == .OK,
               let directory = panel.url else {
             return nil
         }
 
-        return directory
+        if CaptureSaveDirectory.isSandboxed {
+            defer { directory.stopAccessingSecurityScopedResource() }
+            return persistScreenshotDirectory(directory)
+        }
+        return persistScreenshotDirectory(directory)
+    }
+
+    private func persistScreenshotDirectory(_ directory: URL) -> URL? {
+        do {
+            try CaptureSaveDirectory().select(directory)
+            return directory
+        } catch {
+            showQuickAccessFailedAlert(title: strings.saveFailedTitle, error: error)
+            return nil
+        }
     }
 
     private func changeLanguage(to language: AppLanguage) {

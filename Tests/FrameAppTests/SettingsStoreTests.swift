@@ -265,6 +265,27 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(directory, desktop)
     }
 
+    func testSandboxedSaveRequiresAuthorizationEvenWithRememberedPath() throws {
+        let directory = URL(fileURLWithPath: "/Users/test/Pictures/Captures", isDirectory: true)
+        try CaptureSaveDirectory(defaults: defaults, isSandboxed: false).select(directory)
+
+        let sandboxed = CaptureSaveDirectory(defaults: defaults, isSandboxed: true)
+        XCTAssertThrowsError(try sandboxed.withAccess { _ in XCTFail("Wrote without a bookmark") }) { error in
+            XCTAssertTrue(error is CaptureSaveDirectory.AccessError)
+        }
+
+        sandboxed.reset()
+        XCTAssertNil(defaults.string(forKey: SettingsStore.screenshotDirectoryKey))
+    }
+
+    func testUnrestrictedSaveUsesRememberedPath() throws {
+        let directory = URL(fileURLWithPath: "/Users/test/Pictures/Captures", isDirectory: true)
+        let destination = CaptureSaveDirectory(defaults: defaults, isSandboxed: false)
+        try destination.select(directory)
+
+        XCTAssertEqual(try destination.withAccess { $0 }, directory)
+    }
+
     func testCaptureHistoryDefaultsToEnabledSevenDaysAndTwoGB() {
         XCTAssertTrue(SettingsStore.isCaptureHistoryEnabled(defaults: defaults))
         XCTAssertEqual(SettingsStore.captureHistoryRetention(defaults: defaults), .sevenDays)

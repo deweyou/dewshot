@@ -19,8 +19,8 @@ final class ScreenshotFileWriter {
         self.strings = strings
     }
 
-    func write(pngData: Data, date: Date = Date()) throws -> URL {
-        let directory = try saveDirectory()
+    func write(pngData: Data, date: Date = Date(), directory: URL? = nil) throws -> URL {
+        let directory = try directory ?? saveDirectory()
         let filename = naming.filename(for: date)
         let saveURL = ScreenshotNaming.saveURL(
             desktopDirectory: directory,

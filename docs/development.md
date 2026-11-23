@@ -147,6 +147,35 @@ to `/Applications`, open it from there, use macOS `Open Anyway` when prompted,
 grant Screen Recording permission, and relaunch the app. Do not ask users to run
 dewShot directly from the mounted DMG.
 
+## Sandbox Smoke Test
+
+Build with the existing Apple Development identity:
+
+```sh
+FRAME_APP_SANDBOX=1 FRAME_APP_VARIANT=development \
+FRAME_CODESIGN_IDENTITY="Apple Development: Your Name (IDENTIFIER)" \
+scripts/package-app.sh
+codesign -d --entitlements :- ".build/app-sandbox/dewShot Dev.app"
+```
+
+The bundle uses the development App ID and writes its own settings and history
+in the sandbox container. To test it at the stable development-app path, follow
+the replacement and signing checks below with the bundle from
+`.build/app-sandbox/`. Grant Screen Recording if requested, then relaunch.
+
+1. Capture a region using the global shortcut. Save from Quick Access and choose
+   a folder outside the app container. Canceling the picker should leave the
+   capture available to save again.
+2. Quit and reopen the app. Save another screenshot and a short recording.
+   Both should land in the same chosen folder without a second picker.
+3. Reset the save location in Settings. The next save should ask for a folder again.
+4. With Accessibility and Input Monitoring off, verify manual scrolling capture
+   and recording with keystroke hints off. Check automatic scrolling and
+   keystroke hints separately if their permissions are granted.
+
+The folder picker, security-scoped bookmark lifecycle, and system permissions
+require the installed signed bundle for end-to-end verification.
+
 ## Manual Smoke Test
 
 1. Choose an Apple Development signing identity from

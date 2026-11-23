@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a local App Sandbox test build. It asks for a destination folder on first
+  save and remembers permission to save screenshots and recordings there.
+
 - Double-click a screenshot or recording in Quick Access to open it in the macOS default app.
 
 - Align Quick Access screenshot toolbar icons and use a consistent color for enabled actions.

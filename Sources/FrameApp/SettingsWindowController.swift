@@ -354,7 +354,7 @@ private struct GeneralSettingsView: View {
     @State private var selectedRecordingShortcut = SettingsStore.recordingShortcut()
     @State private var shortcutErrorText: String?
     @State private var recordingShortcutErrorText: String?
-    @State private var screenshotDirectoryURL = GeneralSettingsView.currentScreenshotDirectory()
+    @AppStorage(SettingsStore.screenshotDirectoryKey) private var screenshotDirectoryPath: String?
     @State private var launchAtLoginState: LaunchAtLoginSettingState
 
     init(
@@ -447,13 +447,13 @@ private struct GeneralSettingsView: View {
 
                     SettingsControlRow(
                         strings.settingsSaveLocation,
-                        subtitle: saveLocation.path
+                        subtitle: saveLocation?.path ?? strings.settingsSaveFolderOnFirstSave
                     ) {
                         HStack(spacing: 8) {
-                            if !saveLocation.isDefaultLocation {
-                                Button(strings.settingsRestoreDefaultFolder, action: resetScreenshotDirectory)
+                            if let saveLocation, CaptureSaveDirectory.isSandboxed || !saveLocation.isDefaultLocation {
+                                Button(strings.settingsRestoreDefaultFolder, action: onResetScreenshotDirectory)
                             }
-                            Button(strings.settingsChooseFolder, action: chooseScreenshotDirectory)
+                            Button(strings.settingsChooseFolder) { _ = onChooseScreenshotDirectory() }
                         }
                     }
                 }
@@ -552,26 +552,13 @@ private struct GeneralSettingsView: View {
         recordingShortcutErrorText = failure.map { strings.settingsShortcutRecorderError($0) }
     }
 
-    private var saveLocation: SettingsSaveLocationSummary {
-        SettingsSaveLocationSummary(url: screenshotDirectoryURL)
-    }
-
-    private func chooseScreenshotDirectory() {
-        guard let directory = onChooseScreenshotDirectory() else {
-            return
+    private var saveLocation: SettingsSaveLocationSummary? {
+        if let screenshotDirectoryPath, !screenshotDirectoryPath.isEmpty {
+            return SettingsSaveLocationSummary(url: URL(fileURLWithPath: screenshotDirectoryPath, isDirectory: true))
         }
-
-        SettingsStore.setScreenshotDirectory(directory)
-        screenshotDirectoryURL = directory
-    }
-
-    private func resetScreenshotDirectory() {
-        onResetScreenshotDirectory()
-        screenshotDirectoryURL = Self.currentScreenshotDirectory()
-    }
-
-    private static func currentScreenshotDirectory() -> URL {
-        (try? SettingsStore.screenshotDirectory()) ?? FileManager.default.homeDirectoryForCurrentUser
+        guard !CaptureSaveDirectory.isSandboxed else { return nil }
+        let directory = (try? SettingsStore.screenshotDirectory()) ?? FileManager.default.homeDirectoryForCurrentUser
+        return SettingsSaveLocationSummary(url: directory)
     }
 }
 

@@ -164,6 +164,23 @@ final class ReleaseToolingTests: XCTestCase {
         )
     }
 
+    func testSandboxedDevelopmentPackageHasSeparateOutput() throws {
+        let result = try run(
+            [
+                "bash",
+                repositoryRoot.appendingPathComponent("scripts/package-app.sh").path,
+                "--print-configuration",
+            ],
+            environment: ["FRAME_APP_VARIANT": "development", "FRAME_APP_SANDBOX": "1"]
+        )
+
+        XCTAssertEqual(result.exitCode, 0, result.diagnosticOutput)
+        XCTAssertTrue(
+            result.stdout.contains("FRAME_APP_PATH=\(repositoryRoot.path)/.build/app-sandbox/dewShot Dev.app"),
+            result.diagnosticOutput
+        )
+    }
+
     func testPackageAppRejectsUnknownVariant() throws {
         let result = try run(
             [
