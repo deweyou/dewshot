@@ -125,10 +125,14 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
     </array>
     <key>LSMinimumSystemVersion</key>
     <string>26.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
     <key>LSUIElement</key>
     <true/>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>dewShot needs screen access to take screenshots and record videos you request.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>
@@ -139,6 +143,7 @@ cp "$EXECUTABLE_PATH" "$MACOS_DIR/dewShot"
 chmod +x "$MACOS_DIR/dewShot"
 
 cp "$APP_RESOURCES_DIR/dewShot.icns" "$RESOURCES_DIR/dewShot.icns"
+cp "$APP_RESOURCES_DIR/PrivacyInfo.xcprivacy" "$RESOURCES_DIR/PrivacyInfo.xcprivacy"
 mkdir -p "$RESOURCES_DIR/menubar"
 cp "$APP_RESOURCES_DIR"/menubar/FrameStatusIcon*.png "$RESOURCES_DIR/menubar/"
 cp "$APP_RESOURCES_DIR"/menubar/FrameStatusIconTemplate*.png "$RESOURCES_DIR/"

@@ -147,6 +147,34 @@ to `/Applications`, open it from there, use macOS `Open Anyway` when prompted,
 grant Screen Recording permission, and relaunch the app. Do not ask users to run
 dewShot directly from the mounted DMG.
 
+## Mac App Store and TestFlight
+
+The Store package uses the production App ID `dev.deweyou.dewshot` with
+App Sandbox enabled. Have the App Store Connect app record and these signing
+assets ready before building for TestFlight:
+
+- An `Apple Distribution` or `Mac App Distribution` identity and private key.
+- A `Mac Installer Distribution` identity and private key. Keychain may show it
+  as `3rd Party Mac Developer Installer`.
+- A `Mac App Store Connect` provisioning profile for the production App ID and
+  its app-signing certificate.
+
+```sh
+FRAME_APP_STORE_APP_IDENTITY="Apple Distribution: Your Team (TEAMID)" \
+FRAME_APP_STORE_INSTALLER_IDENTITY="3rd Party Mac Developer Installer: Your Team (TEAMID)" \
+FRAME_APP_STORE_PROFILE="/path/to/dewShot.provisionprofile" \
+scripts/package-app-store.sh
+```
+
+Use the exact identity names from `security find-identity -v` and keep the
+profile and private keys outside the repository. The script creates a signed
+`.pkg` in `.build/app-store/` for validation and upload in Transporter.
+Test the installed TestFlight build from a fresh permissions state. The
+bundled privacy manifest declares local app preferences and elapsed-time APIs.
+
+See Apple's [provisioning profile instructions](https://developer.apple.com/help/account/provisioning-profiles/create-an-app-store-provisioning-profile)
+and [Mac packaging instructions](https://developer.apple.com/documentation/xcode/packaging-mac-software-for-distribution).
+
 ## Sandbox Smoke Test
 
 Build with the existing Apple Development identity:

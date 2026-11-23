@@ -181,6 +181,16 @@ final class ReleaseToolingTests: XCTestCase {
         )
     }
 
+    func testAppStorePackageRequiresDistributionSigning() throws {
+        let result = try run(
+            ["bash", repositoryRoot.appendingPathComponent("scripts/package-app-store.sh").path],
+            environment: ["FRAME_APP_STORE_APP_IDENTITY": ""]
+        )
+
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("FRAME_APP_STORE_APP_IDENTITY"), result.diagnosticOutput)
+    }
+
     func testPackageAppRejectsUnknownVariant() throws {
         let result = try run(
             [

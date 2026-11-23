@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Prepare Mac App Store installer packages and include a privacy manifest.
+
 - Show screenshot and recording shortcuts in the welcome window, with a bottom
   action card for Screen Recording access and a first screenshot.
   Accessibility and Input Monitoring are available as optional setup steps.
