@@ -36,7 +36,7 @@ if ! security find-identity -v | grep -F "\"$FRAME_APP_STORE_INSTALLER_IDENTITY\
     exit 1
 fi
 
-OUTPUT_ROOT="$ROOT_DIR/.build/app-store"
+OUTPUT_ROOT="${FRAME_APP_STORE_OUTPUT_ROOT:-$ROOT_DIR/.build/app-store}"
 mkdir -p "$OUTPUT_ROOT"
 STAGING_DIR="$(mktemp -d "$OUTPUT_ROOT/.staging.XXXXXXXX")"
 trap 'rm -rf "$STAGING_DIR"' EXIT
@@ -62,7 +62,7 @@ if /usr/libexec/PlistBuddy -c 'Print :ProvisionedDevices' "$PROFILE_PLIST" >/dev
 fi
 
 FRAME_APP_VARIANT=production FRAME_APP_SANDBOX=1 FRAME_APP_OUTPUT_ROOT="$STAGING_DIR" \
-    FRAME_CODESIGN_IDENTITY=- "$ROOT_DIR/scripts/package-app.sh"
+    FRAME_REQUIRE_TELEMETRY=1 FRAME_CODESIGN_IDENTITY=- "$ROOT_DIR/scripts/package-app.sh"
 # Embed the profile bytes without browser download metadata.
 cat "$FRAME_APP_STORE_PROFILE" > "$APP_DIR/Contents/embedded.provisionprofile"
 xattr -r "$APP_DIR" > "$STAGING_DIR/app-xattrs.txt"
@@ -95,5 +95,15 @@ PACKAGE_NAME="dewShot-$VERSION-build.$BUILD-AppStore.pkg"
 productbuild --sign "$FRAME_APP_STORE_INSTALLER_IDENTITY" --component "$APP_DIR" /Applications \
     "$STAGING_DIR/$PACKAGE_NAME"
 pkgutil --check-signature "$STAGING_DIR/$PACKAGE_NAME"
+DSYM="$ROOT_DIR/.build/release/dewShot.dSYM"
+app_uuids="$(dwarfdump --uuid "$APP_DIR/Contents/MacOS/dewShot" | awk '{print $2,$3}')"
+symbol_uuids="$(dwarfdump --uuid "$DSYM" | awk '{print $2,$3}')"
+if [[ -z "$app_uuids" || "$app_uuids" != "$symbol_uuids" ]]; then
+    echo "The release dSYM does not match the packaged executable." >&2
+    exit 1
+fi
+symbols_name="${PACKAGE_NAME%.pkg}.dSYM.zip"
+ditto -c -k --keepParent "$DSYM" "$STAGING_DIR/$symbols_name"
+mv -f "$STAGING_DIR/$symbols_name" "$OUTPUT_ROOT/$symbols_name"
 mv -f "$STAGING_DIR/$PACKAGE_NAME" "$OUTPUT_ROOT/$PACKAGE_NAME"
 echo "Packaged $OUTPUT_ROOT/$PACKAGE_NAME for Transporter."

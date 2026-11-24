@@ -7,7 +7,7 @@ Contributors can start with the [development guide](../DEVELOPMENT.md) or [ä¸­æ–
 | --- | --- |
 | Decide whether a feature fits the first release | [Product positioning and release scope](product-positioning.md) |
 | Change the menu bar, HUD or Quick Access | [Design principles](../DESIGN.md) and [overlay interaction rules](overlay-interactions.md) |
-| Review the proposed GA events, latency metrics and Sentry diagnostics | [Telemetry PRD (draft)](dewshot-telemetry-prd.md) |
+| Review GA events, latency metrics and Sentry diagnostics | [Telemetry PRD](dewshot-telemetry-prd.md) |
 | Find the component responsible for a capture or recording | [Runtime architecture](architecture.md) |
 | Choose automated coverage and real-device checks | [Testing](testing.md) |
 | Build, install a signed Dev app or prepare a distribution package | [Build and release procedures](development.md) |

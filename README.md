@@ -22,6 +22,8 @@ Requires macOS 26 or later. If you received a DewShot beta invitation, open it o
 
 Screenshots and recordings are processed on your Mac. No account is required to use DewShot.
 
+You can opt in to share feature usage, operation timings, and crash diagnostics on the welcome screen or in General settings. Sharing is off by default.
+
 ## Menu bar and previews
 
 On multiple displays, previews follow the active window's display. Moving the pointer alone leaves them in place.

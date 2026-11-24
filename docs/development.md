@@ -285,3 +285,38 @@ checks, see [testing](testing.md#ci-expectations).
 
 Keep existing permissions during routine rebuilds. For first-run testing or a
 confirmed stale Dev entry, see [Reset Permission](permissions.md#reset-permission).
+
+### Usage analytics and diagnostics
+
+The optional sharing switch controls Firebase Analytics and Sentry. Local Dev
+uses GA4 property 565657202 and Sentry project `dewshot-macos-dev`. TestFlight
+uses a separate Apple stream in that GA4 property and the same Sentry project.
+App Store installations use property 565664100 and `dewshot-macos`. The
+production bundle verifies its StoreKit app transaction before selecting a
+destination. An unknown distribution environment leaves telemetry disabled.
+
+Keep the three Firebase client plists in `.local/telemetry/` as
+`GoogleService-development.plist`, `GoogleService-testflight.plist`, and
+`GoogleService-production.plist`. Keep the two public client DSNs there as
+`sentry-development.txt` and `sentry-production.txt`. CI can point
+`FRAME_TELEMETRY_ROOT` at a provisioned directory instead. Store packages
+require all five files. Apple Development signed sandbox builds also use a Mac
+development profile for the Dev bundle ID. Set `FRAME_DEV_PROFILE` or place it
+at `development.provisionprofile` in the telemetry directory for Keychain access. Normal source builds can run without telemetry.
+The packager validates the registered app IDs, bundle IDs and Sentry project IDs
+before signing. Never place an administrative token in this directory.
+
+For acceptance, start the Dev bundle with `-FIRDebugEnabled`, enable sharing
+in the welcome window, and inspect the Dev property's DebugView. Verify the
+three custom event names and their documented parameters. Use the identical
+build's dSYM when checking Sentry symbolication. TestFlight receipt routing
+requires an installation delivered through TestFlight.
+
+The App Store packaging script archives the matching dSYM next to the installer.
+With a release-upload credential, upload the archive to both Sentry projects so
+the same binary can be symbolicated on TestFlight and in production:
+
+```sh
+sentry-cli debug-files upload --org dewey-ou --project dewshot-macos-dev "$DEWSHOT_DSYM_ARCHIVE"
+sentry-cli debug-files upload --org dewey-ou --project dewshot-macos "$DEWSHOT_DSYM_ARCHIVE"
+```

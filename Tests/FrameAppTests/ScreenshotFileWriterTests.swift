@@ -31,9 +31,10 @@ final class ScreenshotFileWriterTests: XCTestCase {
         let other = directory.appendingPathComponent("Other screenshot.png")
         try Data([3, 2, 1]).write(to: other)
 
-        let saved = try ScreenshotFileWriter().write(pngData: png, filename: "Screenshot.png", directory: directory)
+        let saved = try ScreenshotFileWriter().writeWithDisposition(pngData: png, filename: "Screenshot.png", directory: directory)
 
-        XCTAssertEqual(saved.path, existing.path)
+        XCTAssertTrue(saved.reused)
+        XCTAssertEqual(saved.url.path, existing.path)
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: directory.path).count, 2)
     }
 

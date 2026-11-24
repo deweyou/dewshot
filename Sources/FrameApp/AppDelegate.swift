@@ -17,7 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var imageWorkspacePanelController = ImageWorkspacePanelController(
         openPinnedScreenshot: { [weak self] screenshot in
             guard let self else { return }
-            _ = self.openExternally { try self.externalCaptureOpener.open(screenshot) }
+            _ = self.openExternally(source: .pinned) { try self.externalCaptureOpener.open(screenshot) }
         }
     )
     private let externalCaptureOpener = ExternalCaptureOpener()
@@ -87,6 +87,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         strings = AppStrings.current()
+        AppTelemetry.refresh()
         SettingsStore.appTheme().apply(to: NSApp)
         let usesDefaultRecordingShortcut = !SettingsStore.hasSavedRecordingShortcut()
         if usesDefaultRecordingShortcut,
@@ -120,10 +121,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             recordingShortcut: SettingsStore.recordingShortcut()
         )
         hotKeyController.onScreenshot = { [weak self] in
-            self?.startCaptureFlow()
+            self?.startCaptureFlow(initialMode: .screenshot, entry: "shortcut")
         }
         hotKeyController.onRecording = { [weak self] in
-            self?.startRecordingCaptureFlow()
+            self?.startCaptureFlow(initialMode: .recordingSetup, entry: "shortcut")
         }
 
         do {
@@ -199,7 +200,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] in
             guard let self else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + self.overlayDismissalCaptureDelay) { [weak self] in
-                self?.startCaptureFlow()
+                self?.startCaptureFlow(initialMode: .screenshot, entry: "welcome")
             }
         }
     }
@@ -223,7 +224,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @discardableResult
-    private func startCaptureFlow(initialMode: SelectionOverlayInitialMode) -> Bool {
+    private func startCaptureFlow(initialMode: SelectionOverlayInitialMode, entry: String = "menu") -> Bool {
         guard !isCaptureFlowBusy else {
             recordScreenshotShortcutHintIfRecording()
             playInvalidActionFeedback()
@@ -239,6 +240,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return false
         }
 
+        let overlayStart = ContinuousClock.now
         firstRunSetupWindowController.finishIfVisible()
         quickAccessPanelController.temporarilyHidePreviews()
 
@@ -265,6 +267,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
 
+            let confirmed = ContinuousClock.now
             DispatchQueue.main.asyncAfter(deadline: .now() + overlayDismissalCaptureDelay) { [weak self] in
                 Task { @MainActor [weak self] in
                     guard let self else {
@@ -286,17 +289,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                             let activeScreenshot = screenshots.first { $0.rect.contains(anchorPoint) } ?? screenshots.first
                             let copied = activeScreenshot.map(self.automaticallyCopyScreenshot) ?? false
                             self.quickAccessPanelController.restoreTemporarilyHiddenPreviews()
-                            for screenshot in screenshots {
+                            for (index, screenshot) in screenshots.enumerated() {
                                 let stored = self.storeInCaptureHistory(screenshot)
                                 self.showQuickAccess(
                                     for: screenshot,
                                     anchor: quickAccessAnchor,
                                     canAutoDismiss: stored || (copied && screenshot.id == activeScreenshot?.id)
                                 )
+                                if index == 0 { AppTelemetry.capture(.screenshotPreview, since: confirmed, fields: ["kind": "fullscreen"]) }
                             }
                             NSLog("dewShot 已捕获全屏截图：screens=\(screenshots.count)")
                         } catch {
                             self.quickAccessPanelController.restoreTemporarilyHiddenPreviews()
+                            AppTelemetry.capture(.screenshotPreview, since: confirmed, fields: ["kind": "fullscreen"], failed: true)
                             self.showCaptureFailedAlert(error)
                         }
                     case let .scrollingScreenshot(selection):
@@ -308,9 +313,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                             let stored = self.storeInCaptureHistory(screenshot)
                             self.quickAccessPanelController.restoreTemporarilyHiddenPreviews()
                             self.showQuickAccess(for: screenshot, anchor: quickAccessAnchor, canAutoDismiss: copied || stored)
+                            AppTelemetry.capture(.screenshotPreview, since: confirmed, fields: ["kind": selection.kind == .region ? "region" : "window"])
                             NSLog("dewShot 截图选区类型：\(selection.kind)")
                         } catch {
                             self.quickAccessPanelController.restoreTemporarilyHiddenPreviews()
+                            AppTelemetry.capture(.screenshotPreview, since: confirmed, fields: ["kind": selection.kind == .region ? "region" : "window"], failed: true)
                             self.showCaptureFailedAlert(error)
                         }
                     case let .recognizeText(selection):
@@ -320,6 +327,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        if selectionOverlayController.isSelecting {
+            AppTelemetry.capture(.overlayReady, since: overlayStart, fields: [
+                "entry": entry, "initial_mode": initialMode == .screenshot ? "screenshot" : "recording"
+            ])
+        }
         return true
     }
 
@@ -335,6 +347,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func startScrollingScreenshot(selection: SelectionCapture, anchor: CGRect?) {
         var latestPreview: CapturedScreenshot?
         var pendingPreview: CapturedScreenshot?
+        var finishStart: ContinuousClock.Instant?
+        var scrollMode = "manual"
         scrollingScreenshotSessionController.start(
             selection: selection,
             strings: strings,
@@ -350,6 +364,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 pendingPreview = preview
             },
             onFinishStarted: { [weak self] preview in
+                finishStart = .now
+                if self?.scrollingScreenshotSessionController.usedAutomaticScrolling == true { scrollMode = "automatic" }
                 guard let self,
                       let preview = preview ?? latestPreview else {
                     return
@@ -377,6 +393,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.showQuickAccess(for: screenshot, anchor: anchor, canAutoDismiss: copied || stored)
                 }
                 pendingPreview = nil
+                AppTelemetry.capture(.scrollFinalize, since: finishStart, fields: ["kind": "scrolling", "scroll_mode": scrollMode])
                 NSLog("dewShot 已完成滚动长截图：rect=\(screenshot.rect.debugDescription)")
             },
             onCancel: { [weak self] in
@@ -412,6 +429,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.endQuickAccessLifecycle(for: pendingPreview)
                 }
                 self.quickAccessPanelController.restoreTemporarilyHiddenPreviews()
+                AppTelemetry.capture(.scrollFinalize, since: finishStart, fields: ["kind": "scrolling", "scroll_mode": scrollMode], failed: true)
                 self.showScrollingScreenshotFailedAlert(error)
             }
         )
@@ -521,6 +539,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
 
                 let didOpen = self.openWorkspace(self.currentQuickAccessScreenshot(for: screenshot), kind: .pinned)
+                AppTelemetry.action(.pin, source: .preview, media: .screenshot, success: didOpen)
                 if didOpen {
                     self.endQuickAccessLifecycle(for: screenshot)
                 }
@@ -568,6 +587,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         overlayWindow: SelectionOverlayWindow?,
         anchor: CGRect?
     ) {
+        let preparationStart = ContinuousClock.now
         activeRecordingQuickAccessAnchor = anchor
         recordingBoundaryOverlayController.show(rect: selection.rect, preparationState: .loading)
         if overlayWindow != nil {
@@ -582,6 +602,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.pendingRecordingStartTask = nil
             self.recordingBoundaryOverlayController.updatePreparationState(nil)
             beginRecordingNow(
+                preparationStart: preparationStart,
                 selection: selection,
                 options: options,
                 overlayWindow: overlayWindow,
@@ -591,6 +612,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func beginRecordingNow(
+        preparationStart: ContinuousClock.Instant = .now,
         selection: SelectionCapture,
         options: RecordingOptions,
         overlayWindow: SelectionOverlayWindow?,
@@ -631,8 +653,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.statusItemController?.setRecordingState(.recording)
                 self.startRecordingElapsedTimer()
 
+                AppTelemetry.capture(.recordingStart, since: preparationStart, fields: ["format": options.format.rawValue])
                 NSLog("dewShot 已开始录屏：rect=\(selection.rect.debugDescription), format=\(options.format.rawValue)")
             } catch {
+                AppTelemetry.capture(.recordingStart, since: preparationStart, fields: ["format": options.format.rawValue], failed: true)
                 self.quickAccessPanelController.setPreviewRestorationSuppressed(false)
                 self.quickAccessPanelController.restoreTemporarilyHiddenPreviews()
                 self.recordingBoundaryOverlayController.close()
@@ -697,8 +721,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        let stopStart = ContinuousClock.now
+        let format = activeRecordingOptions.format.rawValue
         isStoppingActiveRecording = true
         let duration = currentRecordingElapsed()
+        let lengthBucket = duration < 10 ? "lt_10s" : duration < 60 ? "lt_1m" : duration < 300 ? "lt_5m" : "ge_5m"
         activeRecordingElapsedTimer?.invalidate()
         activeRecordingElapsedTimer = nil
         activeRecordingHUDPanelController.setStopping(true)
@@ -710,6 +737,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
             do {
                 let capturedRecording = try await session.stop()
+                AppTelemetry.capture(.recordingFinalize, since: stopStart, fields: ["kind": "recording", "format": capturedRecording.format.rawValue, "length_bucket": lengthBucket])
                 let recording = CapturedRecording(
                     id: capturedRecording.id,
                     fileURL: capturedRecording.fileURL,
@@ -723,12 +751,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let anchor = self.activeRecordingQuickAccessAnchor
                 self.finishActiveRecording()
                 let copied = self.automaticallyCopiesCaptures()
-                    && self.copyRecordingFileToClipboard(stableRecording.fileURL, showsFailureAlert: false)
+                    && self.copyRecordingFileToClipboard(stableRecording.fileURL, showsFailureAlert: false, source: .automatic)
                 self.showVideoQuickAccess(for: stableRecording, anchor: anchor, canAutoDismiss: copied || stored)
                 NSLog(
                     "dewShot 已停止录屏：url=\(stableRecording.fileURL.path), duration=\(stableRecording.duration)"
                 )
             } catch {
+                AppTelemetry.capture(.recordingFinalize, since: stopStart, fields: ["kind": "recording", "format": format, "length_bucket": lengthBucket], failed: true)
                 self.finishActiveRecording()
                 self.showCaptureFailedAlert(error)
             }
@@ -928,7 +957,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             openExternally: { [weak self] in
                 guard let self else { return false }
-                return self.openExternally { try self.externalCaptureOpener.open(recording) }
+                return self.openExternally(media: .recording) { try self.externalCaptureOpener.open(recording) }
             },
             close: {
                 NSLog("dewShot 录屏快速操作已关闭")
@@ -936,7 +965,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
-    private func openVideoPreview(_ recording: CapturedRecording) -> Bool {
+    private func openVideoPreview(_ recording: CapturedRecording, source: AppTelemetry.Source = .preview) -> Bool {
         videoPreviewWindowController.show(
             recording: recording,
             strings: strings,
@@ -951,14 +980,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             allowsEditing: false
         )
+        AppTelemetry.action(.open, source: source, media: .recording, success: true)
         return true
     }
 
-    private func openExternally(_ open: () throws -> Void) -> Bool {
+    private func openExternally(source: AppTelemetry.Source = .preview, media: AppTelemetry.Media = .screenshot, _ open: () throws -> Void) -> Bool {
         do {
             try open()
+            AppTelemetry.action(.open, source: source, media: media, success: true)
             return true
         } catch {
+            AppTelemetry.action(.open, source: source, media: media, success: false)
             showQuickAccessFailedAlert(title: strings.externalOpenFailed, error: error)
             return false
         }
@@ -1031,9 +1063,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             startCapture: { [weak self] filter in
                 if filter == .recordings {
-                    self?.startRecordingCaptureFlow()
+                    self?.startCaptureFlow(initialMode: .recordingSetup, entry: "history")
                 } else {
-                    self?.onCapture()
+                    self?.startCaptureFlow(initialMode: .screenshot, entry: "history")
                 }
             },
             openHistorySettings: { [weak self] in
@@ -1157,12 +1189,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func openHistoryRecord(_ record: CaptureHistoryRecord) {
         switch record.kind {
         case .screenshot:
-            _ = openExternally { try externalCaptureOpener.open(screenshot(from: record)) }
+            _ = openExternally(source: .history) { try externalCaptureOpener.open(screenshot(from: record)) }
         case .recording:
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 do {
-                    _ = self.openVideoPreview(try await self.recording(from: record))
+                    _ = self.openVideoPreview(try await self.recording(from: record), source: .history)
                 } catch {
                     self.showQuickAccessFailedAlert(title: self.strings.captureFailedTitle, error: error)
                 }
@@ -1203,16 +1235,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func copyHistoryRecord(_ record: CaptureHistoryRecord) {
         guard record.kind == .screenshot else {
-            do {
-                try clipboardWriter.write(fileURL: captureHistoryStore.fileURL(for: record))
-            } catch {
-                showQuickAccessFailedAlert(title: strings.copyFailedTitle, error: error)
-            }
+            _ = copyRecordingFileToClipboard(captureHistoryStore.fileURL(for: record), source: .history)
             return
         }
 
         do {
-            _ = copyToClipboard(try screenshot(from: record))
+            _ = copyToClipboard(try screenshot(from: record), source: .history)
         } catch {
             showQuickAccessFailedAlert(title: strings.copyFailedTitle, error: error)
         }
@@ -1223,11 +1251,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let savedURL: URL?
             switch record.kind {
             case .screenshot:
-                savedURL = saveScreenshotFile(try screenshot(from: record))
+                savedURL = saveScreenshotFile(try screenshot(from: record), source: .history)
             case .recording:
                 guard let format = recordingFormat(for: record) else { return }
                 savedURL = saveRecordingFile(
-                    from: captureHistoryStore.fileURL(for: record), format: format, date: record.createdAt
+                    from: captureHistoryStore.fileURL(for: record), format: format, date: record.createdAt, source: .history
                 )
             }
 
@@ -1289,7 +1317,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             strings: strings,
             copy: { [weak self] editedScreenshot in
                 guard let self,
-                      self.copyToClipboard(editedScreenshot) else {
+                      self.copyToClipboard(editedScreenshot, source: .pinned) else {
                     return false
                 }
 
@@ -1480,16 +1508,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return false
         }
 
-        return copyToClipboard(screenshot, showsFailureAlert: false)
+        return copyToClipboard(screenshot, showsFailureAlert: false, source: .automatic)
     }
 
-    private func copyToClipboard(_ screenshot: CapturedScreenshot, showsFailureAlert: Bool = true) -> Bool {
+    private func copyToClipboard(_ screenshot: CapturedScreenshot, showsFailureAlert: Bool = true, source: AppTelemetry.Source = .preview) -> Bool {
         do {
             try clipboardWriter.write(image: screenshot.image, pngData: screenshot.pngData)
             NSLog("dewShot 已复制截图到剪贴板")
+            AppTelemetry.action(.copy, source: source, media: .screenshot, success: true)
             return true
         } catch {
             reportClipboardFailure(error, showsAlert: showsFailureAlert)
+            AppTelemetry.action(.copy, source: source, media: .screenshot, success: false)
             return false
         }
     }
@@ -1508,13 +1538,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
-    private func copyRecordingFileToClipboard(_ fileURL: URL, showsFailureAlert: Bool = true) -> Bool {
+    private func copyRecordingFileToClipboard(_ fileURL: URL, showsFailureAlert: Bool = true, source: AppTelemetry.Source = .preview) -> Bool {
         do {
             try clipboardWriter.write(fileURL: fileURL)
             NSLog("dewShot 已复制录屏文件到剪贴板")
+            AppTelemetry.action(.copy, source: source, media: .recording, success: true)
             return true
         } catch {
             reportClipboardFailure(error, showsAlert: showsFailureAlert)
+            AppTelemetry.action(.copy, source: source, media: .recording, success: false)
             return false
         }
     }
@@ -1554,18 +1586,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func saveToDesktop(_ screenshot: CapturedScreenshot) -> Bool {
-        saveScreenshotFile(screenshot) != nil
+        saveScreenshotFile(screenshot, source: .pinned) != nil
     }
 
-    private func saveScreenshotFile(_ screenshot: CapturedScreenshot) -> URL? {
-        saveCaptureFile { directory in
-            let saveURL = try ScreenshotFileWriter(strings: strings).write(
+    private func saveScreenshotFile(_ screenshot: CapturedScreenshot, source: AppTelemetry.Source = .preview) -> URL? {
+        saveCaptureFile(source: source, media: .screenshot) { directory in
+            let result = try ScreenshotFileWriter(strings: strings).writeWithDisposition(
                 pngData: screenshot.pngData,
                 filename: screenshot.exportFilename,
                 directory: directory
             )
-            NSLog("dewShot 已保存截图：\(saveURL.path)")
-            return saveURL
+            NSLog("dewShot 已保存截图：\(result.url.path)")
+            return (result.url, result.reused ? "reused" : "created")
         }
     }
 
@@ -1588,9 +1620,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func saveRecordingFile(
-        from fileURL: URL, format: RecordingFormat, date: Date = Date()
+        from fileURL: URL, format: RecordingFormat, date: Date = Date(), source: AppTelemetry.Source = .preview
     ) -> URL? {
-        saveCaptureFile { directory in
+        saveCaptureFile(source: source, media: .recording) { directory in
             let saveURL = try recordingFileWriter.copyRecording(
                 from: fileURL,
                 format: format,
@@ -1598,21 +1630,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 directory: directory
             )
             NSLog("dewShot 已保存录屏：\(saveURL.path)")
-            return saveURL
+            return (saveURL, "created")
         }
     }
 
-    private func saveCaptureFile(_ write: (URL?) throws -> URL) -> URL? {
+    private func saveCaptureFile(source: AppTelemetry.Source, media: AppTelemetry.Media, _ write: (URL?) throws -> (URL, String)) -> URL? {
+        var start: ContinuousClock.Instant?
+        func measuredWrite(_ directory: URL?) throws -> URL {
+            start = .now
+            let result = try write(directory)
+            AppTelemetry.action(.save, source: source, media: media, success: true, since: start, disposition: result.1)
+            return result.0
+        }
         do {
-            guard CaptureSaveDirectory.isSandboxed else { return try write(nil) }
+            guard CaptureSaveDirectory.isSandboxed else { return try measuredWrite(nil) }
             let saveDirectory = CaptureSaveDirectory()
             do {
-                return try saveDirectory.withAccess(write)
+                return try saveDirectory.withAccess(measuredWrite)
             } catch CaptureSaveDirectory.AccessError.selectionRequired {
                 guard chooseScreenshotDirectory() != nil else { return nil }
-                return try saveDirectory.withAccess(write)
+                return try saveDirectory.withAccess(measuredWrite)
             }
         } catch {
+            AppTelemetry.action(.save, source: source, media: media, success: false, since: start, error: error)
             showQuickAccessFailedAlert(title: strings.saveFailedTitle, error: error)
             return nil
         }

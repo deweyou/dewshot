@@ -390,6 +390,8 @@ private struct GeneralSettingsView: View {
                     }
             }
 
+            TelemetryConsentToggle(strings: strings)
+
             SettingsSectionGroup(title: strings.settingsPreferences) {
                 SettingsControlGroup {
                     SettingsControlRow(strings.settingsLanguage) {

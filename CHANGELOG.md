@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add optional usage statistics and crash diagnostics with separate development and production projects.
+
 - Exclude browser download metadata from the provisioning profile embedded in
   Mac App Store packages.
 

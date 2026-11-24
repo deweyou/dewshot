@@ -16,6 +16,10 @@ let package = Package(
             targets: ["FrameCore"]
         ),
     ],
+    dependencies: [
+        .package(url: "https://github.com/firebase/firebase-ios-sdk.git", exact: "13.2.0"),
+        .package(url: "https://github.com/getsentry/sentry-cocoa.git", exact: "9.35.0"),
+    ],
     targets: [
         .executableTarget(
             name: "dewShot",
@@ -23,7 +27,12 @@ let package = Package(
         ),
         .target(
             name: "FrameApp",
-            dependencies: ["FrameCore"],
+            dependencies: [
+                "FrameCore",
+                .product(name: "FirebaseAnalyticsCore", package: "firebase-ios-sdk"),
+                .product(name: "FirebaseCore", package: "firebase-ios-sdk"),
+                .product(name: "Sentry", package: "sentry-cocoa"),
+            ],
             exclude: ["Resources"]
         ),
         .target(

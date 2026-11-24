@@ -18,6 +18,10 @@ final class ScreenshotFileWriter {
     }
 
     func write(pngData: Data, filename: String, directory: URL? = nil) throws -> URL {
+        try writeWithDisposition(pngData: pngData, filename: filename, directory: directory).url
+    }
+
+    func writeWithDisposition(pngData: Data, filename: String, directory: URL? = nil) throws -> (url: URL, reused: Bool) {
         let directory = try directory ?? saveDirectory()
         guard filename.hasSuffix(".png"), !filename.contains("/") else {
             throw CocoaError(.fileWriteInvalidFileName)
@@ -30,12 +34,12 @@ final class ScreenshotFileWriter {
         do {
             return try Self.saveLock.withLock {
                 if let existing = try matchingPNG(pngData, in: directory) {
-                    return directory.appendingPathComponent(existing.lastPathComponent, isDirectory: false)
+                    return (directory.appendingPathComponent(existing.lastPathComponent, isDirectory: false), true)
                 }
-                return try writeNewPNG(pngData, preferredURL: preferredURL, directory: directory)
+                return (try writeNewPNG(pngData, preferredURL: preferredURL, directory: directory), false)
             }
         } catch {
-            throw ScreenshotFileWriterError.writeFailed(
+            throw ScreenshotFileWriterError.writeFailed(underlying: error,
                 message: strings.saveFailedMessage(
                     path: preferredURL.path,
                     errorDescription: error.localizedDescription
@@ -78,12 +82,12 @@ final class ScreenshotFileWriter {
     }
 }
 
-private enum ScreenshotFileWriterError: Error, LocalizedError {
-    case writeFailed(message: String)
+enum ScreenshotFileWriterError: Error, LocalizedError {
+    case writeFailed(underlying: Error, message: String)
 
     var errorDescription: String? {
         switch self {
-        case let .writeFailed(message):
+        case let .writeFailed(_, message):
             message
         }
     }

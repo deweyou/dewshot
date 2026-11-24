@@ -47,6 +47,7 @@ final class FirstRunSetupState {
 
     func refresh() {
         if hasAccess() {
+            if phase != .ready { AppTelemetry.setup(granted: true, transition: true) }
             phase = .ready
         } else if phase == .ready {
             phase = .needsPermission
@@ -164,6 +165,7 @@ struct FirstRunSetupView: View {
         VStack(alignment: .leading, spacing: 20) {
             hero
             optionalPermissions
+            TelemetryConsentToggle(strings: strings) { AppTelemetry.setup(granted: state.phase == .ready) }
             primaryButton
         }
         .padding(.horizontal, 24)
@@ -171,6 +173,7 @@ struct FirstRunSetupView: View {
         .padding(.bottom, 22)
         .frame(width: 476)
         .fixedSize()
+        .onAppear { AppTelemetry.setup(granted: state.phase == .ready) }
         .onReceive(permissionRefresh) { _ in state.refresh() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             state.refresh()

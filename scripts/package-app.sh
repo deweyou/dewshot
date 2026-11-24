@@ -127,6 +127,16 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
     <string>26.0</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.utilities</string>
+    <key>FIREBASE_ANALYTICS_COLLECTION_ENABLED</key>
+    <false/>
+    <key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS</key>
+    <false/>
+    <key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_STORAGE</key>
+    <false/>
+    <key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_USER_DATA</key>
+    <false/>
+    <key>FirebaseAutomaticScreenReportingEnabled</key>
+    <false/>
     <key>LSUIElement</key>
     <true/>
     <key>NSPrincipalClass</key>
@@ -144,13 +154,45 @@ chmod +x "$MACOS_DIR/dewShot"
 
 cp "$APP_RESOURCES_DIR/dewShot.icns" "$RESOURCES_DIR/dewShot.icns"
 cp "$APP_RESOURCES_DIR/PrivacyInfo.xcprivacy" "$RESOURCES_DIR/PrivacyInfo.xcprivacy"
+for bundle in "$ROOT_DIR"/.build/release/*.bundle; do
+    [[ -d "$bundle" ]] && cp -R "$bundle" "$RESOURCES_DIR/"
+done
+sentry_manifest="$ROOT_DIR/.build/release/Sentry.framework/Resources/PrivacyInfo.xcprivacy"
+mkdir -p "$RESOURCES_DIR/Sentry.bundle/Contents/Resources"
+cp "$sentry_manifest" "$RESOURCES_DIR/Sentry.bundle/Contents/Resources/"
+telemetry_root="${FRAME_TELEMETRY_ROOT:-$ROOT_DIR/.local/telemetry}"
+if [[ -d "$telemetry_root" || "${FRAME_REQUIRE_TELEMETRY:-0}" == 1 ]]; then
+    python3 "$ROOT_DIR/scripts/package-telemetry.py" "$telemetry_root" "$RESOURCES_DIR" "$APP_VARIANT"
+fi
 mkdir -p "$RESOURCES_DIR/menubar"
 cp "$APP_RESOURCES_DIR"/menubar/FrameStatusIcon*.png "$RESOURCES_DIR/menubar/"
 cp "$APP_RESOURCES_DIR"/menubar/FrameStatusIconTemplate*.png "$RESOURCES_DIR/"
 
 SIGNING_OPTIONS=(--force --sign "$CODESIGN_IDENTITY")
 if [[ "$APP_SANDBOX" == 1 ]]; then
-    SIGNING_OPTIONS+=(--entitlements "$ROOT_DIR/scripts/app-sandbox.entitlements")
+    entitlements="$ROOT_DIR/scripts/app-sandbox.entitlements"
+    if [[ "$APP_VARIANT" == development && "$CODESIGN_IDENTITY" != "-" && -d "$telemetry_root" ]]; then
+        profile="${FRAME_DEV_PROFILE:-$telemetry_root/development.provisionprofile}"
+        if [[ ! -f "$profile" ]]; then
+            echo "A Mac development provisioning profile for $BUNDLE_IDENTIFIER is required for Firebase Keychain access. Set FRAME_DEV_PROFILE." >&2
+            exit 1
+        fi
+        signing_temp="$(mktemp -d)"
+        trap 'rm -rf "$signing_temp"' EXIT
+        security cms -D -i "$profile" > "$signing_temp/profile.plist"
+        team="$(plutil -extract TeamIdentifier.0 raw "$signing_temp/profile.plist")"
+        app_id="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.application-identifier' "$signing_temp/profile.plist")"
+        if [[ "$app_id" != "$team.$BUNDLE_IDENTIFIER" ]]; then
+            echo "The development profile does not match $BUNDLE_IDENTIFIER." >&2
+            exit 1
+        fi
+        cat "$profile" > "$CONTENTS_DIR/embedded.provisionprofile"
+        cp "$entitlements" "$signing_temp/dev.entitlements"
+        entitlements="$signing_temp/dev.entitlements"
+        /usr/libexec/PlistBuddy -c "Add :com.apple.application-identifier string $app_id" "$entitlements"
+        /usr/libexec/PlistBuddy -c "Add :com.apple.developer.team-identifier string $team" "$entitlements"
+    fi
+    SIGNING_OPTIONS+=(--entitlements "$entitlements")
 fi
 codesign "${SIGNING_OPTIONS[@]}" "$APP_DIR"
 
