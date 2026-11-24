@@ -84,7 +84,6 @@ final class FirstRunSetupTests: XCTestCase {
                 strings: strings,
                 screenshotShortcut: .default,
                 recordingShortcut: .defaultRecording,
-                icon: NSImage(size: CGSize(width: 64, height: 64)),
                 state: state,
                 onStartCapture: {}
             )
@@ -114,7 +113,6 @@ final class FirstRunSetupTests: XCTestCase {
         status.messages[.screenshot] = "Shortcut already in use"
         let view = FirstRunSetupView(
             strings: AppStrings(language: .en), screenshotShortcut: .default, recordingShortcut: .defaultRecording,
-            icon: NSImage(size: CGSize(width: 44, height: 44)),
             state: FirstRunSetupState(hasAccess: { false }, requestAccess: {}, openSettings: {}),
             shortcutControls: FirstRunShortcutControls(status: status, apply: { kind, shortcut in
                 applied.append((kind, shortcut))
@@ -133,6 +131,11 @@ final class FirstRunSetupTests: XCTestCase {
         let buttons = recorders(in: host)
         XCTAssertEqual(buttons.count, 2)
         let recorder = try XCTUnwrap(buttons.first { $0.title == ScreenshotShortcut.default.displayName })
+        let recording = try XCTUnwrap(buttons.first { $0.title == ScreenshotShortcut.defaultRecording.displayName })
+        let top = recorder.convert(recorder.bounds, to: nil)
+        let bottom = recording.convert(recording.bounds, to: nil)
+        XCTAssertGreaterThanOrEqual(top.minY, bottom.maxY)
+        XCTAssertEqual(top.minX, bottom.minX, accuracy: 1)
         XCTAssertEqual(recorder.toolTip, status.messages[.screenshot])
         XCTAssertEqual(recorder.accessibilityHelp(), recorder.toolTip)
         func press(_ letter: String, code: UInt16) throws {
@@ -159,7 +162,6 @@ final class FirstRunSetupTests: XCTestCase {
             strings: AppStrings(language: .en),
             screenshotShortcut: ScreenshotShortcut(key: .letter("A"), modifiers: modifiers),
             recordingShortcut: ScreenshotShortcut(key: .letter("R"), modifiers: modifiers),
-            icon: NSImage(size: CGSize(width: 64, height: 64)),
             state: FirstRunSetupState(hasAccess: { false }, requestAccess: {}, openSettings: {}),
             onStartCapture: {}
         ))

@@ -103,7 +103,6 @@ final class FirstRunSetupWindowController: NSObject, NSWindowDelegate {
             strings: strings,
             screenshotShortcut: screenshotShortcut,
             recordingShortcut: recordingShortcut,
-            icon: NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath),
             state: state,
             shortcutControls: shortcutControls,
             onStartCapture: { [weak self] in
@@ -169,7 +168,7 @@ struct FirstRunSetupView: View {
     let strings: AppStrings
     @State var screenshotShortcut: ScreenshotShortcut?
     @State var recordingShortcut: ScreenshotShortcut?
-    let icon: NSImage
+    @Environment(\.colorScheme) private var colorScheme
     let state: FirstRunSetupState
     var shortcutControls = FirstRunShortcutControls()
     let onStartCapture: () -> Void
@@ -218,9 +217,11 @@ struct FirstRunSetupView: View {
 
     private var hero: some View {
         VStack(spacing: 8) {
-            Image(nsImage: icon)
-                .resizable()
-                .frame(width: 52, height: 52)
+            WelcomeBrandMark()
+                .fill(colorScheme == .dark
+                      ? Color(red: 0.82, green: 0.89, blue: 1)
+                      : Color(red: 0.13, green: 0.22, blue: 0.36))
+                .frame(width: 62, height: 62)
                 .accessibilityHidden(true)
             Text(strings.firstRunTitle)
                 .font(.system(size: 19, weight: .semibold))
@@ -230,10 +231,11 @@ struct FirstRunSetupView: View {
     }
 
     private var shortcutHints: some View {
-        HStack(spacing: 24) {
+        VStack(spacing: 8) {
             shortcutEditor(.screenshot, title: strings.firstRunScreenshot)
             shortcutEditor(.recording, title: strings.firstRunRecording)
         }
+        .frame(width: 214)
     }
 
     private func shortcutEditor(_ kind: HotKeyController.HotKeyKind, title: String) -> some View {
@@ -242,6 +244,7 @@ struct FirstRunSetupView: View {
         let message = shortcutErrors[kind] ?? shortcutControls.status.messages[kind]
         return HStack(spacing: 8) {
             Text(title).font(.callout.weight(.medium))
+            Spacer(minLength: 10)
             ShortcutRecorderControl(
                 strings: strings, accessibilityLabel: title, shortcut: current,
                 validationMessage: message,
@@ -372,5 +375,26 @@ struct FirstRunSetupView: View {
         .disabled(state.phase != .ready)
         .help(permissionMessage)
         .accessibilityHint(permissionMessage)
+    }
+}
+
+private struct WelcomeBrandMark: Shape {
+    func path(in rect: CGRect) -> Path {
+        // Trace the app icon's stepped silhouette independently of its white tile.
+        var path = Path()
+        path.move(to: CGPoint(x: 0, y: 0.5))
+        path.addLine(to: CGPoint(x: 0.36, y: 0.5))
+        path.addQuadCurve(to: CGPoint(x: 0.5, y: 0.36), control: CGPoint(x: 0.5, y: 0.5))
+        path.addLine(to: CGPoint(x: 0.5, y: 0.14))
+        path.addQuadCurve(to: CGPoint(x: 0.64, y: 0), control: CGPoint(x: 0.5, y: 0))
+        path.addLine(to: CGPoint(x: 0.86, y: 0))
+        path.addQuadCurve(to: CGPoint(x: 1, y: 0.14), control: CGPoint(x: 1, y: 0))
+        path.addLine(to: CGPoint(x: 1, y: 0.86))
+        path.addQuadCurve(to: CGPoint(x: 0.86, y: 1), control: CGPoint(x: 1, y: 1))
+        path.addLine(to: CGPoint(x: 0.14, y: 1))
+        path.addQuadCurve(to: CGPoint(x: 0, y: 0.86), control: CGPoint(x: 0, y: 1))
+        path.closeSubpath()
+        return path.applying(CGAffineTransform(translationX: rect.minX, y: rect.minY)
+            .scaledBy(x: rect.width, y: rect.height))
     }
 }

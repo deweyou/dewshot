@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Show required and optional permissions and editable shortcuts with compact conflict indicators and hover details in the redesigned welcome window. Keep the permission guide beside the Settings window when a dialog opens.
+- Show required and optional permissions and separate screenshot and recording shortcut rows with compact conflict indicators and hover details. The welcome window uses a larger, theme-aware DewShot mark. Keep the permission guide beside the Settings window when a dialog opens.
 
 - Start each local Dev session with usage statistics and diagnostics turned off.
 
