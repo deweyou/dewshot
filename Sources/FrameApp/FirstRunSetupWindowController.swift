@@ -218,9 +218,7 @@ struct FirstRunSetupView: View {
     private var hero: some View {
         VStack(spacing: 8) {
             WelcomeBrandMark()
-                .fill(colorScheme == .dark
-                      ? Color(red: 0.82, green: 0.89, blue: 1)
-                      : Color(red: 0.13, green: 0.22, blue: 0.36))
+                .fill(colorScheme == .dark ? Color.white : Color.black)
                 .frame(width: 62, height: 62)
                 .accessibilityHidden(true)
             Text(strings.firstRunTitle)
