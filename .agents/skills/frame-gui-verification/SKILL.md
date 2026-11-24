@@ -25,6 +25,8 @@ results that match the source and configuration under test.
 
 ## Select The Test App
 
+For a local Dev session alongside production, execute the [local GUI test SOP](../../../docs/development.md#local-gui-test-sop) through its restoration check.
+
 - For local iteration, follow the installation steps in `docs/development.md`.
   Check the installed Dev bundle's Apple Development signature, bundle ID and running path.
 - For local sandbox checks, package with `FRAME_APP_SANDBOX=1` and verify the

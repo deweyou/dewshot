@@ -29,11 +29,10 @@ For release acceptance, use the [designated TestFlight build](docs/development.m
 Report the build tested and the interaction observed. Replace a local Dev app
 when the requested verification calls for it and installation is authorized.
 
-When testing Dev alongside an installed production copy, use
-`scripts/dev-session.swift start` for the shortcut handoff. At the end of
-testing, run `scripts/dev-session.swift stop` to close Dev and reopen the
-user's production app, unless the user wants Dev left open for review.
-See [Switching between production and Dev](docs/development.md#switching-between-production-and-dev).
+The agent owns the [local GUI test SOP](docs/development.md#local-gui-test-sop),
+including starting Dev, keeping it open for user review when needed, and
+restoring and verifying the production app when testing ends. Perform these
+steps in the task without asking the user to run the session commands.
 
 ## Knowledge Base
 

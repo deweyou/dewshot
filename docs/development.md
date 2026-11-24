@@ -191,19 +191,32 @@ require the installed signed bundle for end-to-end verification.
 
 ## Switching between production and Dev
 
-Finish any recording before switching. Run `scripts/dev-session.swift start` to
-quit the running production copy normally and launch Dev with its usual global
-shortcuts. The command stays open while Dev runs. It reuses a running Dev copy,
-otherwise preferring the installed Dev app and falling back to the sandbox
-build in this checkout. To select a specific build, pass its app path after
-`start`.
+### Local GUI test SOP
 
-Run `scripts/dev-session.swift stop` from another terminal to quit Dev and
-open the production copy, including when the original terminal has closed.
-The session remembers the running production app's path and otherwise uses
-`/Applications/dewShot.app`. If you quit Dev manually while the start command
-is watching, it reopens production only if production was running before the
-session. Shortcut assignment, preferences, and macOS permissions are preserved.
+The agent owns the app switch whenever a task needs the signed local Dev app
+on a Mac with production installed. A website preview or a unit test alone
+does not require an app switch.
+
+1. **Start.** Identify the signed Dev build under test and the running production
+   app's path (normally `/Applications/dewShot.app`). If a recording is in
+   progress, wait for it to finish before switching. Run
+   `scripts/dev-session.swift start "<verified Dev app path>"` in a retained
+   terminal session. The helper requests a normal quit and waits for production
+   to exit before launching Dev. Verify the running Dev path before testing.
+2. **Test or hand off.** Exercise the requested behavior. If the user is trying
+   the UI, leave Dev open and retain the session until they indicate they are
+   finished. For agent-only tests, proceed directly to cleanup, including after
+   a failed test.
+3. **Restore.** Run `scripts/dev-session.swift stop` in a separate terminal.
+   This also works if the start terminal has closed. It quits Dev and reopens
+   the recorded production copy, falling back to `/Applications/dewShot.app`
+   when no production path was recorded. Honor an explicit request to leave
+   an app open or keep all apps closed.
+4. **Verify and report.** Check the running application paths. Confirm that
+   Dev has exited and the intended production app is running before reporting
+   restoration. If normal quit or launch fails, inspect the remaining processes
+   and retry safely. Report any unresolved blocker and the actual running
+   state. Only ask the user to intervene when their action is necessary.
 
 ## Manual Smoke Test
 
@@ -247,10 +260,10 @@ session. Shortcut assignment, preferences, and macOS permissions are preserved.
        python3 -c 'import plistlib, sys; print(plistlib.loads(sys.stdin.buffer.read())["com.apple.security.app-sandbox"])'
    ```
 
-   Once verified, run `open "$HOME/Applications/dewShot Dev.app"`.
+   Once verified, launch the installed build using the [local GUI test SOP](#local-gui-test-sop).
 
 3. Grant Screen Recording permission when prompted.
-4. Quit and reopen `~/Applications/dewShot Dev.app`.
+4. If a relaunch is required for permission changes, resume the same installed Dev build through the session helper.
 5. Open `dewShot -> 设置...` / `dewShot -> Settings...`. Switch among General, Capture, History, and Permissions and confirm the controls match the selected pane. Reopen Settings from another display and confirm it centers on that display.
 6. Change the language between Follow System, 中文, and English. Confirm the menu, settings window labels, permission alerts opened after the change, Quick Access tooltips, and capture placeholder use the selected language. In General, turn Launch at Login on and confirm dewShot appears under System Settings > General > Login Items & Extensions; turn it off and confirm the login item is removed. If macOS reports that approval is required, confirm Settings explains where to approve it. In Permissions, verify that granted rows show a checkmark and missing rows link to the matching macOS settings pane. Return to dewShot from System Settings and confirm the states refresh. With a dedicated test app that lacks optional access, verify that automatic scrolling offers Settings and allows manual scrolling, and that recording can start with keystroke hints disabled.
 7. In General, switch between the Light, Dark, and Follow System appearance previews. Confirm the Settings window updates immediately and both screenshot HUD capsules, icons, dimensions, and tooltips remain readable over light and dark content. Quit and reopen dewShot to confirm the choice persists. Also verify that a custom screenshot save folder persists.
