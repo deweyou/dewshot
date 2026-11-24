@@ -185,16 +185,19 @@ enum AppTelemetry {
 
 struct TelemetryConsentToggle: View {
     let strings: AppStrings
+    var expandsLabel = false
     var enabled: (() -> Void)?
     @AppStorage(AppTelemetry.consentKey) private var consent = false
 
     var body: some View {
-        Toggle(strings.language == .zhHans ? "共享使用统计与故障诊断" : "Share usage statistics and diagnostics",
-               isOn: Binding(get: { consent }, set: { value in
-                   consent = value
-                   AppTelemetry.refresh()
-                   if value { enabled?() }
-               }))
+        Toggle(isOn: Binding(get: { consent }, set: { value in
+            consent = value
+            AppTelemetry.refresh()
+            if value { enabled?() }
+        })) {
+            Text(strings.language == .zhHans ? "共享使用统计与故障诊断" : "Share usage statistics and diagnostics")
+                .frame(maxWidth: expandsLabel ? .infinity : nil, alignment: .leading)
+        }
         .toggleStyle(.switch)
         .controlSize(.small)
         .help(strings.language == .zhHans ? "帮助我们了解常用功能、操作耗时和应用故障。" : "Help us understand feature use, delays and app failures.")

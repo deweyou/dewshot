@@ -110,11 +110,13 @@ final class FirstRunSetupTests: XCTestCase {
     func testWelcomeRecorderRejectsDuplicateAndAppliesReplacement() throws {
         _ = NSApplication.shared
         var applied: [(HotKeyController.HotKeyKind, ScreenshotShortcut?)] = []
+        let status = ShortcutRegistrationStatus()
+        status.messages[.screenshot] = "Shortcut already in use"
         let view = FirstRunSetupView(
             strings: AppStrings(language: .en), screenshotShortcut: .default, recordingShortcut: .defaultRecording,
             icon: NSImage(size: CGSize(width: 44, height: 44)),
             state: FirstRunSetupState(hasAccess: { false }, requestAccess: {}, openSettings: {}),
-            shortcutControls: FirstRunShortcutControls(apply: { kind, shortcut in
+            shortcutControls: FirstRunShortcutControls(status: status, apply: { kind, shortcut in
                 applied.append((kind, shortcut))
                 return nil
             }), onStartCapture: {}
@@ -131,6 +133,8 @@ final class FirstRunSetupTests: XCTestCase {
         let buttons = recorders(in: host)
         XCTAssertEqual(buttons.count, 2)
         let recorder = try XCTUnwrap(buttons.first { $0.title == ScreenshotShortcut.default.displayName })
+        XCTAssertEqual(recorder.toolTip, status.messages[.screenshot])
+        XCTAssertEqual(recorder.accessibilityHelp(), recorder.toolTip)
         func press(_ letter: String, code: UInt16) throws {
             let event = try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero,
                 modifierFlags: [.command, .shift], timestamp: 0, windowNumber: window.windowNumber,

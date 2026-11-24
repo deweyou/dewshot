@@ -856,6 +856,7 @@ struct ShortcutRecorderControl: NSViewRepresentable {
     let strings: AppStrings
     let accessibilityLabel: String
     let shortcut: ScreenshotShortcut?
+    var validationMessage: String?
     let allowsEmptyShortcut: Bool
     let reservedShortcuts: Set<ScreenshotShortcut>
     let duplicateShortcut: ScreenshotShortcut?
@@ -887,6 +888,8 @@ struct ShortcutRecorderControl: NSViewRepresentable {
     }
 
     private func configure(_ button: ShortcutRecorderButton, context: Context) {
+        button.toolTip = validationMessage
+        button.setAccessibilityHelp(validationMessage)
         button.update(
             strings: strings,
             accessibilityLabel: accessibilityLabel,

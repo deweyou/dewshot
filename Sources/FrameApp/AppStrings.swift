@@ -1428,15 +1428,8 @@ struct AppStrings {
 
     var firstRunTitle: String {
         switch language {
-        case .zhHans: "欢迎使用 dewShot"
-        case .en: "Welcome to dewShot"
-        }
-    }
-
-    var firstRunIntroduction: String {
-        switch language {
-        case .zhHans: "dewShot 常驻菜单栏，随时可以截图或录屏。"
-        case .en: "Capture your screen anytime from the menu bar."
+        case .zhHans: "欢迎使用 DewShot"
+        case .en: "Welcome to DewShot"
         }
     }
 

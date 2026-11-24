@@ -175,21 +175,34 @@ struct FirstRunSetupView: View {
     let onStartCapture: () -> Void
     @State private var shortcutErrors: [HotKeyController.HotKeyKind: String] = [:]
 
-    @State private var primaryActionIsHovered = false
     private let permissionRefresh = Timer.publish(every: 0.7, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(spacing: 0) {
             hero
-            permissions
-            TelemetryConsentToggle(strings: strings) { AppTelemetry.setup(granted: state.phase == .ready) }
-            primaryButton
+            shortcutHints.padding(.top, 22)
+            permissions.padding(.top, 24)
+            TelemetryConsentToggle(strings: strings, expandsLabel: true) {
+                AppTelemetry.setup(granted: state.phase == .ready)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 18)
+            Divider()
+            primaryButton.padding(.top, 16)
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 28)
-        .padding(.bottom, 16)
+        .padding(.horizontal, 28)
+        .padding(.top, 30)
+        .padding(.bottom, 20)
         .frame(width: 476)
         .fixedSize()
+        .background {
+            Rectangle().fill(.regularMaterial)
+                .overlay {
+                    LinearGradient(colors: [.accentColor.opacity(0.16), .accentColor.opacity(0.025)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                }
+                .ignoresSafeArea()
+        }
         .onAppear { AppTelemetry.setup(granted: state.phase == .ready) }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
             if let shortcuts = shortcutControls.configuredShortcuts?() {
@@ -204,38 +217,20 @@ struct FirstRunSetupView: View {
     }
 
     private var hero: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(spacing: 8) {
             Image(nsImage: icon)
                 .resizable()
-                .frame(width: 44, height: 44)
-                .shadow(color: .black.opacity(0.13), radius: 12, y: 4)
+                .frame(width: 52, height: 52)
                 .accessibilityHidden(true)
             Text(strings.firstRunTitle)
-                .font(.system(size: 29, weight: .semibold))
+                .font(.system(size: 19, weight: .semibold))
                 .accessibilityAddTraits(.isHeader)
-            Text(strings.firstRunIntroduction)
-                .font(.system(size: 14))
-                .foregroundStyle(.secondary)
-            shortcutHints
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 20)
-                .fill(.regularMaterial)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(.linearGradient(
-                            colors: [Color.accentColor.opacity(0.16), Color.accentColor.opacity(0.02)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ))
-                }
-        }
+        .frame(maxWidth: .infinity)
     }
 
     private var shortcutHints: some View {
-        HStack(alignment: .top, spacing: 16) {
+        HStack(spacing: 24) {
             shortcutEditor(.screenshot, title: strings.firstRunScreenshot)
             shortcutEditor(.recording, title: strings.firstRunRecording)
         }
@@ -245,10 +240,11 @@ struct FirstRunSetupView: View {
         let isScreenshot = kind == .screenshot
         let current = isScreenshot ? screenshotShortcut : recordingShortcut
         let message = shortcutErrors[kind] ?? shortcutControls.status.messages[kind]
-        return VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.caption.weight(.semibold))
+        return HStack(spacing: 8) {
+            Text(title).font(.callout.weight(.medium))
             ShortcutRecorderControl(
                 strings: strings, accessibilityLabel: title, shortcut: current,
+                validationMessage: message,
                 allowsEmptyShortcut: !isScreenshot, reservedShortcuts: [],
                 duplicateShortcut: isScreenshot ? recordingShortcut : screenshotShortcut,
                 onShortcutChange: { value in
@@ -268,13 +264,20 @@ struct FirstRunSetupView: View {
                     shortcutControls.recordingChanged(active)
                 }
             ).fixedSize()
-            if let message {
-                Text(message).foregroundStyle(.red).font(.caption).fixedSize(horizontal: false, vertical: true)
-            } else if current != nil {
-                Text(strings.language == .zhHans ? "可用" : "Available").font(.caption).foregroundStyle(.secondary)
+            .overlay {
+                if message != nil {
+                    RoundedRectangle(cornerRadius: SettingsShortcutRecorderMetrics.cornerRadius)
+                        .strokeBorder(Color(nsColor: .systemRed).opacity(0.85), lineWidth: 1)
+                        .overlay(alignment: .trailing) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .font(.system(size: 10)).foregroundStyle(Color(nsColor: .systemRed))
+                                .padding(.trailing, 5)
+                        }
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var permissions: some View {
@@ -287,19 +290,19 @@ struct FirstRunSetupView: View {
 
             VStack(spacing: 0) {
                 permissionRow(.screenRecording, title: strings.settingsScreenRecordingPermission,
-                                      purpose: strings.language == .zhHans ? "用于截图和录屏" : "For screenshots and recordings", icon: "record.circle")
+                                      purpose: strings.language == .zhHans ? "开启后即可截图和录屏" : "Enable to take screenshots and record", icon: "record.circle")
                 Divider().padding(.leading, 48)
                 permissionRow(
                     .accessibility,
                     title: strings.settingsAccessibilityPermission,
-                    purpose: strings.settingsAccessibilityPurpose,
+                    purpose: strings.language == .zhHans ? "使用自动滚动截图时再开启" : "Enable when you need auto-scrolling",
                     icon: "figure.arms.open"
                 )
                 Divider().padding(.leading, 48)
                 permissionRow(
                     .inputMonitoring,
                     title: strings.settingsInputMonitoringPermission,
-                    purpose: strings.settingsInputMonitoringPurpose,
+                    purpose: strings.language == .zhHans ? "想在录屏中显示按键时再开启" : "Enable to show keystrokes in recordings",
                     icon: "keyboard"
                 )
             }
@@ -320,13 +323,7 @@ struct FirstRunSetupView: View {
                 .frame(width: 24)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
-                HStack {
-                    Text(title).font(.system(size: 13, weight: .medium))
-                    Text(page == .screenRecording
-                         ? (strings.language == .zhHans ? "必需" : "Required")
-                         : (strings.language == .zhHans ? "可选" : "Optional"))
-                        .font(.caption2).foregroundStyle(.secondary)
-                }
+                Text(title).font(.system(size: 13, weight: .medium))
                 Text(purpose)
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
@@ -366,58 +363,14 @@ struct FirstRunSetupView: View {
 
     private var primaryButton: some View {
         Button(action: onStartCapture) {
-            HStack(spacing: 12) {
-                Image(systemName: "camera.viewfinder")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: 36, height: 36)
-                    .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
-                    .accessibilityHidden(true)
-                VStack(spacing: 4) {
-                    Text(strings.firstRunStartCapture)
-                        .font(.system(size: 14, weight: .semibold))
-                    Text(permissionMessage)
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity)
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: 27, height: 27)
-                    .background(Color.accentColor.opacity(0.12), in: Circle())
-                    .frame(width: 36)
-                    .accessibilityHidden(true)
-            }
-            .padding(12)
-            .frame(minHeight: 76)
-            .contentShape(RoundedRectangle(cornerRadius: 13))
+            Text(strings.firstRunStartCapture)
+                .frame(minWidth: 104)
         }
-        .buttonStyle(FirstRunActionButtonStyle(isHovered: primaryActionIsHovered))
-        .onHover { primaryActionIsHovered = $0 }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
         .keyboardShortcut(.defaultAction)
         .disabled(state.phase != .ready)
-        .accessibilityLabel(strings.firstRunStartCapture)
+        .help(permissionMessage)
         .accessibilityHint(permissionMessage)
-    }
-}
-
-private struct FirstRunActionButtonStyle: ButtonStyle {
-    let isHovered: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        let card = RoundedRectangle(cornerRadius: 13)
-        let isHighlighted = isHovered || configuration.isPressed
-        return configuration.label
-            .foregroundStyle(.primary)
-            .background {
-                card
-                    .fill(Color.accentColor.opacity(isHighlighted ? 0.11 : 0.055))
-                    .overlay {
-                        card.strokeBorder(Color.accentColor.opacity(isHighlighted ? 0.42 : 0.24), lineWidth: 1)
-                    }
-            }
     }
 }
