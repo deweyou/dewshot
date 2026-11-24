@@ -47,7 +47,8 @@ Authorize that installed copy, then quit and reopen it before testing capture.
 
 ## Reset Permission
 
-If macOS keeps a stale entry for a previous local build:
+Use this only to reproduce first-run authorization or after confirming a stale
+Dev entry. With authorization to clear its Screen Recording grant, run:
 
 ```sh
 tccutil reset ScreenCapture dev.deweyou.dewshot.dev

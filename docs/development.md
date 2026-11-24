@@ -58,16 +58,16 @@ Development identity listed by `security find-identity -v -p codesigning`.
 See the [local installation flow](#manual-smoke-test) and
 [signing setup for a new Mac](signing-and-device-migration.md#set-up-a-new-development-mac).
 
-## Manual Beta Release
+## GitHub Direct Distribution
 
-dewShot's first release path is a manual beta download. It produces a DMG, a ZIP,
+The GitHub download workflow produces a DMG, a ZIP,
 and SHA-256 checksums, but it does not notarize the app and does not configure
 automatic updates.
 
 ### GitHub Actions
 
-Use the `Manual Release` workflow from the GitHub Actions UI for the normal beta
-release path. It is triggered manually with `workflow_dispatch` and asks for:
+Use the `Manual Release` workflow from the GitHub Actions UI for GitHub
+distribution. It is triggered manually with `workflow_dispatch` and asks for:
 
 - `version_bump`: `patch`, `minor`, `major`, or `custom`.
 - `custom_version`: required only when `version_bump` is `custom`.
@@ -169,7 +169,10 @@ scripts/package-app-store.sh
 Use the exact identity names from `security find-identity -v` and keep the
 profile and private keys outside the repository. The script creates a signed
 `.pkg` in `.build/app-store/` for validation and upload in Transporter.
-Test the installed TestFlight build from a fresh permissions state. The
+For release acceptance, install the selected version and build through TestFlight.
+Run that copy, record its version and build, then check capture, saving from History,
+and playback of a saved recording. For first-run testing use a fresh test account
+or Mac where the production app has not yet requested access. The
 bundled privacy manifest declares local app preferences and elapsed-time APIs.
 
 See Apple's [provisioning profile instructions](https://developer.apple.com/help/account/provisioning-profiles/create-an-app-store-provisioning-profile)
@@ -183,13 +186,12 @@ Build with the existing Apple Development identity:
 FRAME_APP_SANDBOX=1 FRAME_APP_VARIANT=development \
 FRAME_CODESIGN_IDENTITY="Apple Development: Your Name (IDENTIFIER)" \
 scripts/package-app.sh
-codesign -d --entitlements :- ".build/app-sandbox/dewShot Dev.app"
+frame_dev_source=".build/app-sandbox/dewShot Dev.app"
 ```
 
 The bundle uses the development App ID and writes its own settings and history
 in the sandbox container. To test it at the stable development-app path, follow
-the replacement and signing checks below with the bundle from
-`.build/app-sandbox/`. Grant Screen Recording if requested, then relaunch.
+step 2 of the [manual smoke test](#manual-smoke-test) in the same shell. Grant Screen Recording if requested, then relaunch.
 
 When testing a first launch without Screen Recording access, confirm the welcome
 window shows the registered screenshot and recording shortcuts. Verify that a
@@ -224,29 +226,40 @@ require the installed signed bundle for end-to-end verification.
    FRAME_APP_VARIANT=development \
    FRAME_CODESIGN_IDENTITY="Apple Development: Your Name (IDENTIFIER)" \
    scripts/package-app.sh
+   frame_dev_source=".build/app/dewShot Dev.app"
    ```
 
 2. Quit the installed development app, replace it at `~/Applications/dewShot Dev.app`,
    then verify the signature before opening it:
 
    ```sh
-   mkdir -p "$HOME/Applications"
-   frame_previous=$(mktemp -d "$HOME/Applications/.frame-update.XXXXXXXX")
-   if [ -d "$HOME/Applications/dewShot Dev.app" ]; then
-       mv "$HOME/Applications/dewShot Dev.app" "$frame_previous/dewShot Dev.app"
-   fi
-   if [ -d "$HOME/Applications/Frame Dev.app" ]; then
-       mv "$HOME/Applications/Frame Dev.app" "$frame_previous/Frame Dev.app"
-   fi
-   ditto ".build/app/dewShot Dev.app" "$HOME/Applications/dewShot Dev.app"
-   codesign --verify --strict --deep "$HOME/Applications/dewShot Dev.app"
-   codesign -dv --verbose=4 "$HOME/Applications/dewShot Dev.app" 2>&1
-   open "$HOME/Applications/dewShot Dev.app"
+   (
+       set -eu
+       : "${frame_dev_source:?Select the Dev bundle from the packaging step first}"
+       installed="$HOME/Applications/dewShot Dev.app"
+       codesign --verify --strict --deep "$frame_dev_source"
+       mkdir -p "$HOME/Applications"
+       if [ -d "$installed" ]; then
+           backup=$(mktemp -d "$HOME/Applications/.frame-update.XXXXXXXX")
+           mv "$installed" "$backup/"
+           echo "Previous app saved in $backup"
+       fi
+       ditto "$frame_dev_source" "$installed"
+       codesign --verify --strict --deep "$installed"
+       codesign -dv --verbose=4 "$installed" 2>&1
+   )
    ```
 
-   Check for an Apple Development authority, a Team ID, and
-   `Identifier=dev.deweyou.dewshot.dev`. The directory in `frame_previous`
-   holds the previous bundle for rollback.
+   Confirm an Apple Development authority, the expected Team ID, and
+   `Identifier=dev.deweyou.dewshot.dev`. For a sandbox test, also run the
+   following command and confirm it prints `True` before opening the app:
+
+   ```sh
+   codesign -d --entitlements - --xml "$HOME/Applications/dewShot Dev.app" 2>/dev/null |
+       python3 -c 'import plistlib, sys; print(plistlib.loads(sys.stdin.buffer.read())["com.apple.security.app-sandbox"])'
+   ```
+
+   Once verified, run `open "$HOME/Applications/dewShot Dev.app"`.
 
 3. Grant Screen Recording permission when prompted.
 4. Quit and reopen `~/Applications/dewShot Dev.app`.
@@ -304,13 +317,5 @@ CI does not grant Screen Recording permission or run full desktop GUI smoke test
 
 ## Local Permission Reset
 
-When testing repeated local builds, reset the app permission entry:
-
-```sh
-tccutil reset ScreenCapture dev.deweyou.dewshot.dev
-```
-
-Then reopen the exact app bundle you want to authorize.
-
----
-*Last updated: 2026-09-02 | Reason: separate development and production app identities and add device-migration guidance*
+Keep existing permissions during routine rebuilds. For first-run testing or a
+confirmed stale Dev entry, see [Reset Permission](permissions.md#reset-permission).
