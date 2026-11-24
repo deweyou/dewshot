@@ -109,8 +109,9 @@ final class FirstRunSetupWindowController: NSObject, NSWindowDelegate {
                     state.refresh()
                     return
                 }
-                AppTelemetry.applyWelcomeDefaultIfNeeded(bundleID: Bundle.main.bundleIdentifier, defaults: .standard)
+                let appliedDefault = AppTelemetry.applyWelcomeDefaultIfNeeded(bundleID: Bundle.main.bundleIdentifier, defaults: .standard)
                 AppTelemetry.refresh()
+                if appliedDefault { AppTelemetry.setup(granted: hasAccess()) }
                 self?.finishIfVisible()
                 onStartCapture()
             }

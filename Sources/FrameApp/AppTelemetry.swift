@@ -37,10 +37,11 @@ enum AppTelemetry {
         bundleID == "dev.deweyou.dewshot"
     }
 
-    static func applyWelcomeDefaultIfNeeded(bundleID: String?, defaults: UserDefaults) {
+    static func applyWelcomeDefaultIfNeeded(bundleID: String?, defaults: UserDefaults) -> Bool {
         guard defaultWelcomeSharing(bundleID: bundleID),
-              defaults.object(forKey: consentKey) == nil else { return }
+              defaults.object(forKey: consentKey) == nil else { return false }
         defaults.set(true, forKey: consentKey)
+        return true
     }
 
     static func refresh() {
