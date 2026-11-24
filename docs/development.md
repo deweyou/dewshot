@@ -330,6 +330,6 @@ sentry-cli debug-files upload --org dewey-ou --project dewshot-macos "$DEWSHOT_D
 
 The Cloudflare Worker `dewshot` serves the static files in `website/public/`.
 Preview them from the repository root with `python3 -m http.server --directory website/public`.
-After checking the home page, capture demo, and privacy link, deploy with
+After checking the home page, support email link, and privacy link, deploy with
 `npx wrangler deploy --config website/wrangler.jsonc` using an account with Workers write access.
 Website deployments are independent of the macOS release.
