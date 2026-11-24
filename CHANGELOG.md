@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Prepare Mac App Store releases and patches locally from temporary branches. Record candidate checksums and confirm the published Apple build before tagging and merging back.
+
 - Group system permissions, diagnostics sharing, and the privacy policy in Privacy & Permissions settings. Display the privacy policy as a standalone text link below diagnostics sharing. Use the standard grouped row for email support in General settings.
 
 - Publish the DewShot product website at https://dewshot.deweyou.me/ with setup help, support contact, privacy policy, and a footer link to the GitHub repository.

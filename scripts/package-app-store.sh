@@ -37,6 +37,7 @@ if ! security find-identity -v | grep -F "\"$FRAME_APP_STORE_INSTALLER_IDENTITY\
 fi
 
 OUTPUT_ROOT="${FRAME_APP_STORE_OUTPUT_ROOT:-$ROOT_DIR/.build/app-store}"
+CANDIDATE_SHA="$("$ROOT_DIR/scripts/store-release.py" preflight)"
 mkdir -p "$OUTPUT_ROOT"
 STAGING_DIR="$(mktemp -d "$OUTPUT_ROOT/.staging.XXXXXXXX")"
 trap 'rm -rf "$STAGING_DIR"' EXIT
@@ -91,7 +92,15 @@ fi
 
 VERSION="$(plutil -extract CFBundleShortVersionString raw "$APP_DIR/Contents/Info.plist")"
 BUILD="$(plutil -extract CFBundleVersion raw "$APP_DIR/Contents/Info.plist")"
+if [[ "$(plutil -extract CFBundleIdentifier raw "$APP_DIR/Contents/Info.plist")" != "dev.deweyou.dewshot" ]]; then
+    echo "Unexpected packaged bundle identifier" >&2
+    exit 1
+fi
 PACKAGE_NAME="dewShot-$VERSION-build.$BUILD-AppStore.pkg"
+if [[ -e "$OUTPUT_ROOT/$PACKAGE_NAME" ]]; then
+    echo "Package already exists. Verify and record the existing artifact before uploading." >&2
+    exit 1
+fi
 productbuild --sign "$FRAME_APP_STORE_INSTALLER_IDENTITY" --component "$APP_DIR" /Applications \
     "$STAGING_DIR/$PACKAGE_NAME"
 pkgutil --check-signature "$STAGING_DIR/$PACKAGE_NAME"
@@ -106,4 +115,5 @@ symbols_name="${PACKAGE_NAME%.pkg}.dSYM.zip"
 ditto -c -k --keepParent "$DSYM" "$STAGING_DIR/$symbols_name"
 mv -f "$STAGING_DIR/$symbols_name" "$OUTPUT_ROOT/$symbols_name"
 mv -f "$STAGING_DIR/$PACKAGE_NAME" "$OUTPUT_ROOT/$PACKAGE_NAME"
+"$ROOT_DIR/scripts/store-release.py" record "$(cd "$OUTPUT_ROOT" && pwd)/$PACKAGE_NAME" "$CANDIDATE_SHA"
 echo "Packaged $OUTPUT_ROOT/$PACKAGE_NAME for Transporter."

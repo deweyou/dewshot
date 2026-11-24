@@ -53,6 +53,13 @@ Screen Recording permission is tied to the app identity and code signature.
 For repeat GUI testing, keep the same Apple Development identity, development
 bundle identifier, and installed path. See [macOS Permissions](docs/permissions.md).
 
+## Store releases
+
+Use the [release skill](.agents/skills/release/SKILL.md) for a major or minor version
+and the [patch skill](.agents/skills/patch/SKILL.md) for a published version fix.
+Their shared [SOP](docs/release.md) owns the temporary branch exceptions, build
+records, bilingual user notes, Apple status check and post-publication merge-back.
+
 ## Git Hygiene
 
 - Do not commit `.build/`, `.superpowers/`, Xcode user state, or local app bundles.

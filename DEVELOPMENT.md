@@ -20,3 +20,5 @@ Review the staged diff with `git diff --cached` and check whitespace with `git d
 Review the CI result for the current PR revision before merging. GitHub Actions runs the stable suite, build, package and bundle checks on pull requests and pushes to `main`. Three real-window AppKit suites run locally when relevant. For release acceptance, test the designated build installed through TestFlight.
 
 See the [build and release procedures](docs/development.md) for signed Dev installation, sandbox verification and distribution. The [knowledge base](docs/README.md) indexes product, design, architecture and testing decisions.
+
+For Store candidates and post-publication merge-back, use the [release SOP](docs/release.md).
