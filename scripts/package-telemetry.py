@@ -1,6 +1,5 @@
 """Validate the three Apple app registrations and package the selected routes."""
 import plistlib
-import shutil
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
@@ -36,8 +35,9 @@ def package(root, output, variant):
     for channel in (("development",) if variant == "development" else ("testflight", "production")):
         env = "development" if channel == "testflight" else channel
         name = f"GoogleService-{channel}.plist"
-        shutil.copyfile(root / name, output / name)
-        shutil.copyfile(root / f"sentry-{env}.txt", output / f"sentry-{channel}.txt")
+        # Copy the file contents without importing browser quarantine attributes.
+        (output / name).write_bytes((root / name).read_bytes())
+        (output / f"sentry-{channel}.txt").write_bytes((root / f"sentry-{env}.txt").read_bytes())
 
 
 if __name__ == "__main__":
