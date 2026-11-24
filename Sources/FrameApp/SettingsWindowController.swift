@@ -314,7 +314,7 @@ private struct SettingsDetailView: View {
                             .accessibilityLabel(strings.shareUsageAndDiagnostics)
                     }
                 }
-                Link(strings.settingsPrivacyPolicy, destination: URL(string: "https://dewshot.oushihao97.workers.dev/privacy/")!)
+                Link(strings.settingsPrivacyPolicy, destination: URL(string: "https://dewshot.deweyou.me/privacy/")!)
                     .font(.callout)
                     .padding(.leading, SettingsGroupMetrics.horizontalPadding)
             }
