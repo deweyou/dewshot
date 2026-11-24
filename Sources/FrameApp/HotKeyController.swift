@@ -32,18 +32,8 @@ final class HotKeyController {
         self.recordingShortcut = recordingShortcut
     }
 
-    func register(
-        shortcut: ScreenshotShortcut? = nil,
-        recordingShortcut: ScreenshotShortcut?? = nil
-    ) throws {
-        unregister()
-        let shortcut = shortcut ?? self.shortcut
-        let recordingShortcut = if let recordingShortcut {
-            recordingShortcut
-        } else {
-            self.recordingShortcut
-        }
-
+    private func installHandlerIfNeeded() throws {
+        guard eventHandlerRef == nil else { return }
         var eventType = EventTypeSpec(
             eventClass: OSType(kEventClassKeyboard),
             eventKind: UInt32(kEventHotKeyPressed)
@@ -61,20 +51,22 @@ final class HotKeyController {
         guard installStatus == noErr else {
             throw HotKeyRegistrationError.installEventHandlerFailed(installStatus)
         }
+    }
 
-        try registerHotKey(
-            shortcut: shortcut,
-            id: screenshotHotKeyID
-        )
-        if let recordingShortcut {
-            try registerHotKey(
-                shortcut: recordingShortcut,
-                id: recordingHotKeyID
-            )
+    func register(_ kind: HotKeyKind, value: ScreenshotShortcut?) throws {
+        let id = kind == .screenshot ? screenshotHotKeyID : recordingHotKeyID
+        if let value {
+            if Self.systemShortcutIsInUse(value) { throw HotKeyRegistrationError.shortcutInUse(value) }
+            if hotKeyRefs[id] != nil, value == (kind == .screenshot ? shortcut : recordingShortcut) { return }
+            try installHandlerIfNeeded()
+            let previous = hotKeyRefs[id]
+            try registerHotKey(shortcut: value, id: id)
+            if let previous { UnregisterEventHotKey(previous) }
+        } else if let previous = hotKeyRefs.removeValue(forKey: id) {
+            UnregisterEventHotKey(previous)
         }
-
-        self.shortcut = shortcut
-        self.recordingShortcut = recordingShortcut
+        if kind == .screenshot, let value { shortcut = value }
+        if kind == .recording { recordingShortcut = value }
     }
 
     static func registrationParameters(for shortcut: ScreenshotShortcut) -> RegistrationParameters {
@@ -163,7 +155,6 @@ final class HotKeyController {
         )
 
         guard registerStatus == noErr, let hotKeyRef else {
-            unregister()
             if registerStatus == eventHotKeyExistsErr {
                 throw HotKeyRegistrationError.shortcutInUse(shortcut)
             }

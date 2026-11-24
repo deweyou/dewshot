@@ -102,8 +102,49 @@ final class FirstRunSetupTests: XCTestCase {
                 XCTAssertLessThan(host.fittingSize.height, 620)
                 fittedHeights.append(host.fittingSize.height)
             }
-            XCTAssertEqual(Set(fittedHeights).count, 1)
+            XCTAssertEqual(Set(fittedHeights).count, 1, "\(strings.language) heights: \(fittedHeights)")
         }
+    }
+
+    @MainActor
+    func testWelcomeRecorderRejectsDuplicateAndAppliesReplacement() throws {
+        _ = NSApplication.shared
+        var applied: [(HotKeyController.HotKeyKind, ScreenshotShortcut?)] = []
+        let view = FirstRunSetupView(
+            strings: AppStrings(language: .en), screenshotShortcut: .default, recordingShortcut: .defaultRecording,
+            icon: NSImage(size: CGSize(width: 44, height: 44)),
+            state: FirstRunSetupState(hasAccess: { false }, requestAccess: {}, openSettings: {}),
+            shortcutControls: FirstRunShortcutControls(apply: { kind, shortcut in
+                applied.append((kind, shortcut))
+                return nil
+            }), onStartCapture: {}
+        )
+        let host = NSHostingView(rootView: view)
+        let window = NSWindow(contentRect: CGRect(origin: .zero, size: host.fittingSize),
+                              styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = host
+        host.layoutSubtreeIfNeeded()
+        func recorders(in view: NSView) -> [ShortcutRecorderButton] {
+            if let button = view as? ShortcutRecorderButton { return [button] }
+            return view.subviews.flatMap { recorders(in: $0) }
+        }
+        let buttons = recorders(in: host)
+        XCTAssertEqual(buttons.count, 2)
+        let recorder = try XCTUnwrap(buttons.first { $0.title == ScreenshotShortcut.default.displayName })
+        func press(_ letter: String, code: UInt16) throws {
+            let event = try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero,
+                modifierFlags: [.command, .shift], timestamp: 0, windowNumber: window.windowNumber,
+                context: nil, characters: letter, charactersIgnoringModifiers: letter,
+                isARepeat: false, keyCode: code))
+            recorder.keyDown(with: event)
+        }
+        recorder.startRecording()
+        try press("r", code: 15)
+        XCTAssertTrue(applied.isEmpty)
+        try press("k", code: 40)
+        XCTAssertEqual(applied.count, 1)
+        XCTAssertEqual(applied.first?.0, .screenshot)
+        XCTAssertEqual(applied.first?.1?.key, .letter("K"))
     }
 
     @MainActor

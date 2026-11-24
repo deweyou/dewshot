@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Show required and optional permissions and editable shortcuts with conflict feedback in the welcome window. Keep the permission guide beside the Settings window when a dialog opens.
+
 - Start each local Dev session with usage statistics and diagnostics turned off.
 
 - Add optional usage statistics and crash diagnostics with separate development and production projects.

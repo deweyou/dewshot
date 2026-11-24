@@ -67,3 +67,5 @@ The production and development bundle identifiers have separate TCC records:
 - `dev.deweyou.dewshot.dev` for dewShot Dev
 
 See [Signing and development-device migration](signing-and-device-migration.md) before setting up or replacing a development Mac.
+
+The welcome window shows Screen Recording as required for screenshots and recordings. Accessibility and Input Monitoring are optional. The drag guide pins the on-screen Settings window by its WindowServer ID and follows its position. When that window disappears, the guide hides, including while another Settings window is visible.

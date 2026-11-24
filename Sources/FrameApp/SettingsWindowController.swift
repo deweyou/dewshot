@@ -852,7 +852,7 @@ private struct ScreenshotSettingsView: View {
     }
 }
 
-private struct ShortcutRecorderControl: NSViewRepresentable {
+struct ShortcutRecorderControl: NSViewRepresentable {
     let strings: AppStrings
     let accessibilityLabel: String
     let shortcut: ScreenshotShortcut?

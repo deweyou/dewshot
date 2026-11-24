@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var statusItemController: StatusItemController?
     private var hotKeyController: HotKeyController?
+    private let shortcutStatus = ShortcutRegistrationStatus()
     private let selectionOverlayController: SelectionOverlayControlling
     private let captureService = CaptureService()
     private let scrollingScreenshotSessionController: ScrollingScreenshotSessionControlling
@@ -90,12 +91,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppTelemetry.resetDevelopmentConsentOnLaunch(bundleID: Bundle.main.bundleIdentifier, defaults: .standard)
         AppTelemetry.refresh()
         SettingsStore.appTheme().apply(to: NSApp)
-        let usesDefaultRecordingShortcut = !SettingsStore.hasSavedRecordingShortcut()
-        if usesDefaultRecordingShortcut,
-           SettingsStore.recordingShortcut() == nil || HotKeyController.systemShortcutIsInUse(.defaultRecording) {
-            SettingsStore.setRecordingShortcut(nil)
-        }
-
         statusItemController = StatusItemController(
             strings: strings,
             onCapture: { [weak self] in
@@ -128,26 +123,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.startCaptureFlow(initialMode: .recordingSetup, entry: "shortcut")
         }
 
-        do {
-            do {
-                try hotKeyController.register()
-            } catch HotKeyRegistrationError.shortcutInUse(let shortcut)
-                where usesDefaultRecordingShortcut && hotKeyController.recordingShortcut == shortcut {
-                try hotKeyController.register(recordingShortcut: .some(nil))
-                SettingsStore.setRecordingShortcut(nil)
-                statusItemController?.updateShortcuts(
-                    screenshotShortcut: hotKeyController.shortcut,
-                    recordingShortcut: nil
-                )
-            }
-            self.hotKeyController = hotKeyController
-        } catch {
-            showHotKeyRegistrationFailedAlert(error)
-            NSLog("dewShot 快捷键注册失败: \(error.localizedDescription)")
-        }
-
+        self.hotKeyController = hotKeyController
+        registerConfiguredShortcuts()
         if SettingsStore.firstRunSetupProgress().shouldShowOnLaunch(hasAccess: hasScreenRecordingAccess()) {
             showFirstRunSetup()
+        } else if let message = shortcutStatus.messages[.screenshot] ?? shortcutStatus.messages[.recording] {
+            showHotKeyConflictAlert(message: message)
         }
     }
 
@@ -195,8 +176,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showFirstRunSetup() {
         firstRunSetupWindowController.show(
             strings: strings,
-            screenshotShortcut: hotKeyController?.shortcut,
-            recordingShortcut: hotKeyController?.recordingShortcut,
+            screenshotShortcut: SettingsStore.screenshotShortcut(),
+            recordingShortcut: SettingsStore.recordingShortcut(),
+            shortcutControls: FirstRunShortcutControls(
+                status: shortcutStatus,
+                apply: { [weak self] kind, shortcut in
+                    guard let self else { return nil }
+                    if let shortcut, !self.confirmShortcutChange(shortcut) {
+                        return self.strings.commonHotKeyWarningMessage(shortcut: shortcut.displayName)
+                    }
+                    return self.applyShortcut(kind, value: shortcut)
+                },
+                recordingChanged: { [weak self] active in self?.setScreenshotShortcutRecorderActive(active) },
+                configuredShortcuts: { (SettingsStore.screenshotShortcut(), SettingsStore.recordingShortcut()) }
+            ),
             hasAccess: hasScreenRecordingAccess
         ) { [weak self] in
             guard let self else { return }
@@ -1728,90 +1721,63 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func changeScreenshotShortcut(to shortcut: ScreenshotShortcut) -> Bool {
-        if shortcut == SettingsStore.screenshotShortcut() {
-            return true
-        }
-        guard confirmShortcutChange(shortcut) else { return false }
-
-        guard let hotKeyController else {
-            SettingsStore.setScreenshotShortcut(shortcut)
-            statusItemController?.updateShortcuts(
-                screenshotShortcut: shortcut,
-                recordingShortcut: SettingsStore.recordingShortcut()
-            )
-            return true
-        }
-
-        let previousShortcut = hotKeyController.shortcut
-
-        do {
-            try hotKeyController.register(shortcut: shortcut)
-            SettingsStore.setScreenshotShortcut(shortcut)
-            statusItemController?.updateShortcuts(
-                screenshotShortcut: shortcut,
-                recordingShortcut: hotKeyController.recordingShortcut
-            )
-            NSLog("dewShot 截图快捷键已更新为 \(shortcut.displayName)")
-            return true
-        } catch {
-            do {
-                try hotKeyController.register(shortcut: previousShortcut)
-            } catch {
-                NSLog("dewShot 恢复原快捷键失败: \(error.localizedDescription)")
-            }
-
-            showHotKeyRegistrationFailedAlert(error)
-            return false
-        }
+        applySettingsShortcut(.screenshot, value: shortcut)
     }
 
     private func changeRecordingShortcut(to shortcut: ScreenshotShortcut?) -> Bool {
-        if shortcut == SettingsStore.recordingShortcut() {
-            return true
-        }
-        if let shortcut, !confirmShortcutChange(shortcut) {
+        applySettingsShortcut(.recording, value: shortcut)
+    }
+
+    private func applySettingsShortcut(_ kind: HotKeyController.HotKeyKind, value: ScreenshotShortcut?) -> Bool {
+        if let value, !confirmShortcutChange(value) { return false }
+        if let message = applyShortcut(kind, value: value) {
+            showHotKeyConflictAlert(message: message)
             return false
         }
+        return true
+    }
 
-        guard let hotKeyController else {
-            SettingsStore.setRecordingShortcut(shortcut)
-            statusItemController?.updateShortcuts(
-                screenshotShortcut: SettingsStore.screenshotShortcut(),
-                recordingShortcut: shortcut
-            )
-            return true
-        }
-
-        let screenshotShortcut = hotKeyController.shortcut
-        let previousShortcut = hotKeyController.recordingShortcut
-
-        do {
-            try hotKeyController.register(shortcut: screenshotShortcut, recordingShortcut: .some(shortcut))
-            SettingsStore.setRecordingShortcut(shortcut)
-            statusItemController?.updateShortcuts(
-                screenshotShortcut: screenshotShortcut,
-                recordingShortcut: shortcut
-            )
-            NSLog("dewShot 录屏快捷键已更新为 \(shortcut?.displayName ?? "未设置")")
-            return true
-        } catch {
-            do {
-                try hotKeyController.register(shortcut: screenshotShortcut, recordingShortcut: .some(previousShortcut))
-            } catch {
-                NSLog("dewShot 恢复原录屏快捷键失败: \(error.localizedDescription)")
+    private func applyShortcut(_ kind: HotKeyController.HotKeyKind, value: ScreenshotShortcut?) -> String? {
+        if let value {
+            if HotKeyController.systemShortcutIsInUse(value) {
+                return strings.systemHotKeyConflictMessage(shortcut: value.displayName)
             }
+        }
+        do {
+            try hotKeyController?.register(kind, value: value)
+            if kind == .screenshot, let value { SettingsStore.setScreenshotShortcut(value) }
+            if kind == .recording { SettingsStore.setRecordingShortcut(value) }
+            shortcutStatus.messages[kind] = nil
+            statusItemController?.updateShortcuts(screenshotShortcut: SettingsStore.screenshotShortcut(),
+                                                  recordingShortcut: SettingsStore.recordingShortcut())
+            return nil
+        } catch {
+            return shortcutFailureMessage(error)
+        }
+    }
 
-            showHotKeyRegistrationFailedAlert(error)
-            return false
+    private func shortcutFailureMessage(_ error: Error) -> String {
+        if case let HotKeyRegistrationError.shortcutInUse(shortcut) = error {
+            return HotKeyController.systemShortcutIsInUse(shortcut)
+                ? strings.systemHotKeyConflictMessage(shortcut: shortcut.displayName)
+                : strings.appHotKeyConflictMessage(shortcut: shortcut.displayName)
+        }
+        return strings.hotKeyRegistrationFailedMessage(errorDescription: error.localizedDescription)
+    }
+
+    private func registerConfiguredShortcuts() {
+        for kind in [HotKeyController.HotKeyKind.screenshot, .recording] {
+            let shortcut = kind == .screenshot ? SettingsStore.screenshotShortcut() : SettingsStore.recordingShortcut()
+            do {
+                try hotKeyController?.register(kind, value: shortcut)
+                shortcutStatus.messages[kind] = nil
+            } catch {
+                shortcutStatus.messages[kind] = shortcutFailureMessage(error)
+            }
         }
     }
 
     private func confirmShortcutChange(_ shortcut: ScreenshotShortcut) -> Bool {
-        if HotKeyController.systemShortcutIsInUse(shortcut) {
-            showHotKeyConflictAlert(message: strings.systemHotKeyConflictMessage(shortcut: shortcut.displayName))
-            return false
-        }
-
         guard HotKeyController.overlapsCommonAppShortcut(shortcut) else {
             return true
         }
@@ -1834,24 +1800,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        do {
-            try hotKeyController.register()
-        } catch {
-            showHotKeyRegistrationFailedAlert(error)
-        }
-    }
-
-    private func showHotKeyRegistrationFailedAlert(_ error: Error) {
-        if case let HotKeyRegistrationError.shortcutInUse(shortcut) = error {
-            showHotKeyConflictAlert(message: strings.appHotKeyConflictMessage(shortcut: shortcut.displayName))
-            return
-        }
-
-        let alert = NSAlert()
-        alert.messageText = strings.hotKeyRegistrationFailedTitle
-        alert.informativeText = strings.hotKeyRegistrationFailedMessage(errorDescription: error.localizedDescription)
-        alert.addButton(withTitle: strings.ok)
-        alert.runModal()
+        registerConfiguredShortcuts()
     }
 
     private func showHotKeyConflictAlert(message: String) {

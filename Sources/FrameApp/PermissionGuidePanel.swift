@@ -76,6 +76,7 @@ final class PermissionGuidePanel {
 
         followTask = Task { [weak self] in
             // A macOS permission prompt can delay activation while Settings is already running.
+            var anchorID: CGWindowID?
             var settingsWasRunning = false
             let launchDeadline = ContinuousClock.now + .seconds(5)
             while !Task.isCancelled, let self {
@@ -87,8 +88,9 @@ final class PermissionGuidePanel {
                 let settings = NSWorkspace.shared.frontmostApplication
                 if settings?.bundleIdentifier == Self.settingsBundleID, let settings {
                     settingsWasRunning = true
-                    self.position(panel, beside: settings.processIdentifier)
-                    if !panel.isVisible {
+                    if !self.position(panel, beside: settings.processIdentifier, anchorID: &anchorID) {
+                        panel.orderOut(nil)
+                    } else if !panel.isVisible {
                         panel.orderFrontRegardless()
                     }
                 } else {
@@ -116,26 +118,39 @@ final class PermissionGuidePanel {
         panel = nil
     }
 
-    private func position(_ panel: NSPanel, beside settingsPID: pid_t) {
+    private func position(_ panel: NSPanel, beside settingsPID: pid_t, anchorID: inout CGWindowID?) -> Bool {
         let windows = CGWindowListCopyWindowInfo(
             [.optionOnScreenOnly, .excludeDesktopElements],
             kCGNullWindowID
         ) as? [[String: Any]] ?? []
-        let settingsWindow = windows.lazy
-            .filter {
-                ($0[kCGWindowOwnerPID as String] as? pid_t) == settingsPID
-                    && ($0[kCGWindowLayer as String] as? Int) == 0
-            }
-            .compactMap(WindowCandidateProvider.cocoaRect(forWindowInfo:))
-            .first { $0.width > 150 && $0.height > 150 }
-        let screen = settingsWindow.flatMap { window in
-            NSScreen.screens.first { $0.frame.contains(CGPoint(x: window.midX, y: window.midY)) }
-        } ?? NSScreen.main ?? NSScreen.screens.first
-        guard let screen else { return }
+        let candidates: [(id: CGWindowID, frame: CGRect)] = windows.compactMap { window in
+            guard window[kCGWindowOwnerPID as String] as? pid_t == settingsPID,
+                  window[kCGWindowLayer as String] as? Int == 0,
+                  let id = window[kCGWindowNumber as String] as? CGWindowID,
+                  let frame = WindowCandidateProvider.cocoaRect(forWindowInfo: window) else { return nil }
+            return (id, frame)
+        }
+        func overlap(_ a: CGRect, _ b: CGRect) -> CGFloat {
+            let intersection = a.intersection(b)
+            return intersection.isNull ? 0 : intersection.width * intersection.height
+        }
+        guard let anchor = Self.settingsAnchor(in: candidates, pinnedID: anchorID),
+              let screen = NSScreen.screens.max(by: {
+                  overlap($0.frame, anchor.frame) < overlap($1.frame, anchor.frame)
+              }) else { return false }
+        anchorID = anchor.id
+        let settingsWindow = anchor.frame
         let origin = Self.origin(for: panel.frame.size, beside: settingsWindow, in: screen.visibleFrame)
         if panel.frame.origin != origin {
             panel.setFrameOrigin(origin)
         }
+        return true
+    }
+
+    static func settingsAnchor(in windows: [(id: CGWindowID, frame: CGRect)], pinnedID: CGWindowID?) -> (id: CGWindowID, frame: CGRect)? {
+        if let pinnedID { return windows.first { $0.id == pinnedID } }
+        // WindowServer lists sheets and pickers ahead of their parent. Start at the back.
+        return windows.reversed().first { $0.frame.width >= 600 && $0.frame.height >= 400 }
     }
 
     static func origin(for size: CGSize, beside window: CGRect?, in visibleFrame: CGRect) -> CGPoint {

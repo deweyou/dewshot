@@ -81,6 +81,7 @@ final class FirstRunSetupWindowController: NSObject, NSWindowDelegate {
         strings: AppStrings,
         screenshotShortcut: ScreenshotShortcut?,
         recordingShortcut: ScreenshotShortcut?,
+        shortcutControls: FirstRunShortcutControls,
         hasAccess: @escaping () -> Bool,
         onStartCapture: @escaping () -> Void
     ) {
@@ -104,6 +105,7 @@ final class FirstRunSetupWindowController: NSObject, NSWindowDelegate {
             recordingShortcut: recordingShortcut,
             icon: NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath),
             state: state,
+            shortcutControls: shortcutControls,
             onStartCapture: { [weak self] in
                 self?.finishIfVisible()
                 onStartCapture()
@@ -150,30 +152,51 @@ final class FirstRunSetupWindowController: NSObject, NSWindowDelegate {
     }
 }
 
+@MainActor @Observable
+final class ShortcutRegistrationStatus {
+    var messages: [HotKeyController.HotKeyKind: String] = [:]
+}
+
+@MainActor
+struct FirstRunShortcutControls {
+    var status = ShortcutRegistrationStatus()
+    var apply: (HotKeyController.HotKeyKind, ScreenshotShortcut?) -> String? = { _, _ in nil }
+    var recordingChanged: (Bool) -> Void = { _ in }
+    var configuredShortcuts: (() -> (ScreenshotShortcut, ScreenshotShortcut?))?
+}
+
 struct FirstRunSetupView: View {
     let strings: AppStrings
-    let screenshotShortcut: ScreenshotShortcut?
-    let recordingShortcut: ScreenshotShortcut?
+    @State var screenshotShortcut: ScreenshotShortcut?
+    @State var recordingShortcut: ScreenshotShortcut?
     let icon: NSImage
     let state: FirstRunSetupState
+    var shortcutControls = FirstRunShortcutControls()
     let onStartCapture: () -> Void
+    @State private var shortcutErrors: [HotKeyController.HotKeyKind: String] = [:]
 
     @State private var primaryActionIsHovered = false
     private let permissionRefresh = Timer.publish(every: 0.7, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 12) {
             hero
-            optionalPermissions
+            permissions
             TelemetryConsentToggle(strings: strings) { AppTelemetry.setup(granted: state.phase == .ready) }
             primaryButton
         }
         .padding(.horizontal, 24)
-        .padding(.top, 40)
-        .padding(.bottom, 22)
+        .padding(.top, 28)
+        .padding(.bottom, 16)
         .frame(width: 476)
         .fixedSize()
         .onAppear { AppTelemetry.setup(granted: state.phase == .ready) }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+            if let shortcuts = shortcutControls.configuredShortcuts?() {
+                screenshotShortcut = shortcuts.0
+                recordingShortcut = shortcuts.1
+            }
+        }
         .onReceive(permissionRefresh) { _ in state.refresh() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             state.refresh()
@@ -184,7 +207,7 @@ struct FirstRunSetupView: View {
         VStack(alignment: .leading, spacing: 12) {
             Image(nsImage: icon)
                 .resizable()
-                .frame(width: 64, height: 64)
+                .frame(width: 44, height: 44)
                 .shadow(color: .black.opacity(0.13), radius: 12, y: 4)
                 .accessibilityHidden(true)
             Text(strings.firstRunTitle)
@@ -212,70 +235,68 @@ struct FirstRunSetupView: View {
     }
 
     private var shortcutHints: some View {
-        let screenshot = shortcutHint(strings.firstRunScreenshot, icon: "camera.viewfinder", shortcut: screenshotShortcut)
-        let recording = shortcutHint(strings.firstRunRecording, icon: "record.circle", shortcut: recordingShortcut)
-        return ViewThatFits(in: .horizontal) {
-            HStack(spacing: 22) {
-                screenshot
-                recording
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                screenshot
-                recording
-            }
+        HStack(alignment: .top, spacing: 16) {
+            shortcutEditor(.screenshot, title: strings.firstRunScreenshot)
+            shortcutEditor(.recording, title: strings.firstRunRecording)
         }
     }
 
-    private func shortcutHint(_ title: String, icon: String, shortcut: ScreenshotShortcut?) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon)
-                .foregroundStyle(.secondary)
-            Text(title)
-            if let shortcut {
-                HStack(spacing: 6) {
-                    ForEach(Array(shortcut.displayName.enumerated()), id: \.offset) { key in
-                        Text(String(key.element))
-                            .font(.system(size: 12, weight: .medium, design: .monospaced))
+    private func shortcutEditor(_ kind: HotKeyController.HotKeyKind, title: String) -> some View {
+        let isScreenshot = kind == .screenshot
+        let current = isScreenshot ? screenshotShortcut : recordingShortcut
+        let message = shortcutErrors[kind] ?? shortcutControls.status.messages[kind]
+        return VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.caption.weight(.semibold))
+            ShortcutRecorderControl(
+                strings: strings, accessibilityLabel: title, shortcut: current,
+                allowsEmptyShortcut: !isScreenshot, reservedShortcuts: [],
+                duplicateShortcut: isScreenshot ? recordingShortcut : screenshotShortcut,
+                onShortcutChange: { value in
+                    if let error = shortcutControls.apply(kind, value) {
+                        shortcutErrors[kind] = error
+                        return false
                     }
+                    if isScreenshot { screenshotShortcut = value } else { recordingShortcut = value }
+                    shortcutErrors[kind] = nil
+                    return true
+                },
+                onValidationFailure: { failure in
+                    if let failure { shortcutErrors[kind] = strings.settingsShortcutRecorderError(failure) }
+                },
+                onRecordingChange: { active in
+                    if active { shortcutErrors[kind] = nil }
+                    shortcutControls.recordingChanged(active)
                 }
-                .padding(.horizontal, 9)
-                .frame(height: 25)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 6)
-                        .strokeBorder(.primary.opacity(0.12), lineWidth: 1)
-                }
-                .padding(.leading, 2)
-            } else {
-                Text(strings.firstRunMenuBar)
-                    .foregroundStyle(.secondary)
-                    .padding(.leading, 2)
+            ).fixedSize()
+            if let message {
+                Text(message).foregroundStyle(.red).font(.caption).fixedSize(horizontal: false, vertical: true)
+            } else if current != nil {
+                Text(strings.language == .zhHans ? "可用" : "Available").font(.caption).foregroundStyle(.secondary)
             }
         }
-        .font(.system(size: 12, weight: .medium))
-        .fixedSize(horizontal: true, vertical: false)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(title)
-        .accessibilityValue(shortcut?.keyboardShortcut.displayName ?? strings.firstRunMenuBar)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var optionalPermissions: some View {
+    private var permissions: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(strings.firstRunOptionalPermissions)
+            Text(strings.settingsPermissions)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .accessibilityAddTraits(.isHeader)
                 .padding(.leading, 2)
 
             VStack(spacing: 0) {
-                optionalPermissionRow(
+                permissionRow(.screenRecording, title: strings.settingsScreenRecordingPermission,
+                                      purpose: strings.language == .zhHans ? "用于截图和录屏" : "For screenshots and recordings", icon: "record.circle")
+                Divider().padding(.leading, 48)
+                permissionRow(
                     .accessibility,
                     title: strings.settingsAccessibilityPermission,
                     purpose: strings.settingsAccessibilityPurpose,
                     icon: "figure.arms.open"
                 )
                 Divider().padding(.leading, 48)
-                optionalPermissionRow(
+                permissionRow(
                     .inputMonitoring,
                     title: strings.settingsInputMonitoringPermission,
                     purpose: strings.settingsInputMonitoringPurpose,
@@ -286,7 +307,7 @@ struct FirstRunSetupView: View {
         }
     }
 
-    private func optionalPermissionRow(
+    private func permissionRow(
         _ page: PermissionSettingsPage,
         title: String,
         purpose: String,
@@ -299,21 +320,27 @@ struct FirstRunSetupView: View {
                 .frame(width: 24)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.system(size: 13, weight: .medium))
+                HStack {
+                    Text(title).font(.system(size: 13, weight: .medium))
+                    Text(page == .screenRecording
+                         ? (strings.language == .zhHans ? "必需" : "Required")
+                         : (strings.language == .zhHans ? "可选" : "Optional"))
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
                 Text(purpose)
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 8)
-            if state.grantedOptionalPermissions.contains(page) {
+            if page == .screenRecording ? state.phase == .ready : state.grantedOptionalPermissions.contains(page) {
                 Label(strings.settingsPermissionGranted, systemImage: "checkmark.circle.fill")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Color.green)
                     .accessibilityLabel("\(title), \(strings.settingsPermissionGranted)")
             } else {
                 Button {
-                    page.open(guide: strings)
+                    if page == .screenRecording { state.requestPermission() } else { page.open(guide: strings) }
                 } label: {
                     Text(strings.settingsOpenSystemSettings)
                         .font(.system(size: 12, weight: .medium))
@@ -326,7 +353,7 @@ struct FirstRunSetupView: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
     }
 
     private var permissionMessage: String {
@@ -337,33 +364,17 @@ struct FirstRunSetupView: View {
         }
     }
 
-    private var primaryTitle: String {
-        switch state.phase {
-        case .needsPermission: strings.screenRecordingGuideTitle
-        case .waitingForPermission: strings.settingsOpenSystemSettings
-        case .ready: strings.firstRunStartCapture
-        }
-    }
-
-    private var primaryIcon: String {
-        switch state.phase {
-        case .needsPermission: "record.circle"
-        case .waitingForPermission: "gearshape"
-        case .ready: "camera.viewfinder"
-        }
-    }
-
     private var primaryButton: some View {
-        Button(action: primaryAction) {
+        Button(action: onStartCapture) {
             HStack(spacing: 12) {
-                Image(systemName: primaryIcon)
+                Image(systemName: "camera.viewfinder")
                     .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(Color.accentColor)
                     .frame(width: 36, height: 36)
                     .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
                     .accessibilityHidden(true)
                 VStack(spacing: 4) {
-                    Text(primaryTitle)
+                    Text(strings.firstRunStartCapture)
                         .font(.system(size: 14, weight: .semibold))
                     Text(permissionMessage)
                         .font(.system(size: 12))
@@ -387,16 +398,9 @@ struct FirstRunSetupView: View {
         .buttonStyle(FirstRunActionButtonStyle(isHovered: primaryActionIsHovered))
         .onHover { primaryActionIsHovered = $0 }
         .keyboardShortcut(.defaultAction)
-        .accessibilityLabel(primaryTitle)
+        .disabled(state.phase != .ready)
+        .accessibilityLabel(strings.firstRunStartCapture)
         .accessibilityHint(permissionMessage)
-    }
-
-    private func primaryAction() {
-        if state.phase == .ready {
-            onStartCapture()
-        } else {
-            state.requestPermission()
-        }
     }
 }
 
