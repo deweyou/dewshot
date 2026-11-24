@@ -5,51 +5,77 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="DewShot，Mac 菜单栏里的截图与录屏工具。查看截图与录屏界面、联系支持或了解隐私政策。"
+      content="DewShot，一款 Mac 截图录屏工具。查看截图与录屏界面、联系支持或了解隐私政策。"
     />
     <title>DewShot · Mac 截图与录屏</title>
     <link rel="icon" href="/assets/dewshot-logo.svg" />
+    <script src="/theme.js"></script>
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body class="home">
     <main class="intro">
-      <h1>
-        <img class="mark" src="/assets/dewshot-logo.svg" alt="" />
-        <img
-          class="wordmark"
-          src="/assets/dewshot-wordmark.svg"
-          alt="DewShot"
-        />
-      </h1>
-      <p>Mac 菜单栏里的截图与录屏工具。</p>
-      <div class="gallery">
-        <figure>
+      <div class="identity">
+        <h1>
+          <img class="mark" src="/assets/dewshot-logo.svg" alt="" />
           <img
-            src="/assets/region-capture.png"
-            alt="DewShot 的矩形选区，下方显示截图工具栏和宽高控制。"
-            width="1120"
-            height="628"
+            class="wordmark"
+            src="/assets/dewshot-wordmark.svg"
+            alt="DewShot"
           />
-          <figcaption>区域截图</figcaption>
-        </figure>
-        <figure>
-          <img
-            src="/assets/recording-setup.png"
-            alt="DewShot 录屏选区中央显示开始录制按钮、MP4 格式和输入显示选项。"
-            width="1120"
-            height="628"
-          />
-          <figcaption>录屏设置</figcaption>
-        </figure>
+        </h1>
+        <p>一款轻巧的 Mac 截图录屏工具</p>
       </div>
+      <section class="gallery" aria-label="产品界面预览">
+        <div class="switcher" role="group" aria-label="选择预览界面">
+          <label
+            ><input type="radio" name="mode" value="capture" checked /><span
+              >区域截图</span
+            ></label
+          >
+          <label
+            ><input type="radio" name="mode" value="record" /><span
+              >录屏设置</span
+            ></label
+          >
+        </div>
+        <img
+          class="capture"
+          src="/assets/region-capture.png"
+          alt="区域截图：矩形选区下方的工具栏和宽高控制。"
+          width="1120"
+          height="628"
+        />
+        <img
+          class="record"
+          src="/assets/recording-setup.png"
+          alt="录屏设置：选区中央的开始录制按钮、MP4 格式和输入显示选项。"
+          width="1120"
+          height="628"
+        />
+      </section>
     </main>
     <footer id="support">
-      <span>macOS 26+</span>
-      <span
-        >联系支持 ·
-        <a href="mailto:oushihao97@gmail.com">oushihao97@gmail.com</a></span
-      >
       <a href="/privacy/">隐私政策</a>
+      <div class="preferences">
+        <a
+          href="/en/"
+          lang="en"
+          hreflang="en"
+          title="Switch to English"
+          aria-label="Switch to English"
+          ><svg aria-hidden="true">
+            <use href="/assets/preferences.svg#language"></use></svg
+        ></a>
+        <button type="button" class="theme-toggle" hidden>
+          <svg aria-hidden="true">
+            <use href="/assets/preferences.svg#moon"></use>
+          </svg>
+        </button>
+        <a class="support-email" href="mailto:deweyou97@gmail.com"
+           title="邮件联系支持 · deweyou97@gmail.com" aria-label="邮件联系支持 · deweyou97@gmail.com">
+          <svg aria-hidden="true"><use href="/assets/preferences.svg#mail"></use></svg>
+        </a>
+      </div>
     </footer>
   </body>
 </html>

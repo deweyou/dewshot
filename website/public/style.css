@@ -1,7 +1,8 @@
 :root {
+  color-scheme: light dark;
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
-  color: #212c27;
-  background: #faf9f5;
+  color: light-dark(#212c27, #e8eee9);
+  background: light-dark(#faf9f5, #171b18);
   line-height: 1.65;
 }
 * {
@@ -29,7 +30,7 @@ footer,
 }
 nav {
   min-height: 78px;
-  border-bottom: 1px solid #d8dbd3;
+  border-bottom: 1px solid light-dark(#d8dbd3, #39423c);
 }
 nav a,
 footer a {
@@ -59,7 +60,7 @@ footer {
   margin: 18px 0;
 }
 .policy p {
-  color: #4c5951;
+  color: light-dark(#4c5951, #c3cec5);
 }
 .policy {
   max-width: 700px;
@@ -71,8 +72,8 @@ footer {
 }
 footer {
   padding: 24px 0 38px;
-  border-top: 1px solid #cdd4cb;
-  color: #536059;
+  border-top: 1px solid light-dark(#cdd4cb, #39423c);
+  color: light-dark(#536059, #b4c2b8);
 }
 @media (max-width: 740px) {
   nav {
@@ -92,62 +93,131 @@ footer {
   grid-template-rows: 1fr auto;
 }
 .intro {
-  padding: 56px 0;
+  display: grid;
+  width: min(1040px, 94%);
+  justify-items: center;
+  gap: clamp(24px, 3vw, 40px);
+  padding: clamp(28px, 4vw, 52px) 0 32px;
+  position: relative;
+  top: clamp(-28px, -1.6svh, -8px);
   text-align: center;
 }
-.intro h1 {
-  display: grid;
-  justify-items: center;
-  gap: 19px;
+.identity h1 {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
   margin: 0;
 }
 .mark {
-  width: 58px;
+  width: clamp(32px, 3.5vw, 49px);
 }
 .wordmark {
-  width: clamp(155px, 24vw, 210px);
+  width: clamp(138px, 15vw, 200px);
 }
-.intro p {
-  font-size: clamp(1.05rem, 2.2vw, 1.45rem);
-  margin: 28px 0 18px;
+.identity p {
+  color: light-dark(#536059, #b4c2b8);
+  font-size: clamp(1rem, 1.35vw, 1.18rem);
+  margin: 14px 0 0;
 }
 .gallery {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px;
-  margin: 38px auto 0;
-}
-.gallery figure {
-  margin: 0;
+  width: 100%;
 }
 .gallery img {
   display: block;
   width: 100%;
   height: auto;
-  border-radius: 12px;
+  border-radius: 14px;
 }
-.gallery figcaption {
-  margin-top: 8px;
-  color: #536059;
-  font-size: 0.9rem;
+.gallery .record,
+.gallery:has(input[value="record"]:checked) .capture {
+  display: none;
 }
-@media (max-width: 700px) {
-  .gallery {
-    grid-template-columns: 1fr;
-    max-width: 540px;
-  }
+.gallery:has(input[value="record"]:checked) .record {
+  display: block;
+}
+.switcher {
+  display: inline-flex;
+  margin-bottom: 18px;
+  padding: 3px;
+  background: light-dark(#eaece5, #29322d);
+  border-radius: 24px;
+  font-size: 0.86rem;
+}
+.switcher label {
+  position: relative;
+  cursor: pointer;
+}
+.switcher input {
+  position: absolute;
+  opacity: 0;
+}
+.switcher span {
+  display: block;
+  padding: 6px 17px;
+  border-radius: 24px;
+}
+.switcher input:checked + span {
+  background: light-dark(white, #424e46);
+  box-shadow: 0 1px 3px #27382c22;
+}
+.switcher input:focus-visible + span {
+  outline: 2px solid #526f60;
 }
 .home footer {
   gap: 12px 24px;
   flex-wrap: wrap;
 }
-@media (max-width: 560px) {
-  .home footer {
-    justify-content: center;
-    text-align: center;
-  }
-  .home footer span:nth-child(2) {
-    order: -1;
-    width: 100%;
-  }
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] :is(.mark, .wordmark, .brand img) {
+  filter: invert(1);
+}
+.preferences {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+.preferences {
+  gap: 2px;
+}
+nav .brand {
+  margin-right: auto;
+}
+nav .preferences {
+  margin-left: 14px;
+}
+.support-email,
+.preferences :is(a, button) {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.preferences button[hidden] {
+  display: none;
+}
+.support-email:hover,
+.preferences :is(a, button):hover {
+  background: light-dark(#eaece5, #29322d);
+}
+.support-email svg,
+.preferences svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
