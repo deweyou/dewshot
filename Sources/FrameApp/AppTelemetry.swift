@@ -27,6 +27,12 @@ enum AppTelemetry {
     enum Action: String { case copy, save, pin, open }
     enum Media: String { case screenshot, recording }
 
+    static func resetDevelopmentConsentOnLaunch(bundleID: String?, defaults: UserDefaults) {
+        if bundleID == "dev.deweyou.dewshot.dev" {
+            defaults.removeObject(forKey: consentKey)
+        }
+    }
+
     static func refresh() {
         guard UserDefaults.standard.bool(forKey: consentKey) else {
             resolving?.cancel()

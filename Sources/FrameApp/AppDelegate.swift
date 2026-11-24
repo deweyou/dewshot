@@ -87,6 +87,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         strings = AppStrings.current()
+        AppTelemetry.resetDevelopmentConsentOnLaunch(bundleID: Bundle.main.bundleIdentifier, defaults: .standard)
         AppTelemetry.refresh()
         SettingsStore.appTheme().apply(to: NSApp)
         let usesDefaultRecordingShortcut = !SettingsStore.hasSavedRecordingShortcut()

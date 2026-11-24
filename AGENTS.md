@@ -2,6 +2,15 @@
 
 dewShot is a native macOS screenshot and screen recording tool. Editing, saving, and sharing captures are part of its core workflow. See [Product Positioning](docs/product-positioning.md) when deciding what to develop or prioritize.
 
+## Feature telemetry
+
+For each new requirement, identify the product, latency or failure question worth
+measuring. Check the [telemetry PRD](docs/dewshot-telemetry-prd.md) for an existing
+event or parameter that answers it. Record the decision in the requirement or PR,
+including when existing coverage is sufficient or measurement adds no value.
+Add an event only for a distinct observation that needs its own count. Update
+the PRD when event definitions or counting rules change.
+
 ## Verification
 
 Before committing, review the staged diff and run the checks affected by the change.

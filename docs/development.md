@@ -306,8 +306,12 @@ at `development.provisionprofile` in the telemetry directory for Keychain access
 The packager validates the registered app IDs, bundle IDs and Sentry project IDs
 before signing. Never place an administrative token in this directory.
 
-For acceptance, start the Dev bundle with `-FIRDebugEnabled`, enable sharing
-in the welcome window, and inspect the Dev property's DebugView. Verify the
+Every ordinary launch of the local Dev app starts with sharing off, including
+after a previous connectivity test. To test delivery, start Dev with
+`-FIRDebugEnabled` and turn on sharing in the welcome window or General
+settings. This enables both SDKs for that run. For a crash test that needs
+collection on the following launch too, explicitly launch the Dev app with
+`-shareUsageAndDiagnostics YES` on both runs. Inspect the Dev property's DebugView. Verify the
 three custom event names and their documented parameters. Use the identical
 build's dSYM when checking Sentry symbolication. TestFlight receipt routing
 requires an installation delivered through TestFlight.

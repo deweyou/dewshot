@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Start each local Dev session with usage statistics and diagnostics turned off.
+
 - Add optional usage statistics and crash diagnostics with separate development and production projects.
 
 - Exclude browser download metadata from the provisioning profile embedded in
