@@ -59,7 +59,7 @@ func verify(_ url: URL, id: String) throws {
     }
 }
 
-func launch(_ url: URL, id: String) throws -> NSRunningApplication {
+func launch(_ url: URL, id: String, arguments: [String] = []) throws -> NSRunningApplication {
     try verify(url, id: id)
     let path = url.resolvingSymlinksInPath().standardizedFileURL.path
     if let existing = instances(id).first(where: { $0.bundleURL?.resolvingSymlinksInPath().standardizedFileURL.path == path }) {
@@ -67,6 +67,7 @@ func launch(_ url: URL, id: String) throws -> NSRunningApplication {
     }
     var result: Result<NSRunningApplication, Error>?
     let config = NSWorkspace.OpenConfiguration()
+    config.arguments = arguments
     NSWorkspace.shared.openApplication(at: url, configuration: config) { app, error in
         if let app { result = .success(app) }
         else { result = .failure(error ?? SessionError("Could not launch \(path).")) }
@@ -79,7 +80,7 @@ func launch(_ url: URL, id: String) throws -> NSRunningApplication {
     return app
 }
 
-func start(_ override: String?) throws -> (Session, NSRunningApplication) {
+func start(_ override: String?, settings: Bool) throws -> (Session, NSRunningApplication) {
     let prior = try savedSession()
     let runningDev = instances(devID)
     let runningProduction = instances(productionID)
@@ -91,6 +92,7 @@ func start(_ override: String?) throws -> (Session, NSRunningApplication) {
         .appending(path: ".build/app-sandbox/dewShot Dev.app")
     let dev = override.map { URL(fileURLWithPath: $0).standardizedFileURL }
         ?? prior?.dev ?? runningDev.first?.bundleURL ?? (files.fileExists(atPath: installedDev.path) ? installedDev : sandboxDev)
+    if settings && !runningDev.isEmpty { throw SessionError("Stop the current Dev session before requesting a settings launch.") }
     let production = runningProduction.first?.bundleURL ?? prior?.production ?? installedProduction
     try verify(dev, id: devID)
     try verify(production, id: productionID)
@@ -101,7 +103,7 @@ func start(_ override: String?) throws -> (Session, NSRunningApplication) {
     try JSONEncoder().encode(session).write(to: state, options: .atomic)
     try quit(runningProduction)
     do {
-        return (session, try launch(dev, id: devID))
+        return (session, try launch(dev, id: devID, arguments: settings ? ["--settings"] : []))
     } catch {
         if instances(devID).isEmpty {
             if session.restoreOnQuit { _ = try launch(production, id: productionID) }
@@ -114,8 +116,10 @@ func start(_ override: String?) throws -> (Session, NSRunningApplication) {
 do {
     let args = Array(CommandLine.arguments.dropFirst())
     switch args.first {
-    case "start" where args.count <= 2:
-        let (session, app) = try locked { try start(args.dropFirst().first) }
+    case "start":
+        let paths = args.dropFirst().filter { $0 != "--settings" }
+        guard paths.count <= 1 else { throw SessionError("Expected at most one Dev app path.") }
+        let (session, app) = try locked { try start(paths.first, settings: args.contains("--settings")) }
         print("Dev is running at \(session.dev.path). Use dev-session.swift stop to return to production.")
         while !app.isTerminated { RunLoop.current.run(until: Date().addingTimeInterval(0.5)) }
         try locked {
@@ -134,7 +138,7 @@ do {
             print("Production is running at \(destination.path).")
         }
     default:
-        throw SessionError("Usage: scripts/dev-session.swift start [path-to-dev.app] | stop")
+        throw SessionError("Usage: scripts/dev-session.swift start [--settings] [path-to-dev.app] | stop")
     }
 } catch {
     fputs("\(error.localizedDescription)\n", stderr)

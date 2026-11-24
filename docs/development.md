@@ -202,7 +202,8 @@ does not require an app switch.
    progress, wait for it to finish before switching. Run
    `scripts/dev-session.swift start "<verified Dev app path>"` in a retained
    terminal session. The helper requests a normal quit and waits for production
-   to exit before launching Dev. Verify the running Dev path before testing.
+   to exit before launching Dev. For settings review, pass `--settings` to
+   `start` to open General on launch after onboarding. Verify the running Dev path before testing.
 2. **Test or hand off.** Exercise the requested behavior. If the user is trying
    the UI, leave Dev open and retain the session until they indicate they are
    finished. For agent-only tests, proceed directly to cleanup, including after

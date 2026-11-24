@@ -113,6 +113,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let message = shortcutStatus.messages[.screenshot] ?? shortcutStatus.messages[.recording] {
                 showHotKeyConflictAlert(message: message)
             }
+            if Bundle.main.bundleIdentifier == "dev.deweyou.dewshot.dev",
+               CommandLine.arguments.contains("--settings") {
+                onSettings()
+            }
         }
     }
 
