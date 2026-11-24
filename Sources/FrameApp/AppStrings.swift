@@ -56,6 +56,14 @@ struct AppStrings {
         }
     }
 
+    var settingsPrivacyPolicy: String {
+        language == .zhHans ? "隐私政策" : "Privacy Policy"
+    }
+
+    var settingsContactSupport: String {
+        language == .zhHans ? "联系支持" : "Contact Support"
+    }
+
     var confirmScreenshotHint: String {
         switch language {
         case .zhHans: "截图 ↵"

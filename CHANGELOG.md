@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add privacy policy and email support links beside diagnostics sharing in General settings.
+
 - Publish the DewShot product website with setup help, support contact, and privacy policy.
 
 - Activate the menu bar item and global shortcuts only after Get Started. Closing unfinished setup resumes it on the next launch.

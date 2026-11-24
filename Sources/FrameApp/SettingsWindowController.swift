@@ -390,7 +390,14 @@ private struct GeneralSettingsView: View {
                     }
             }
 
-            TelemetryConsentToggle(strings: strings)
+            VStack(alignment: .leading, spacing: 8) {
+                TelemetryConsentToggle(strings: strings)
+                HStack(spacing: 16) {
+                    Link(strings.settingsPrivacyPolicy, destination: URL(string: "https://dewshot.oushihao97.workers.dev/privacy/")!)
+                    Link(strings.settingsContactSupport, destination: URL(string: "mailto:deweyou97@gmail.com")!)
+                }
+                .font(.callout)
+            }
 
             SettingsSectionGroup(title: strings.settingsPreferences) {
                 SettingsControlGroup {
