@@ -91,6 +91,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppTelemetry.resetDevelopmentConsentOnLaunch(bundleID: Bundle.main.bundleIdentifier, defaults: .standard)
         AppTelemetry.refresh()
         SettingsStore.appTheme().apply(to: NSApp)
+        try? captureHistoryStore.cleanup()
+
+        let hotKeyController = HotKeyController(
+            shortcut: SettingsStore.screenshotShortcut(),
+            recordingShortcut: SettingsStore.recordingShortcut()
+        )
+        hotKeyController.onScreenshot = { [weak self] in
+            self?.startCaptureFlow(initialMode: .screenshot, entry: "shortcut")
+        }
+        hotKeyController.onRecording = { [weak self] in
+            self?.startCaptureFlow(initialMode: .recordingSetup, entry: "shortcut")
+        }
+
+        self.hotKeyController = hotKeyController
+        if SettingsStore.firstRunSetupProgress().requiresSetup {
+            showFirstRunSetup()
+        } else {
+            registerConfiguredShortcuts()
+            showStatusItem()
+            if let message = shortcutStatus.messages[.screenshot] ?? shortcutStatus.messages[.recording] {
+                showHotKeyConflictAlert(message: message)
+            }
+        }
+    }
+
+    private func showStatusItem() {
         statusItemController = StatusItemController(
             strings: strings,
             onCapture: { [weak self] in
@@ -109,27 +135,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.stopActiveRecording()
             }
         )
-
-        try? captureHistoryStore.cleanup()
-
-        let hotKeyController = HotKeyController(
-            shortcut: SettingsStore.screenshotShortcut(),
-            recordingShortcut: SettingsStore.recordingShortcut()
-        )
-        hotKeyController.onScreenshot = { [weak self] in
-            self?.startCaptureFlow(initialMode: .screenshot, entry: "shortcut")
-        }
-        hotKeyController.onRecording = { [weak self] in
-            self?.startCaptureFlow(initialMode: .recordingSetup, entry: "shortcut")
-        }
-
-        self.hotKeyController = hotKeyController
-        registerConfiguredShortcuts()
-        if SettingsStore.firstRunSetupProgress().shouldShowOnLaunch(hasAccess: hasScreenRecordingAccess()) {
-            showFirstRunSetup()
-        } else if let message = shortcutStatus.messages[.screenshot] ?? shortcutStatus.messages[.recording] {
-            showHotKeyConflictAlert(message: message)
-        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -141,6 +146,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func onSettings() {
+        guard !isConfiguringWelcome else { return }
         settingsWindowController.show(
             strings: strings,
             onShortcutChange: { [weak self] shortcut in
@@ -170,10 +176,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func onHistory() {
+        guard !isConfiguringWelcome else { return }
         showCaptureHistory()
     }
 
+    private var isConfiguringWelcome = false
+
     private func showFirstRunSetup() {
+        isConfiguringWelcome = true
+        statusItemController?.removeFromMenuBar()
+        statusItemController = nil
+        registerConfiguredShortcuts()
+        hotKeyController?.unregister()
         firstRunSetupWindowController.show(
             strings: strings,
             screenshotShortcut: SettingsStore.screenshotShortcut(),
@@ -190,9 +204,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 recordingChanged: { [weak self] active in self?.setScreenshotShortcutRecorderActive(active) },
                 configuredShortcuts: { (SettingsStore.screenshotShortcut(), SettingsStore.recordingShortcut()) }
             ),
-            hasAccess: hasScreenRecordingAccess
+            hasAccess: hasScreenRecordingAccess,
+            canFinish: { [weak self] in
+                guard let self, self.hasScreenRecordingAccess() else { return false }
+                self.registerConfiguredShortcuts()
+                guard self.shortcutStatus.messages.isEmpty, SettingsStore.recordingShortcut() != nil else {
+                    self.hotKeyController?.unregister()
+                    return false
+                }
+                return true
+            }
         ) { [weak self] in
             guard let self else { return }
+            self.isConfiguringWelcome = false
+            self.showStatusItem()
             DispatchQueue.main.asyncAfter(deadline: .now() + self.overlayDismissalCaptureDelay) { [weak self] in
                 self?.startCaptureFlow(initialMode: .screenshot, entry: "welcome")
             }
@@ -219,6 +244,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @discardableResult
     private func startCaptureFlow(initialMode: SelectionOverlayInitialMode, entry: String = "menu") -> Bool {
+        guard !isConfiguringWelcome else { return false }
         guard !isCaptureFlowBusy else {
             recordScreenshotShortcutHintIfRecording()
             playInvalidActionFeedback()
@@ -235,7 +261,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let overlayStart = ContinuousClock.now
-        firstRunSetupWindowController.finishIfVisible()
         quickAccessPanelController.temporarilyHidePreviews()
 
         let quickAccessAnchor = ActiveScreenResolver.preferredQuickAccessAnchor()
@@ -1744,6 +1769,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         do {
+            defer { if isConfiguringWelcome { hotKeyController?.unregister() } }
             try hotKeyController?.register(kind, value: value)
             if kind == .screenshot, let value { SettingsStore.setScreenshotShortcut(value) }
             if kind == .recording { SettingsStore.setRecordingShortcut(value) }
@@ -1801,6 +1827,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         registerConfiguredShortcuts()
+        if isConfiguringWelcome { hotKeyController.unregister() }
     }
 
     private func showHotKeyConflictAlert(message: String) {

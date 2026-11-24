@@ -52,6 +52,10 @@ final class StatusItemController: NSObject {
         configureStatusItem()
     }
 
+    func removeFromMenuBar() {
+        NSStatusBar.system.removeStatusItem(statusItem)
+    }
+
     func reloadMenu(strings: AppStrings) {
         self.strings = strings
         configureStatusItem()

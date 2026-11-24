@@ -5,12 +5,10 @@ import XCTest
 @testable import FrameApp
 
 final class FirstRunSetupTests: XCTestCase {
-    func testLaunchShowsSetupForNewUsersWithoutAccessAndResumesAfterRelaunch() {
-        XCTAssertTrue(FirstRunSetupProgress.new.shouldShowOnLaunch(hasAccess: false))
-        XCTAssertFalse(FirstRunSetupProgress.new.shouldShowOnLaunch(hasAccess: true))
-        XCTAssertTrue(FirstRunSetupProgress.inProgress.shouldShowOnLaunch(hasAccess: true))
-        XCTAssertTrue(FirstRunSetupProgress.inProgress.shouldShowOnLaunch(hasAccess: false))
-        XCTAssertFalse(FirstRunSetupProgress.finished.shouldShowOnLaunch(hasAccess: false))
+    func testOnlyFinishedProgressUnlocksTheApp() {
+        XCTAssertTrue(FirstRunSetupProgress.new.requiresSetup)
+        XCTAssertTrue(FirstRunSetupProgress.inProgress.requiresSetup)
+        XCTAssertFalse(FirstRunSetupProgress.finished.requiresSetup)
     }
 
     @MainActor

@@ -166,9 +166,9 @@ in the sandbox container. To test it at the stable development-app path, follow
 step 2 of the [manual smoke test](#manual-smoke-test) in the same shell. Grant Screen Recording if requested, then relaunch.
 
 When testing a first launch without Screen Recording access, confirm the welcome
-window shows the registered screenshot and recording shortcuts. Verify that a
-disabled shortcut points to the menu bar. In the signed app, close the window
-and reopen setup from Capture Screenshot. Start permission setup, confirm the
+window shows the configured screenshot and recording shortcuts. Confirm the
+menu bar item is absent and the shortcuts do not start captures. Close the
+window and relaunch the app to resume setup. Start permission setup, confirm the
 guide opens beside System Settings, and drag the app into the list if it is
 missing. Enable access and follow any system prompt to relaunch. The welcome
 window should resume with its screenshot action available. Test the drag in the

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Activate the menu bar item and global shortcuts only after Get Started. Closing unfinished setup resumes it on the next launch.
+
 - Preselect optional diagnostics and usage sharing on the App Store and TestFlight welcome screen.
 
 - Use a subtle background tint when recording a shortcut in onboarding or Settings.

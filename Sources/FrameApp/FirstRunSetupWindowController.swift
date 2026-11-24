@@ -9,9 +9,7 @@ enum FirstRunSetupProgress: String {
     case inProgress
     case finished
 
-    func shouldShowOnLaunch(hasAccess: Bool) -> Bool {
-        self == .inProgress || (self == .new && !hasAccess)
-    }
+    var requiresSetup: Bool { self != .finished }
 }
 
 @MainActor
@@ -83,6 +81,7 @@ final class FirstRunSetupWindowController: NSObject, NSWindowDelegate {
         recordingShortcut: ScreenshotShortcut?,
         shortcutControls: FirstRunShortcutControls,
         hasAccess: @escaping () -> Bool,
+        canFinish: @escaping () -> Bool,
         onStartCapture: @escaping () -> Void
     ) {
         if let window {
@@ -106,6 +105,10 @@ final class FirstRunSetupWindowController: NSObject, NSWindowDelegate {
             state: state,
             shortcutControls: shortcutControls,
             onStartCapture: { [weak self] in
+                guard canFinish() else {
+                    state.refresh()
+                    return
+                }
                 AppTelemetry.applyWelcomeDefaultIfNeeded(bundleID: Bundle.main.bundleIdentifier, defaults: .standard)
                 AppTelemetry.refresh()
                 self?.finishIfVisible()
@@ -131,15 +134,15 @@ final class FirstRunSetupWindowController: NSObject, NSWindowDelegate {
         present(window)
     }
 
-    func finishIfVisible() {
+    private func finishIfVisible() {
         guard let window else { return }
         SettingsStore.setFirstRunSetupProgress(.finished)
         window.close()
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
-        SettingsStore.setFirstRunSetupProgress(.finished)
-        return true
+        NSApp.terminate(nil)
+        return false
     }
 
     func windowWillClose(_ notification: Notification) {
