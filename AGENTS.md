@@ -29,6 +29,12 @@ For release acceptance, use the [designated TestFlight build](docs/development.m
 Report the build tested and the interaction observed. Replace a local Dev app
 when the requested verification calls for it and installation is authorized.
 
+When testing Dev alongside an installed production copy, use
+`scripts/dev-session.swift start` for the shortcut handoff. At the end of
+testing, run `scripts/dev-session.swift stop` to close Dev and reopen the
+user's production app, unless the user wants Dev left open for review.
+See [Switching between production and Dev](docs/development.md#switching-between-production-and-dev).
+
 ## Knowledge Base
 
 Start with the [knowledge base](docs/README.md). Update the document that owns a

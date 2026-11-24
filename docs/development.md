@@ -189,6 +189,22 @@ and that the screenshot action is available with both optional permissions off.
 The folder picker, security-scoped bookmark lifecycle, and system permissions
 require the installed signed bundle for end-to-end verification.
 
+## Switching between production and Dev
+
+Finish any recording before switching. Run `scripts/dev-session.swift start` to
+quit the running production copy normally and launch Dev with its usual global
+shortcuts. The command stays open while Dev runs. It reuses a running Dev copy,
+otherwise preferring the installed Dev app and falling back to the sandbox
+build in this checkout. To select a specific build, pass its app path after
+`start`.
+
+Run `scripts/dev-session.swift stop` from another terminal to quit Dev and
+open the production copy, including when the original terminal has closed.
+The session remembers the running production app's path and otherwise uses
+`/Applications/dewShot.app`. If you quit Dev manually while the start command
+is watching, it reopens production only if production was running before the
+session. Shortcut assignment, preferences, and macOS permissions are preserved.
+
 ## Manual Smoke Test
 
 1. Choose an Apple Development signing identity from
