@@ -2,17 +2,16 @@
 
 dewShot is a native macOS screenshot and screen recording tool. Editing, saving, and sharing captures are part of its core workflow. See [Product Positioning](docs/product-positioning.md) when deciding what to develop or prioritize.
 
-## Commands
+## Verification
 
-Run these before claiming a change is ready:
+Before committing, review the staged diff and run the checks affected by the change.
+For documentation, check links, anchors, and command examples. For Swift logic,
+run the matching XCTest filter. For packaging, exercise the affected script or
+artifact. Use the [development guide](DEVELOPMENT.md) to choose a check.
 
-```sh
-swift test
-swift build
-scripts/package-app.sh
-```
-
-The packaging script creates the production `.build/app/dewShot.app` by default. Set `FRAME_APP_VARIANT=development` to create `.build/app/dewShot Dev.app` with bundle identifier `dev.deweyou.dewshot.dev`. It uses ad-hoc signing by default, or `FRAME_CODESIGN_IDENTITY` when a stable local Code Signing identity is available.
+Review the [CI result](.github/workflows/ci.yml) for the PR revision before merging.
+CI owns the stable suite, build, packaging, and bundle checks. Real-window tests
+and desktop interactions use the [local test boundaries](docs/testing.md#ci-expectations).
 
 For local GUI iteration, use the signed development variant and the
 [local installation flow](docs/development.md#manual-smoke-test). For sandbox
@@ -23,19 +22,8 @@ when the requested verification calls for it and installation is authorized.
 
 ## Knowledge Base
 
-Use `docs/` as the project knowledge base:
-
-- `docs/architecture.md` explains runtime boundaries and core components.
-- `docs/development.md` explains local setup, verification, packaging, and CI expectations.
-- `docs/overlay-interactions.md` explains screenshot overlay drag, cursor, handle, and HUD tooltip behavior.
-- `docs/testing.md` explains automated test layers, AppKit component e2e boundaries, and the expectation to cover new interactive requirements with e2e tests.
-- `docs/permissions.md` explains macOS Screen Recording/TCC behavior.
-- `docs/signing-and-device-migration.md` explains the development/production App IDs, Apple signing assets, and replacement-Mac recovery flow.
-- `DESIGN.md` explains durable interface principles and HUD/Quick Access behavior.
-- `docs/superpowers/specs/` stores approved product specs.
-- `docs/superpowers/plans/` stores implementation plans.
-
-Keep durable implementation decisions in docs when they affect future agent work.
+Start with the [knowledge base](docs/README.md). Update the document that owns a
+decision when it changes. Keep release commands and manual test procedures there.
 
 ## Product README
 

@@ -1,35 +1,7 @@
-# Development
+# Build, install, and release DewShot
 
-```mermaid
-flowchart TD
-    Edit[Edit code] --> Verify[swift test and swift build]
-    Verify --> DevPackage[Package dewShot Dev]
-    DevPackage --> DevSign[Stable local or Apple Development signing]
-    DevSign --> DevInstall[Install dewShot Dev.app]
-    DevInstall --> Smoke[Manual screenshot smoke test]
-    Verify --> Production[Package production dewShot.app]
-```
-
-dewShot development uses SwiftPM for verification, a local packaging script for app bundle creation, and a stable local signing path for repeat GUI testing without unnecessary Screen Recording permission churn.
-
-## Requirements
-
-- macOS 26 or later
-- Swift 6.2 toolchain
-- Xcode command line tools with the macOS 26 SDK or later
-- Apple Developer Program membership only for Apple Development and public distribution signing
-
-## Verify
-
-Run these before merging or opening a PR:
-
-```sh
-swift test
-swift build
-scripts/package-app.sh
-```
-
-`scripts/package-app.sh` writes `Info.plist`, copies the release executable, and signs the bundle. It uses ad-hoc signing by default so CI and fresh machines work without account setup.
+For prerequisites and change-specific checks, see the [development guide](../DEVELOPMENT.md)
+or [中文开发指南](../DEVELOPMENT_ZH.md).
 
 ## App Variants
 
@@ -303,17 +275,11 @@ Keep using the same `FRAME_CODESIGN_IDENTITY`, the `development` variant, and th
 
 ## CI
 
-GitHub Actions runs on macOS and verifies:
-
-- AppKit component E2E with `swift test --filter HUDSizeControlTests`
-- `swift test`
-- `swift build`
-- `scripts/package-app.sh`
-- generated app bundle existence
-- generated `Info.plist` validity
-- generated app bundle signature metadata
-
-CI does not grant Screen Recording permission or run full desktop GUI smoke tests. Live ScreenCaptureKit recording, HUD exclusion from output, and full-screen selection recording must be verified through the stable local app smoke flow above. See `docs/testing.md` for the component E2E boundary and expectations for new interactive requirements.
+On pull requests and pushes to `main`, [CI](../.github/workflows/ci.yml) runs
+the stable Swift suite, builds the app, packages the production variant, and
+checks the executable, Info.plist values and signature metadata. Review the PR
+result before merging. For the three local-only AppKit suites and desktop
+checks, see [testing](testing.md#ci-expectations).
 
 ## Local Permission Reset
 

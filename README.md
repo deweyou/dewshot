@@ -2,7 +2,7 @@
   <img src="Sources/FrameApp/Resources/dewShot.iconset/icon_256x256.png" alt="dewShot app icon" width="96" height="96">
 </p>
 
-<h1 align="center">dewShot</h1>
+<h1 align="center">DewShot</h1>
 
 <p align="center">
   A native macOS app to capture, preview, copy, and save screenshots and screen recordings.
@@ -12,18 +12,18 @@
   <a href="README_ZH.md">中文</a>
 </p>
 
-dewShot helps when you need to show something quickly: a bug, an idea, a setting,
-a layout, or a short interaction. Press the shortcut, choose what you need, and
-then preview, copy, or save the result.
+## Install and get started
 
-Everything stays on your Mac. dewShot does not need an account and does not upload
-your screenshots or recordings.
+Requires macOS 26 or later. If you received a DewShot beta invitation, open it on your Mac and install the app through TestFlight. Earlier versions were published as Frame on [GitHub Releases](https://github.com/deweyou/frame/releases).
 
-## How It Feels
+1. Open the app and follow the welcome window to grant Screen Recording access.
+2. Press `⌘⇧A` for a screenshot or `⌘⇧R` to start a recording. Both actions are also in the menu bar.
+3. Use the corner preview to copy or save the result. The TestFlight build asks you to choose a folder on the first save.
 
-dewShot lives in the menu bar instead of opening a large window. After each
-screenshot or recording, a small preview appears in the corner of your screen.
-From there you can preview, copy, or save it.
+Screenshots and recordings are processed on your Mac. No account is required to use DewShot.
+
+## Menu bar and previews
+
 On multiple displays, previews follow the active window's display. Moving the pointer alone leaves them in place.
 By default, dewShot also copies the finished screenshot or recording to the clipboard.
 You can turn this off in Settings → Capture.
@@ -34,8 +34,6 @@ and shows each configured shortcut beside its action.
 Record Screen defaults to `Command+Shift+R`.
 Customize these shortcuts in General settings with Command, Option, or Control
 and a letter or number. dewShot checks for known conflicts before saving.
-
-The goal is simple: capture what you need, then get back to what you were doing.
 
 ## What You Can Do
 
@@ -63,7 +61,6 @@ The goal is simple: capture what you need, then get back to what you were doing.
 
 ### Appearance
 
-- Requires macOS 26 or later.
 - In Settings → General, choose Follow System, Light, or Dark. The screenshot
   toolbar uses Liquid Glass and follows the selected appearance. The Capture pane
   groups screenshot, recording, and text recognition settings.
@@ -88,3 +85,7 @@ optional permissions for automatic scrolling and live keyboard hints. Their
 status refreshes after you return from System Settings.
 
 See [macOS Permissions](docs/permissions.md) for more detail.
+
+## Development
+
+See the [development guide](DEVELOPMENT.md) for setup, change-specific checks, and the project knowledge base.

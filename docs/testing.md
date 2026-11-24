@@ -45,7 +45,7 @@ Do not call modal menu presentation such as `NSMenu.popUp` from CI tests. Prefer
 
 ## CI Expectations
 
-GitHub Actions runs on a fixed `macos-26` runner and records the AppKit component E2E local-only requirement:
+Before committing an interactive change, run the relevant local suite:
 
 ```sh
 swift test --filter HUDSizeControlTests
@@ -57,7 +57,7 @@ Run AppKit component E2E locally before shipping interactive HUD, workspace, pre
 
 Avoid `macos-latest` because it can silently move to newer hosted images. Keep the runner pinned to a Swift 6.1-capable macOS image and keep real AppKit window e2e local-only until a self-hosted runner or a stable UI automation environment is available.
 
-The workflow also runs the rest of the verification sequence:
+On pull requests and pushes to `main`, the [CI workflow](../.github/workflows/ci.yml) runs:
 
 ```sh
 swift test --skip HUDSizeControlTests --skip ImageWorkspacePanelControllerTests --skip ScreenshotDragItemProviderTests
@@ -70,6 +70,3 @@ Component E2E tests must remain deterministic without Screen Recording permissio
 ## Feature Iteration Rule
 
 When a new requirement changes an interactive AppKit behavior, update the matching component E2E tests in the same change. If the behavior cannot be automated safely, document the reason and add the smallest stable lower-level coverage instead.
-
----
-*Last updated: 2026-07-21 | Reason: document incremental scrolling and closed-loop control coverage*
