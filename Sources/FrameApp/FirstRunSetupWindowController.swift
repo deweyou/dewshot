@@ -222,18 +222,12 @@ struct FirstRunSetupView: View {
                 .fill(colorScheme == .dark ? Color.white : Color.black)
                 .frame(width: 62, height: 62)
                 .accessibilityHidden(true)
-            VStack(spacing: 2) {
-                Text(strings.firstRunWelcome)
-                    .font(.system(size: 12, weight: .medium))
-                    .tracking(1.4)
-                    .foregroundStyle(.secondary)
-                HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    Text(verbatim: "Dew").italic()
-                    Text(verbatim: "Shot")
-                }
-                .font(.system(size: 29, weight: .semibold, design: .serif))
-                .tracking(-0.8)
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
+                Text(verbatim: "Dew").italic()
+                Text(verbatim: "Shot")
             }
+            .font(.system(size: 29, weight: .semibold, design: .serif))
+            .tracking(-0.8)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(strings.firstRunTitle)
             .accessibilityAddTraits(.isHeader)
