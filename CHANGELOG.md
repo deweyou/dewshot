@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Exclude browser download metadata from the provisioning profile embedded in
+  Mac App Store packages.
+
 - Reuse the authorized save folder when saving a recording from History in the
   Mac App Store build.
 

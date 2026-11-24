@@ -63,7 +63,13 @@ fi
 
 FRAME_APP_VARIANT=production FRAME_APP_SANDBOX=1 FRAME_APP_OUTPUT_ROOT="$STAGING_DIR" \
     FRAME_CODESIGN_IDENTITY=- "$ROOT_DIR/scripts/package-app.sh"
-cp "$FRAME_APP_STORE_PROFILE" "$APP_DIR/Contents/embedded.provisionprofile"
+# Embed the profile bytes without browser download metadata.
+cat "$FRAME_APP_STORE_PROFILE" > "$APP_DIR/Contents/embedded.provisionprofile"
+xattr -r "$APP_DIR" > "$STAGING_DIR/app-xattrs.txt"
+if grep -Eq '(^|: )com\.apple\.quarantine$' "$STAGING_DIR/app-xattrs.txt"; then
+    echo "The staged app contains quarantine attributes that the Mac App Store rejects." >&2
+    exit 1
+fi
 cp "$ROOT_DIR/scripts/app-sandbox.entitlements" "$ENTITLEMENTS"
 /usr/libexec/PlistBuddy -c "Add :com.apple.application-identifier string $APP_ID" "$ENTITLEMENTS"
 /usr/libexec/PlistBuddy -c "Add :com.apple.developer.team-identifier string $TEAM_ID" "$ENTITLEMENTS"
