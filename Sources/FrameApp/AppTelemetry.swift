@@ -33,6 +33,16 @@ enum AppTelemetry {
         }
     }
 
+    static func defaultWelcomeSharing(bundleID: String?) -> Bool {
+        bundleID == "dev.deweyou.dewshot"
+    }
+
+    static func applyWelcomeDefaultIfNeeded(bundleID: String?, defaults: UserDefaults) {
+        guard defaultWelcomeSharing(bundleID: bundleID),
+              defaults.object(forKey: consentKey) == nil else { return }
+        defaults.set(true, forKey: consentKey)
+    }
+
     static func refresh() {
         guard UserDefaults.standard.bool(forKey: consentKey) else {
             resolving?.cancel()
@@ -186,11 +196,12 @@ enum AppTelemetry {
 struct TelemetryConsentToggle: View {
     let strings: AppStrings
     var expandsLabel = false
+    var defaultSelection = false
     var enabled: (() -> Void)?
-    @AppStorage(AppTelemetry.consentKey) private var consent = false
+    @AppStorage(AppTelemetry.consentKey) private var consent: Bool?
 
     var body: some View {
-        Toggle(isOn: Binding(get: { consent }, set: { value in
+        Toggle(isOn: Binding(get: { consent ?? defaultSelection }, set: { value in
             consent = value
             AppTelemetry.refresh()
             if value { enabled?() }

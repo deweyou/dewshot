@@ -106,6 +106,8 @@ final class FirstRunSetupWindowController: NSObject, NSWindowDelegate {
             state: state,
             shortcutControls: shortcutControls,
             onStartCapture: { [weak self] in
+                AppTelemetry.applyWelcomeDefaultIfNeeded(bundleID: Bundle.main.bundleIdentifier, defaults: .standard)
+                AppTelemetry.refresh()
                 self?.finishIfVisible()
                 onStartCapture()
             }
@@ -182,7 +184,10 @@ struct FirstRunSetupView: View {
             hero
             shortcutHints.padding(.top, 22)
             permissions.padding(.top, 24)
-            TelemetryConsentToggle(strings: strings, expandsLabel: true) {
+            TelemetryConsentToggle(
+                strings: strings, expandsLabel: true,
+                defaultSelection: AppTelemetry.defaultWelcomeSharing(bundleID: Bundle.main.bundleIdentifier)
+            ) {
                 AppTelemetry.setup(granted: state.phase == .ready)
             }
             .padding(.horizontal, 12)
