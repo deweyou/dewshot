@@ -12,7 +12,7 @@ enum AppTelemetry {
     private static var configuredFirebase = false
 
     private static var resolving: Task<Void, Never>?
-    private static var pendingSetup: [(Bool, Bool)] = []
+    private static var pendingEvents: [() -> Void] = []
     private static let cache = URL.cachesDirectory.appending(path: "DewShotDiagnostics")
 
     enum Stage: String {
@@ -48,7 +48,7 @@ enum AppTelemetry {
         guard UserDefaults.standard.bool(forKey: consentKey) else {
             resolving?.cancel()
             resolving = nil
-            pendingSetup.removeAll()
+            pendingEvents.removeAll()
             if active {
                 Analytics.setAnalyticsCollectionEnabled(false)
                 Analytics.resetAnalyticsData()
@@ -68,13 +68,11 @@ enum AppTelemetry {
             resolving = Task {
                 let transaction = try? await AppTransaction.shared
                 guard !Task.isCancelled else { return }
-                defer { resolving = nil; pendingSetup.removeAll() }
+                defer { resolving = nil; pendingEvents.removeAll() }
                 guard case let .verified(app) = transaction, app.bundleID == id else { return }
                 if app.environment == .production { start(channel: "production") }
                 if app.environment == .sandbox { start(channel: "testflight") }
-                for (granted, transition) in pendingSetup where active {
-                    setup(granted: granted, transition: transition)
-                }
+                if active { pendingEvents.forEach { $0() } }
             }
         }
     }
@@ -140,16 +138,20 @@ enum AppTelemetry {
     }
 
     static func setup(granted: Bool, transition: Bool = false) {
-        guard active else {
-            if resolving != nil && UserDefaults.standard.bool(forKey: consentKey) {
-                pendingSetup.append((granted, transition))
-            }
-            return
+        deliverWhenReady {
+            Analytics.logEvent("setup_step", parameters: [
+                "step": transition ? "access_granted" : "viewed",
+                "screen_access": granted ? "granted" : "missing"
+            ])
         }
-        Analytics.logEvent("setup_step", parameters: [
-            "step": transition ? "access_granted" : "viewed",
-            "screen_access": granted ? "granted" : "missing"
-        ])
+    }
+
+    private static func deliverWhenReady(_ report: @escaping () -> Void) {
+        if active {
+            report()
+        } else if resolving != nil, UserDefaults.standard.bool(forKey: consentKey), pendingEvents.count < 128 {
+            pendingEvents.append(report)
+        }
     }
 
     static func capture(_ stage: Stage, since start: ContinuousClock.Instant?, fields: [String: String], failed: Bool = false) {
@@ -166,7 +168,7 @@ enum AppTelemetry {
     }
 
     private static func result(_ event: String, fields: [String: String], start: ContinuousClock.Instant?, failed: Bool, operation: String, error: Error? = nil) {
-        guard active else { return }
+        guard active || resolving != nil else { return }
         var parameters: [String: Any] = fields
         parameters["outcome"] = failed ? "failure" : "success"
         if let start {
@@ -182,15 +184,18 @@ enum AppTelemetry {
             let reason = diskFull ? "disk_full" : "\(operation)_failed"
             parameters["reason"] = reason
             parameters["impact"] = fields["source"] == Source.automatic.rawValue ? "degraded" : "blocked"
-            if !diskFull && (event == "capture_step" || operation == Action.save.rawValue) {
+        }
+        deliverWhenReady {
+            if failed, let reason = parameters["reason"] as? String, reason != "disk_full",
+               event == "capture_step" || operation == Action.save.rawValue {
                 SentrySDK.capture(error: NSError(domain: "DewShot.\(operation)", code: 1)) { scope in
                     scope.setTag(value: operation, key: "operation")
                     scope.setTag(value: reason, key: "reason")
                     scope.setTag(value: "blocked", key: "impact")
                 }
             }
+            Analytics.logEvent(event, parameters: parameters)
         }
-        Analytics.logEvent(event, parameters: parameters)
     }
 }
 
