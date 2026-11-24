@@ -16,7 +16,7 @@
 
 Requires macOS 26 or later. If you received a DewShot beta invitation, open it on your Mac and install the app through TestFlight. Earlier versions were published as Frame on [GitHub Releases](https://github.com/deweyou/frame/releases).
 
-1. Open the app and follow the welcome window to grant Screen Recording access. Set the screenshot and recording shortcuts there too. A conflict is shown beside the affected shortcut.
+1. Open the app and follow the welcome window to grant Screen Recording access. Set the screenshot and recording shortcuts there too. A conflict is shown beside the affected shortcut. Take a Screenshot becomes available once screen access is granted and both shortcuts are ready.
 2. Press `⌘⇧A` for a screenshot or `⌘⇧R` to start a recording. Both actions are also in the menu bar.
 3. Use the corner preview to copy or save the result. The TestFlight build asks you to choose a folder on the first save.
 
@@ -78,7 +78,7 @@ dewShot needs the macOS Screen Recording permission so it can see what is on you
 screen when you take a screenshot or recording. The name sounds broader than
 screenshots, but macOS uses this permission for screenshot apps too.
 On first launch without access, the welcome window guides you through this
-permission and lets you try a screenshot as soon as it is enabled.
+permission and checks that both shortcuts are available before your first capture.
 If System Settings opens, the dewShot guide shows how to enable it or drag
 the app into the list when it is missing.
 

@@ -155,6 +155,30 @@ final class FirstRunSetupTests: XCTestCase {
     }
 
     @MainActor
+    func testStartRequiresScreenAccessAndTwoAvailableShortcuts() {
+        var granted = false
+        let state = FirstRunSetupState(hasAccess: { granted }, requestAccess: {}, openSettings: {})
+        let status = ShortcutRegistrationStatus()
+        func welcome(_ screenshot: ScreenshotShortcut?, _ recording: ScreenshotShortcut?) -> FirstRunSetupView {
+            FirstRunSetupView(strings: AppStrings(language: .en), screenshotShortcut: screenshot,
+                              recordingShortcut: recording, state: state,
+                              shortcutControls: FirstRunShortcutControls(status: status), onStartCapture: {})
+        }
+        XCTAssertFalse(welcome(.default, .defaultRecording).canStartCapture)
+        granted = true
+        state.refresh()
+        XCTAssertFalse(welcome(nil, .defaultRecording).canStartCapture)
+        XCTAssertFalse(welcome(.default, nil).canStartCapture)
+        XCTAssertFalse(welcome(.default, .default).canStartCapture)
+        for kind in [HotKeyController.HotKeyKind.screenshot, .recording] {
+            status.messages[kind] = "Conflict"
+            XCTAssertFalse(welcome(.default, .defaultRecording).canStartCapture)
+            status.messages[kind] = nil
+        }
+        XCTAssertTrue(welcome(.default, .defaultRecording).canStartCapture)
+    }
+
+    @MainActor
     func testWelcomeViewWrapsLongShortcutsWithoutClipping() {
         _ = NSApplication.shared
         let modifiers = Set(ScreenshotShortcutModifier.allCases)

@@ -174,6 +174,7 @@ struct FirstRunSetupView: View {
     let onStartCapture: () -> Void
     @State private var shortcutErrors: [HotKeyController.HotKeyKind: String] = [:]
 
+    @State private var editingShortcut = false
     private let permissionRefresh = Timer.publish(every: 0.7, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -261,6 +262,7 @@ struct FirstRunSetupView: View {
                     if let failure { shortcutErrors[kind] = strings.settingsShortcutRecorderError(failure) }
                 },
                 onRecordingChange: { active in
+                    editingShortcut = active
                     if active { shortcutErrors[kind] = nil }
                     shortcutControls.recordingChanged(active)
                 }
@@ -291,19 +293,19 @@ struct FirstRunSetupView: View {
 
             VStack(spacing: 0) {
                 permissionRow(.screenRecording, title: strings.settingsScreenRecordingPermission,
-                                      purpose: strings.language == .zhHans ? "开启后即可截图和录屏" : "Enable to take screenshots and record", icon: "record.circle")
+                                      purpose: strings.settingsScreenRecordingPurpose, icon: "record.circle")
                 Divider().padding(.leading, 48)
                 permissionRow(
                     .accessibility,
                     title: strings.settingsAccessibilityPermission,
-                    purpose: strings.language == .zhHans ? "使用自动滚动截图时再开启" : "Enable when you need auto-scrolling",
+                    purpose: strings.settingsAccessibilityPurpose,
                     icon: "figure.arms.open"
                 )
                 Divider().padding(.leading, 48)
                 permissionRow(
                     .inputMonitoring,
                     title: strings.settingsInputMonitoringPermission,
-                    purpose: strings.language == .zhHans ? "想在录屏中显示按键时再开启" : "Enable to show keystrokes in recordings",
+                    purpose: strings.settingsInputMonitoringPurpose,
                     icon: "keyboard"
                 )
             }
@@ -324,7 +326,17 @@ struct FirstRunSetupView: View {
                 .frame(width: 24)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.system(size: 13, weight: .medium))
+                HStack(spacing: 6) {
+                    Text(title).font(.system(size: 13, weight: .medium))
+                    if page != .screenRecording {
+                        Text(strings.language == .zhHans ? "可选" : "Optional")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(.primary.opacity(0.065), in: Capsule())
+                    }
+                }
                 Text(purpose)
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
@@ -354,23 +366,31 @@ struct FirstRunSetupView: View {
         .padding(.vertical, 8)
     }
 
+    var canStartCapture: Bool {
+        state.phase == .ready && screenshotShortcut != nil && recordingShortcut != nil
+            && screenshotShortcut != recordingShortcut && !editingShortcut
+            && shortcutErrors.isEmpty && shortcutControls.status.messages.isEmpty
+    }
+
     private var permissionMessage: String {
         switch state.phase {
         case .needsPermission: strings.firstRunPermissionExplanation
         case .waitingForPermission: strings.firstRunPermissionWaiting
-        case .ready: strings.firstRunReady
+        case .ready: canStartCapture ? strings.firstRunReady : (strings.language == .zhHans ? "请设置两组可用的快捷键。" : "Set two available shortcuts to continue.")
         }
     }
 
     private var primaryButton: some View {
-        Button(action: onStartCapture) {
+        Button {
+            if canStartCapture { onStartCapture() }
+        } label: {
             Text(strings.firstRunStartCapture)
                 .frame(minWidth: 104)
         }
         .buttonStyle(.borderedProminent)
         .controlSize(.large)
         .keyboardShortcut(.defaultAction)
-        .disabled(state.phase != .ready)
+        .disabled(!canStartCapture)
         .help(permissionMessage)
         .accessibilityHint(permissionMessage)
     }
