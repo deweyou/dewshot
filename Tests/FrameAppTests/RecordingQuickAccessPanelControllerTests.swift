@@ -776,12 +776,19 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         }
 
         controller.scheduleHoverPreviewForTesting(window: panel)
-        RunLoop.main.run(until: Date().addingTimeInterval(0.04))
+        waitForHoverPreview(controller)
 
         let hoverFrame = try XCTUnwrap(controller.hoverPreviewFrameForTesting())
         XCTAssertGreaterThan(hoverFrame.minX, panel.frame.maxX)
         XCTAssertGreaterThan(hoverFrame.width, panel.frame.width)
         XCTAssertGreaterThan(hoverFrame.height, panel.frame.height)
+    }
+
+    private func waitForHoverPreview(_ controller: QuickAccessPanelController) {
+        let deadline = Date().addingTimeInterval(3)
+        while controller.hoverPreviewFrameForTesting() == nil && Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+        }
     }
 
     func testDefaultHoverPreviewDelayIsTwoSeconds() {
@@ -818,7 +825,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         }
 
         controller.scheduleHoverPreviewForTesting(window: panel)
-        RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+        waitForHoverPreview(controller)
 
         let metrics = try XCTUnwrap(controller.hoverPreviewBubbleMetricsForTesting())
         XCTAssertEqual(metrics.panelFrame.width, 664, accuracy: 1)
@@ -874,7 +881,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         }
 
         controller.scheduleHoverPreviewForTesting(window: panel)
-        RunLoop.main.run(until: Date().addingTimeInterval(0.04))
+        waitForHoverPreview(controller)
 
         XCTAssertEqual(controller.hoverPreviewPlayerIsMutedForTesting(), true)
     }
