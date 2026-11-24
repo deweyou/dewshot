@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Keep Mac App Store copy, declarations, and localized screenshots in the repository. Continue release work from verified Apple states and give explicit handoffs for blocked steps.
+
 - Prepare Mac App Store releases and patches locally from temporary branches. Record candidate checksums and confirm the published Apple build before tagging and merging back.
 
 - Group system permissions, diagnostics sharing, and the privacy policy in Privacy & Permissions settings. Display the privacy policy as a standalone text link below diagnostics sharing. Use the standard grouped row for email support in General settings.

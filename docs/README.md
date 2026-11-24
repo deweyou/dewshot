@@ -12,6 +12,7 @@ Contributors can start with the [development guide](../DEVELOPMENT.md) or [ä¸­æ–
 | Choose automated coverage and real-device checks | [Testing](testing.md) |
 | Build, install a signed Dev app or prepare a distribution package | [Build and release procedures](development.md) |
 | Ship a new version or patch a published build | [Store release SOP](release.md) |
+| Update App Store copy, screenshots or declarations | [Store listing materials](../store-listing/README.md) |
 | Diagnose a missing capture or optional permission | [macOS permissions](permissions.md) |
 | Set up signing on a replacement Mac | [Signing and device migration](signing-and-device-migration.md) |
 

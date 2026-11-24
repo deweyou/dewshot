@@ -1,0 +1,12 @@
+DewShot is a Mac menu bar app for screenshots and screen recordings. Start with a keyboard shortcut. When you finish, your capture is copied to the clipboard and stays in a corner preview, ready to view, save, or open in your default app.
+
+Fit a long page into one screenshot
+Capture a region, a window, or the full screen. When a page or document extends past the screen, watch the screenshot come together as you scroll. You can also recognize text in a screenshot and copy individual blocks or the full text.
+
+Show how something works
+Select an area to record and save it as an MP4 or GIF. Show the pointer, clicks, or keystrokes when they help explain what you’re doing.
+
+Use it now or find it later
+Drag a screenshot into a chat or document, or pin it to your desktop for reference. Reopen recent screenshots and recordings from Capture History.
+
+Requires macOS 26 or later. Screenshots and recordings are processed on your Mac. No account is required. You can turn off usage statistics and diagnostics on the welcome screen or in Settings.
