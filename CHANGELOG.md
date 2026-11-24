@@ -4,7 +4,7 @@
 
 - Group system permissions, diagnostics sharing, and the privacy policy in Privacy & Permissions settings. Display the privacy policy as a standalone text link below diagnostics sharing. Use the standard grouped row for email support in General settings.
 
-- Publish the DewShot product website at https://dewshot.deweyou.me/ with setup help, support contact, and privacy policy.
+- Publish the DewShot product website at https://dewshot.deweyou.me/ with setup help, support contact, privacy policy, and a footer link to the GitHub repository.
 
 - Activate the menu bar item and global shortcuts only after Get Started. Closing unfinished setup resumes it on the next launch.
 
