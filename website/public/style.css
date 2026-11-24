@@ -111,28 +111,31 @@ footer {
   font-size: clamp(1.05rem, 2.2vw, 1.45rem);
   margin: 28px 0 18px;
 }
-.shortcuts,
-.shortcuts div {
-  display: flex;
-  justify-content: center;
-  align-items: baseline;
-}
-.shortcuts {
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 24px;
+  margin: 38px auto 0;
+}
+.gallery figure {
   margin: 0;
+}
+.gallery img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+}
+.gallery figcaption {
+  margin-top: 8px;
   color: #536059;
+  font-size: 0.9rem;
 }
-.shortcuts div {
-  gap: 8px;
-}
-.shortcuts dd {
-  margin: 0;
-}
-.shortcuts kbd {
-  font:
-    500 0.9rem ui-monospace,
-    monospace;
-  white-space: nowrap;
+@media (max-width: 700px) {
+  .gallery {
+    grid-template-columns: 1fr;
+    max-width: 540px;
+  }
 }
 .home footer {
   gap: 12px 24px;
