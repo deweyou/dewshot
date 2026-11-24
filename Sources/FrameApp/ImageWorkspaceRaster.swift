@@ -181,7 +181,8 @@ enum ImageWorkspaceRaster {
         }
 
         return (
-            CapturedScreenshot(id: screenshot.id, pngData: png, image: NSImage(cgImage: rendered, size: outputSize),
+            CapturedScreenshot(id: screenshot.id, exportFilename: screenshot.exportFilename,
+                               pngData: png, image: NSImage(cgImage: rendered, size: outputSize),
                                rect: CGRect(origin: screenshot.rect.origin, size: outputSize)),
             transform,
             styleScale

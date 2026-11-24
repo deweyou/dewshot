@@ -7,6 +7,7 @@ typealias ScrollingScreenshotPreviewStitch = ([CapturedScreenshot]) throws -> Sc
 @MainActor
 protocol ScrollingScreenshotSessionControlling: AnyObject {
     var isActive: Bool { get }
+    var usedAutomaticScrolling: Bool { get }
 
     func start(
         selection: SelectionCapture,
@@ -21,6 +22,8 @@ protocol ScrollingScreenshotSessionControlling: AnyObject {
 }
 
 extension ScrollingScreenshotSessionControlling {
+    var usedAutomaticScrolling: Bool { false }
+
     func start(
         selection: SelectionCapture,
         strings: AppStrings,
@@ -85,6 +88,8 @@ final class ScrollingScreenshotSessionController: ScrollingScreenshotSessionCont
     private var lastPreviewPixelHeight = 0
     private var incrementalPipeline: (any ScrollingScreenshotIncrementalProcessing)?
     private var incrementalProcessingSessionID: UUID?
+
+    var usedAutomaticScrolling: Bool { (activeSession?.completedScrollSteps ?? 0) > 0 }
 
     var isActive: Bool {
         activeSession != nil

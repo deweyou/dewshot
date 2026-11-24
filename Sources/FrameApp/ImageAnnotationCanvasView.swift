@@ -170,7 +170,7 @@ final class ImageAnnotationCanvasView: NSView, NSTextViewDelegate, ImageWorkspac
 
     var currentSnapshotImage: CapturedScreenshot {
         if let baseScreenshot, let data = document.editedImagePNG {
-            return CapturedScreenshot(id: baseScreenshot.id, pngData: data, image: image,
+            return CapturedScreenshot(id: baseScreenshot.id, exportFilename: baseScreenshot.exportFilename, pngData: data, image: image,
                                       rect: CGRect(origin: baseScreenshot.rect.origin, size: image.size))
         }
         return currentScreenshotForTesting

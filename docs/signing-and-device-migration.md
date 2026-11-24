@@ -8,14 +8,17 @@ The Explicit App IDs are registered in the Apple Developer account and do not ne
 
 | Purpose | App name | Bundle identifier |
 | --- | --- | --- |
-| Public production app | dewShot | `dev.deweyou.frame` |
-| Development and signing checks | dewShot Dev | `dev.deweyou.frame.dev` |
+| Public production app | dewShot | `dev.deweyou.dewshot` |
+| Development and signing checks | dewShot Dev | `dev.deweyou.dewshot.dev` |
 
 The Apple Developer Team ID is `6JKX7TG2AN`, verified from the signed development bundle on 2026-09-02. This value is not a private key, but it should change only if dewShot deliberately moves to another Apple Developer team.
 
 Do not create another App ID for a replacement Mac. A Bundle ID identifies the app; it is not a certificate, private key, or provisioning profile.
 
 The two variants have separate `UserDefaults`, TCC permission records, and capture-history caches. Production retains `Application Support/Frame/History`; development uses `Application Support/Frame Dev/History`.
+When switching from a build with a Frame bundle identifier, macOS uses a new
+preferences domain and requires fresh permission grants. Existing capture
+history remains in the same directories.
 
 ## Build and Signing Lanes
 

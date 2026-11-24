@@ -84,6 +84,10 @@ final class CaptureHistoryWindowController: NSObject, NSToolbarDelegate {
         window?.isVisible == true
     }
 
+    var visibleWindow: NSWindow? {
+        isWindowVisible ? window : nil
+    }
+
     func show(strings: AppStrings) {
         self.strings = strings
         reloadRecords()

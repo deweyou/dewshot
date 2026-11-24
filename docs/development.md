@@ -1,35 +1,7 @@
-# Development
+# Build, install, and release DewShot
 
-```mermaid
-flowchart TD
-    Edit[Edit code] --> Verify[swift test and swift build]
-    Verify --> DevPackage[Package dewShot Dev]
-    DevPackage --> DevSign[Stable local or Apple Development signing]
-    DevSign --> DevInstall[Install dewShot Dev.app]
-    DevInstall --> Smoke[Manual screenshot smoke test]
-    Verify --> Production[Package production dewShot.app]
-```
-
-dewShot development uses SwiftPM for verification, a local packaging script for app bundle creation, and a stable local signing path for repeat GUI testing without unnecessary Screen Recording permission churn.
-
-## Requirements
-
-- macOS 26 or later
-- Swift 6.2 toolchain
-- Xcode command line tools with the macOS 26 SDK or later
-- Apple Developer Program membership only for Apple Development and public distribution signing
-
-## Verify
-
-Run these before merging or opening a PR:
-
-```sh
-swift test
-swift build
-scripts/package-app.sh
-```
-
-`scripts/package-app.sh` writes `Info.plist`, copies the release executable, and signs the bundle. It uses ad-hoc signing by default so CI and fresh machines work without account setup.
+For prerequisites and change-specific checks, see the [development guide](../DEVELOPMENT.md)
+or [中文开发指南](../DEVELOPMENT_ZH.md).
 
 ## App Variants
 
@@ -37,8 +9,8 @@ The packaging script owns the registered app identity mapping. Callers select a 
 
 | Variant | App name | Bundle identifier | Output |
 | --- | --- | --- | --- |
-| `production` (default) | dewShot | `dev.deweyou.frame` | `.build/app/dewShot.app` |
-| `development` | dewShot Dev | `dev.deweyou.frame.dev` | `.build/app/dewShot Dev.app` |
+| `production` (default) | dewShot | `dev.deweyou.dewshot` | `.build/app/dewShot.app` |
+| `development` | dewShot Dev | `dev.deweyou.dewshot.dev` | `.build/app/dewShot Dev.app` |
 
 Inspect the resolved configuration without building:
 
@@ -58,16 +30,16 @@ Development identity listed by `security find-identity -v -p codesigning`.
 See the [local installation flow](#manual-smoke-test) and
 [signing setup for a new Mac](signing-and-device-migration.md#set-up-a-new-development-mac).
 
-## Manual Beta Release
+## GitHub Direct Distribution
 
-dewShot's first release path is a manual beta download. It produces a DMG, a ZIP,
+The GitHub download workflow produces a DMG, a ZIP,
 and SHA-256 checksums, but it does not notarize the app and does not configure
 automatic updates.
 
 ### GitHub Actions
 
-Use the `Manual Release` workflow from the GitHub Actions UI for the normal beta
-release path. It is triggered manually with `workflow_dispatch` and asks for:
+Use the `Manual Release` workflow from the GitHub Actions UI for GitHub
+distribution. It is triggered manually with `workflow_dispatch` and asks for:
 
 - `version_bump`: `patch`, `minor`, `major`, or `custom`.
 - `custom_version`: required only when `version_bump` is `custom`.
@@ -147,6 +119,106 @@ to `/Applications`, open it from there, use macOS `Open Anyway` when prompted,
 grant Screen Recording permission, and relaunch the app. Do not ask users to run
 dewShot directly from the mounted DMG.
 
+## Mac App Store and TestFlight
+
+The Store package uses the production App ID `dev.deweyou.dewshot` with
+App Sandbox enabled. Have the App Store Connect app record and these signing
+assets ready before building for TestFlight:
+
+- An `Apple Distribution` or `Mac App Distribution` identity and private key.
+- A `Mac Installer Distribution` identity and private key. Keychain may show it
+  as `3rd Party Mac Developer Installer`.
+- A `Mac App Store Connect` provisioning profile for the production App ID and
+  its app-signing certificate.
+
+```sh
+FRAME_APP_STORE_APP_IDENTITY="Apple Distribution: Your Team (TEAMID)" \
+FRAME_APP_STORE_INSTALLER_IDENTITY="3rd Party Mac Developer Installer: Your Team (TEAMID)" \
+FRAME_APP_STORE_PROFILE="/path/to/dewShot.provisionprofile" \
+scripts/package-app-store.sh
+```
+
+Use the exact identity names from `security find-identity -v` and keep the
+profile and private keys outside the repository. The script creates a signed
+`.pkg` in `.build/app-store/` for validation and upload in Transporter.
+For release acceptance, install the selected version and build through TestFlight.
+Run that copy, record its version and build, then check capture, saving from History,
+and playback of a saved recording. For first-run testing use a fresh test account
+or Mac where the production app has not yet requested access. The
+bundled privacy manifest declares local app preferences and elapsed-time APIs.
+
+See Apple's [provisioning profile instructions](https://developer.apple.com/help/account/provisioning-profiles/create-an-app-store-provisioning-profile)
+and [Mac packaging instructions](https://developer.apple.com/documentation/xcode/packaging-mac-software-for-distribution).
+
+## Sandbox Smoke Test
+
+Build with the existing Apple Development identity:
+
+```sh
+FRAME_APP_SANDBOX=1 FRAME_APP_VARIANT=development \
+FRAME_CODESIGN_IDENTITY="Apple Development: Your Name (IDENTIFIER)" \
+scripts/package-app.sh
+frame_dev_source=".build/app-sandbox/dewShot Dev.app"
+```
+
+The bundle uses the development App ID and writes its own settings and history
+in the sandbox container. To test it at the stable development-app path, follow
+step 2 of the [manual smoke test](#manual-smoke-test) in the same shell. Grant Screen Recording if requested, then relaunch.
+
+When testing a first launch without Screen Recording access, confirm the welcome
+window shows the configured screenshot and recording shortcuts. Confirm the
+menu bar item is absent and the shortcuts do not start captures. Close the
+window and relaunch the app to resume setup. Start permission setup, confirm the
+guide opens beside System Settings, and drag the app into the list if it is
+missing. Enable access and follow any system prompt to relaunch. The welcome
+window should resume with its screenshot action available. Test the drag in the
+signed app because the destination is a system-owned privacy control.
+Confirm that the two optional welcome rows open their respective settings pages
+and that the screenshot action is available with both optional permissions off.
+
+1. Capture a region using the global shortcut. Save from Quick Access and choose
+   a folder outside the app container. Canceling the picker should leave the
+   capture available to save again.
+2. Quit and reopen the app. Save another screenshot and a short recording.
+   Both should land in the same chosen folder without a second picker.
+3. Reset the save location in Settings. The next save should ask for a folder again.
+4. With Accessibility and Input Monitoring off, verify manual scrolling capture
+   and recording with keystroke hints off. Check automatic scrolling and
+   keystroke hints separately if their permissions are granted.
+
+The folder picker, security-scoped bookmark lifecycle, and system permissions
+require the installed signed bundle for end-to-end verification.
+
+## Switching between production and Dev
+
+### Local GUI test SOP
+
+The agent owns the app switch whenever a task needs the signed local Dev app
+on a Mac with production installed. A website preview or a unit test alone
+does not require an app switch.
+
+1. **Start.** Identify the signed Dev build under test and the running production
+   app's path (normally `/Applications/dewShot.app`). If a recording is in
+   progress, wait for it to finish before switching. Run
+   `scripts/dev-session.swift start "<verified Dev app path>"` in a retained
+   terminal session. The helper requests a normal quit and waits for production
+   to exit before launching Dev. For settings review, pass `--settings` to
+   `start` to open General on launch after onboarding. Verify the running Dev path before testing.
+2. **Test or hand off.** Exercise the requested behavior. If the user is trying
+   the UI, leave Dev open and retain the session until they indicate they are
+   finished. For agent-only tests, proceed directly to cleanup, including after
+   a failed test.
+3. **Restore.** Run `scripts/dev-session.swift stop` in a separate terminal.
+   This also works if the start terminal has closed. It quits Dev and reopens
+   the recorded production copy, falling back to `/Applications/dewShot.app`
+   when no production path was recorded. Honor an explicit request to leave
+   an app open or keep all apps closed.
+4. **Verify and report.** Check the running application paths. Confirm that
+   Dev has exited and the intended production app is running before reporting
+   restoration. If normal quit or launch fails, inspect the remaining processes
+   and retry safely. Report any unresolved blocker and the actual running
+   state. Only ask the user to intervene when their action is necessary.
+
 ## Manual Smoke Test
 
 1. Choose an Apple Development signing identity from
@@ -156,34 +228,45 @@ dewShot directly from the mounted DMG.
    FRAME_APP_VARIANT=development \
    FRAME_CODESIGN_IDENTITY="Apple Development: Your Name (IDENTIFIER)" \
    scripts/package-app.sh
+   frame_dev_source=".build/app/dewShot Dev.app"
    ```
 
 2. Quit the installed development app, replace it at `~/Applications/dewShot Dev.app`,
    then verify the signature before opening it:
 
    ```sh
-   mkdir -p "$HOME/Applications"
-   frame_previous=$(mktemp -d "$HOME/Applications/.frame-update.XXXXXXXX")
-   if [ -d "$HOME/Applications/dewShot Dev.app" ]; then
-       mv "$HOME/Applications/dewShot Dev.app" "$frame_previous/dewShot Dev.app"
-   fi
-   if [ -d "$HOME/Applications/Frame Dev.app" ]; then
-       mv "$HOME/Applications/Frame Dev.app" "$frame_previous/Frame Dev.app"
-   fi
-   ditto ".build/app/dewShot Dev.app" "$HOME/Applications/dewShot Dev.app"
-   codesign --verify --strict --deep "$HOME/Applications/dewShot Dev.app"
-   codesign -dv --verbose=4 "$HOME/Applications/dewShot Dev.app" 2>&1
-   open "$HOME/Applications/dewShot Dev.app"
+   (
+       set -eu
+       : "${frame_dev_source:?Select the Dev bundle from the packaging step first}"
+       installed="$HOME/Applications/dewShot Dev.app"
+       codesign --verify --strict --deep "$frame_dev_source"
+       mkdir -p "$HOME/Applications"
+       if [ -d "$installed" ]; then
+           backup=$(mktemp -d "$HOME/Applications/.frame-update.XXXXXXXX")
+           mv "$installed" "$backup/"
+           echo "Previous app saved in $backup"
+       fi
+       ditto "$frame_dev_source" "$installed"
+       codesign --verify --strict --deep "$installed"
+       codesign -dv --verbose=4 "$installed" 2>&1
+   )
    ```
 
-   Check for an Apple Development authority, a Team ID, and
-   `Identifier=dev.deweyou.frame.dev`. The directory in `frame_previous`
-   holds the previous bundle for rollback.
+   Confirm an Apple Development authority, the expected Team ID, and
+   `Identifier=dev.deweyou.dewshot.dev`. For a sandbox test, also run the
+   following command and confirm it prints `True` before opening the app:
+
+   ```sh
+   codesign -d --entitlements - --xml "$HOME/Applications/dewShot Dev.app" 2>/dev/null |
+       python3 -c 'import plistlib, sys; print(plistlib.loads(sys.stdin.buffer.read())["com.apple.security.app-sandbox"])'
+   ```
+
+   Once verified, launch the installed build using the [local GUI test SOP](#local-gui-test-sop).
 
 3. Grant Screen Recording permission when prompted.
-4. Quit and reopen `~/Applications/dewShot Dev.app`.
-5. Open `dewShot -> 设置...` / `dewShot -> Settings...`. Switch among General, Capture, History, and Permissions and confirm the controls match the selected pane. Reopen Settings from another display and confirm it centers on that display.
-6. Change the language between Follow System, 中文, and English. Confirm the menu, settings window labels, permission alerts opened after the change, Quick Access tooltips, and capture placeholder use the selected language. In General, turn Launch at Login on and confirm dewShot appears under System Settings > General > Login Items & Extensions; turn it off and confirm the login item is removed. If macOS reports that approval is required, confirm Settings explains where to approve it. In Permissions, verify that granted rows show a checkmark and missing rows link to the matching macOS settings pane. Return to dewShot from System Settings and confirm the states refresh. With a dedicated test app that lacks optional access, verify that automatic scrolling offers Settings and allows manual scrolling, and that recording can start with keystroke hints disabled.
+4. If a relaunch is required for permission changes, resume the same installed Dev build through the session helper.
+5. Open `dewShot -> 设置...` / `dewShot -> Settings...`. Switch among General, Capture, History, and Privacy & Permissions and confirm the controls match the selected pane. Reopen Settings from another display and confirm it centers on that display.
+6. Change the language between Follow System, 中文, and English. Confirm the menu, settings window labels, permission alerts opened after the change, Quick Access tooltips, and capture placeholder use the selected language. In General, turn Launch at Login on and confirm dewShot appears under System Settings > General > Login Items & Extensions; turn it off and confirm the login item is removed. If macOS reports that approval is required, confirm Settings explains where to approve it. In Privacy & Permissions, verify that granted rows show a checkmark and missing rows link to the matching macOS settings pane. Return to dewShot from System Settings and confirm the states refresh. With a dedicated test app that lacks optional access, verify that automatic scrolling offers Settings and allows manual scrolling, and that recording can start with keystroke hints disabled.
 7. In General, switch between the Light, Dark, and Follow System appearance previews. Confirm the Settings window updates immediately and both screenshot HUD capsules, icons, dimensions, and tooltips remain readable over light and dark content. Quit and reopen dewShot to confirm the choice persists. Also verify that a custom screenshot save folder persists.
 8. In Settings, change Window screenshot style between Soft Backdrop, Canvas Glow, Transparent Shadow, and Original. Confirm the labels localize and the selected value persists after reopening Settings.
 9. Reset the screenshot save folder and confirm it returns to Desktop.
@@ -222,27 +305,61 @@ Keep using the same `FRAME_CODESIGN_IDENTITY`, the `development` variant, and th
 
 ## CI
 
-GitHub Actions runs on macOS and verifies:
-
-- AppKit component E2E with `swift test --filter HUDSizeControlTests`
-- `swift test`
-- `swift build`
-- `scripts/package-app.sh`
-- generated app bundle existence
-- generated `Info.plist` validity
-- generated app bundle signature metadata
-
-CI does not grant Screen Recording permission or run full desktop GUI smoke tests. Live ScreenCaptureKit recording, HUD exclusion from output, and full-screen selection recording must be verified through the stable local app smoke flow above. See `docs/testing.md` for the component E2E boundary and expectations for new interactive requirements.
+On pull requests and pushes to `main`, [CI](../.github/workflows/ci.yml) runs
+the stable Swift suite, builds the app, packages the production variant, and
+checks the executable, Info.plist values and signature metadata. Review the PR
+result before merging. For the three local-only AppKit suites and desktop
+checks, see [testing](testing.md#ci-expectations).
 
 ## Local Permission Reset
 
-When testing repeated local builds, reset the app permission entry:
+Keep existing permissions during routine rebuilds. For first-run testing or a
+confirmed stale Dev entry, see [Reset Permission](permissions.md#reset-permission).
+
+### Usage analytics and diagnostics
+
+The optional sharing switch controls Firebase Analytics and Sentry. Local Dev
+uses GA4 property 565657202 and Sentry project `dewshot-macos-dev`. TestFlight
+uses a separate Apple stream in that GA4 property and the same Sentry project.
+App Store installations use property 565664100 and `dewshot-macos`. The
+production bundle verifies its StoreKit app transaction before selecting a
+destination. An unknown distribution environment leaves telemetry disabled.
+
+Keep the three Firebase client plists in `.local/telemetry/` as
+`GoogleService-development.plist`, `GoogleService-testflight.plist`, and
+`GoogleService-production.plist`. Keep the two public client DSNs there as
+`sentry-development.txt` and `sentry-production.txt`. CI can point
+`FRAME_TELEMETRY_ROOT` at a provisioned directory instead. Store packages
+require all five files. Apple Development signed sandbox builds also use a Mac
+development profile for the Dev bundle ID. Set `FRAME_DEV_PROFILE` or place it
+at `development.provisionprofile` in the telemetry directory for Keychain access. Normal source builds can run without telemetry.
+The packager validates the registered app IDs, bundle IDs and Sentry project IDs
+before signing. Never place an administrative token in this directory.
+
+Every ordinary launch of the local Dev app starts with sharing off, including
+after a previous connectivity test. To test delivery, start Dev with
+`-FIRDebugEnabled` and turn on sharing in the welcome window or General
+settings. This enables both SDKs for that run. For a crash test that needs
+collection on the following launch too, explicitly launch the Dev app with
+`-shareUsageAndDiagnostics YES` on both runs. Inspect the Dev property's DebugView. Verify the
+three custom event names and their documented parameters. Use the identical
+build's dSYM when checking Sentry symbolication. TestFlight receipt routing
+requires an installation delivered through TestFlight.
+
+The App Store packaging script archives the matching dSYM next to the installer.
+With a release-upload credential, upload the archive to both Sentry projects so
+the same binary can be symbolicated on TestFlight and in production:
 
 ```sh
-tccutil reset ScreenCapture dev.deweyou.frame.dev
+sentry-cli debug-files upload --org dewey-ou --project dewshot-macos-dev "$DEWSHOT_DSYM_ARCHIVE"
+sentry-cli debug-files upload --org dewey-ou --project dewshot-macos "$DEWSHOT_DSYM_ARCHIVE"
 ```
 
-Then reopen the exact app bundle you want to authorize.
 
----
-*Last updated: 2026-09-02 | Reason: separate development and production app identities and add device-migration guidance*
+## Product website
+
+The Cloudflare Worker `dewshot` serves the static files in `website/public/`.
+Preview them from the repository root with `python3 -m http.server --directory website/public`.
+After checking the home page, support email link, and privacy link, deploy with
+`npx wrangler deploy --config website/wrangler.jsonc` using an account with Workers write access.
+Website deployments are independent of the macOS release.

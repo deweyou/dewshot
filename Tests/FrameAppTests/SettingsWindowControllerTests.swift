@@ -11,10 +11,10 @@ final class SettingsWindowControllerTests: XCTestCase {
         let sections: [SettingsSection] = [.general, .capture, .history, .permissions]
         XCTAssertEqual(SettingsSection.allCases, sections)
         XCTAssertEqual(sections.map { $0.title(strings: AppStrings(language: .zhHans)) }, [
-            "通用", "捕获", "历史", "权限",
+            "通用", "捕获", "历史", "隐私与权限",
         ])
         XCTAssertEqual(sections.map { $0.title(strings: AppStrings(language: .en)) }, [
-            "General", "Capture", "History", "Permissions",
+            "General", "Capture", "History", "Privacy & Permissions",
         ])
     }
 
@@ -128,6 +128,17 @@ final class SettingsWindowControllerTests: XCTestCase {
 
         XCTAssertEqual(recordingStates, [true, false])
         XCTAssertEqual(appliedShortcuts, [.default])
+    }
+
+    func testShortcutRecorderHidesOutlineOnlyDuringInput() {
+        let button = ShortcutRecorderButton(frame: .zero)
+        button.startRecording()
+
+        XCTAssertEqual(button.focusRingType, .none)
+        XCTAssertEqual(button.layer?.borderWidth, 0)
+
+        button.keyDown(with: keyEvent(characters: "\u{1b}", modifiers: [], keyCode: kVK_Escape))
+        XCTAssertEqual(button.focusRingType, .default)
     }
 
     func testShortcutRecorderStopsRecordingWhenFirstResponderMovesElsewhere() {

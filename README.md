@@ -2,28 +2,31 @@
   <img src="Sources/FrameApp/Resources/dewShot.iconset/icon_256x256.png" alt="dewShot app icon" width="96" height="96">
 </p>
 
-<h1 align="center">dewShot</h1>
+<h1 align="center">DewShot</h1>
 
 <p align="center">
   A native macOS app to capture, preview, copy, and save screenshots and screen recordings.
 </p>
 
 <p align="center">
+  <a href="https://dewshot.oushihao97.workers.dev/">Website and support</a> ·
   <a href="README_ZH.md">中文</a>
 </p>
 
-dewShot helps when you need to show something quickly: a bug, an idea, a setting,
-a layout, or a short interaction. Press the shortcut, choose what you need, and
-then preview, copy, or save the result.
+## Install and get started
 
-Everything stays on your Mac. dewShot does not need an account and does not upload
-your screenshots or recordings.
+Requires macOS 26 or later. If you received a DewShot beta invitation, open it on your Mac and install the app through TestFlight. Earlier versions were published as Frame on [GitHub Releases](https://github.com/deweyou/frame/releases).
 
-## How It Feels
+1. Open the app and follow the welcome window to grant Screen Recording access. Set the screenshot and recording shortcuts there too. A conflict is shown beside the affected shortcut. Get Started becomes available once screen access is granted and both shortcuts are ready. Selecting it adds DewShot to the menu bar and activates the global shortcuts. Closing setup early resumes it on the next launch.
+2. Press `⌘⇧A` for a screenshot or `⌘⇧R` to start a recording. Both actions are also in the menu bar.
+3. Use the corner preview to copy or save the result. The TestFlight build asks you to choose a folder on the first save.
 
-dewShot lives in the menu bar instead of opening a large window. After each
-screenshot or recording, a small preview appears in the corner of your screen.
-From there you can preview, copy, or save it.
+Screenshots and recordings are processed on your Mac. No account is required to use DewShot.
+
+The App Store and TestFlight welcome screen preselects sharing of feature usage, operation timings, and crash diagnostics. You can switch sharing off before selecting Get Started or later in Settings → Privacy & Permissions.
+
+## Menu bar and previews
+
 On multiple displays, previews follow the active window's display. Moving the pointer alone leaves them in place.
 By default, dewShot also copies the finished screenshot or recording to the clipboard.
 You can turn this off in Settings → Capture.
@@ -34,8 +37,6 @@ and shows each configured shortcut beside its action.
 Record Screen defaults to `Command+Shift+R`.
 Customize these shortcuts in General settings with Command, Option, or Control
 and a letter or number. dewShot checks for known conflicts before saving.
-
-The goal is simple: capture what you need, then get back to what you were doing.
 
 ## What You Can Do
 
@@ -63,7 +64,6 @@ The goal is simple: capture what you need, then get back to what you were doing.
 
 ### Appearance
 
-- Requires macOS 26 or later.
 - In Settings → General, choose Follow System, Light, or Dark. The screenshot
   toolbar uses Liquid Glass and follows the selected appearance. The Capture pane
   groups screenshot, recording, and text recognition settings.
@@ -78,9 +78,17 @@ The goal is simple: capture what you need, then get back to what you were doing.
 dewShot needs the macOS Screen Recording permission so it can see what is on your
 screen when you take a screenshot or recording. The name sounds broader than
 screenshots, but macOS uses this permission for screenshot apps too.
+On first launch, the welcome window guides you through this
+permission and checks that both shortcuts are available before your first capture.
+If System Settings opens, the dewShot guide shows how to enable it or drag
+the app into the list when it is missing.
 
-dewShot also lists Accessibility and Input Monitoring in Settings. Those optional
-permissions support automatic scrolling and live keyboard hints; their status
-refreshes after you return from System Settings.
+The welcome window and Settings list Accessibility and Input Monitoring as
+optional permissions for automatic scrolling and live keyboard hints. Their
+status refreshes after you return from System Settings.
 
 See [macOS Permissions](docs/permissions.md) for more detail.
+
+## Development
+
+See the [development guide](DEVELOPMENT.md) for setup, change-specific checks, and the project knowledge base.

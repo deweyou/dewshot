@@ -7,6 +7,14 @@ For the first release, active surfaces focus on capture, preview, copy, and
 save. Open in Default App opens a separate copy. The editor design below
 documents the retained implementations for a future release.
 
+## Brand assets
+
+The welcome screen’s [logo](assets/brand/dewshot-logo.svg),
+[DewShot wordmark](assets/brand/dewshot-wordmark.svg), and
+[stacked combination](assets/brand/dewshot-lockup.svg) are available as
+transparent SVGs. The lettering uses vector outlines. When embedding an SVG
+inline, set CSS `color` to black on light backgrounds or white on dark ones.
+
 ## Product Feel
 
 - Prefer native macOS behavior and system materials over custom-drawn controls.

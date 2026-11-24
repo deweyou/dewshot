@@ -132,6 +132,34 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         XCTAssertNotNil(findTextField(in: try XCTUnwrap(panel.contentView), stringValue: "Copied"))
     }
 
+    func testDeliveryFeedbackCanAppearInHistoryWithoutAQuickAccessPreview() throws {
+        _ = NSApplication.shared
+        let controller = QuickAccessPanelController()
+        let window = NSWindow(
+            contentRect: CGRect(x: 0, y: 0, width: 520, height: 360),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.center()
+        defer {
+            controller.temporarilyHidePreviews()
+            window.close()
+        }
+        let windowsBeforeFeedback = Set(NSApp.windows.map(ObjectIdentifier.init))
+
+        controller.showDeliveryFeedback("Saved to Documents", anchoredTo: window)
+
+        let panel = try XCTUnwrap(NSApp.windows.first {
+            !windowsBeforeFeedback.contains(ObjectIdentifier($0))
+                && $0.title == QuickAccessPanelController.deliveryFeedbackWindowTitle && $0.isVisible
+        })
+        XCTAssertTrue(panel.ignoresMouseEvents)
+        XCTAssertEqual(panel.frame.midX, window.frame.midX, accuracy: 1)
+        XCTAssertNotNil(findTextField(in: try XCTUnwrap(panel.contentView), stringValue: "Saved to Documents"))
+    }
+
     func testScreenshotQuickAccessKeepsMediaSurfaceSeparateFromDarkActionChrome() throws {
         _ = NSApplication.shared
         let windowsBeforeShow = Set(NSApp.windows.map(ObjectIdentifier.init))
@@ -748,12 +776,19 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         }
 
         controller.scheduleHoverPreviewForTesting(window: panel)
-        RunLoop.main.run(until: Date().addingTimeInterval(0.04))
+        waitForHoverPreview(controller)
 
         let hoverFrame = try XCTUnwrap(controller.hoverPreviewFrameForTesting())
         XCTAssertGreaterThan(hoverFrame.minX, panel.frame.maxX)
         XCTAssertGreaterThan(hoverFrame.width, panel.frame.width)
         XCTAssertGreaterThan(hoverFrame.height, panel.frame.height)
+    }
+
+    private func waitForHoverPreview(_ controller: QuickAccessPanelController) {
+        let deadline = Date().addingTimeInterval(3)
+        while controller.hoverPreviewFrameForTesting() == nil && Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+        }
     }
 
     func testDefaultHoverPreviewDelayIsTwoSeconds() {
@@ -790,7 +825,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         }
 
         controller.scheduleHoverPreviewForTesting(window: panel)
-        RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+        waitForHoverPreview(controller)
 
         let metrics = try XCTUnwrap(controller.hoverPreviewBubbleMetricsForTesting())
         XCTAssertEqual(metrics.panelFrame.width, 664, accuracy: 1)
@@ -846,7 +881,7 @@ final class RecordingQuickAccessPanelControllerTests: XCTestCase {
         }
 
         controller.scheduleHoverPreviewForTesting(window: panel)
-        RunLoop.main.run(until: Date().addingTimeInterval(0.04))
+        waitForHoverPreview(controller)
 
         XCTAssertEqual(controller.hoverPreviewPlayerIsMutedForTesting(), true)
     }

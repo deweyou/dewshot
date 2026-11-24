@@ -53,7 +53,7 @@ final class AppStringsTests: XCTestCase {
         XCTAssertEqual(strings.captureHistoryEmpty, "No local history yet")
         XCTAssertEqual(strings.captureHistoryRestore, "Restore")
         XCTAssertEqual(strings.captureHistoryDeleteConfirmationTitle, "Delete this capture?")
-        XCTAssertEqual(strings.screenRecordingPermissionContinue, "Continue")
+        XCTAssertEqual(strings.firstRunStartCapture, "Get Started")
     }
 
     func testExplicitChineseStrings() {
@@ -107,7 +107,7 @@ final class AppStringsTests: XCTestCase {
         XCTAssertEqual(strings.captureHistoryEmpty, "暂无本地历史")
         XCTAssertEqual(strings.captureHistoryRestore, "恢复")
         XCTAssertEqual(strings.captureHistoryDeleteConfirmationTitle, "删除这条捕获记录？")
-        XCTAssertEqual(strings.screenRecordingPermissionContinue, "继续")
+        XCTAssertEqual(strings.firstRunStartCapture, "开始使用")
     }
 
     func testOCRStringsAreLocalized() {

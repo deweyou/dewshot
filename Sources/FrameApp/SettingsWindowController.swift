@@ -124,7 +124,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .general: strings.settingsGeneral
         case .capture: strings.settingsCapture
         case .history: strings.settingsHistory
-        case .permissions: strings.settingsPermissions
+        case .permissions: strings.settingsPrivacyAndPermissions
         }
     }
 
@@ -303,7 +303,21 @@ private struct SettingsDetailView: View {
         case .history:
             HistorySettingsView(strings: strings, onClearCaptureHistory: onClearCaptureHistory)
         case .permissions:
-            PermissionsSettingsView(strings: strings)
+            SettingsSectionGroup(title: strings.settingsPermissions) {
+                PermissionsSettingsView(strings: strings)
+            }
+            SettingsSectionGroup(title: strings.settingsPrivacy) {
+                SettingsControlGroup {
+                    SettingsControlRow(strings.shareUsageAndDiagnostics) {
+                        TelemetryConsentToggle(strings: strings)
+                            .labelsHidden()
+                            .accessibilityLabel(strings.shareUsageAndDiagnostics)
+                    }
+                }
+                Link(strings.settingsPrivacyPolicy, destination: URL(string: "https://dewshot.oushihao97.workers.dev/privacy/")!)
+                    .font(.callout)
+                    .padding(.leading, SettingsGroupMetrics.horizontalPadding)
+            }
         }
     }
 }
@@ -354,7 +368,7 @@ private struct GeneralSettingsView: View {
     @State private var selectedRecordingShortcut = SettingsStore.recordingShortcut()
     @State private var shortcutErrorText: String?
     @State private var recordingShortcutErrorText: String?
-    @State private var screenshotDirectoryURL = GeneralSettingsView.currentScreenshotDirectory()
+    @AppStorage(SettingsStore.screenshotDirectoryKey) private var screenshotDirectoryPath: String?
     @State private var launchAtLoginState: LaunchAtLoginSettingState
 
     init(
@@ -447,13 +461,13 @@ private struct GeneralSettingsView: View {
 
                     SettingsControlRow(
                         strings.settingsSaveLocation,
-                        subtitle: saveLocation.path
+                        subtitle: saveLocation?.path ?? strings.settingsSaveFolderOnFirstSave
                     ) {
                         HStack(spacing: 8) {
-                            if !saveLocation.isDefaultLocation {
-                                Button(strings.settingsRestoreDefaultFolder, action: resetScreenshotDirectory)
+                            if let saveLocation, CaptureSaveDirectory.isSandboxed || !saveLocation.isDefaultLocation {
+                                Button(strings.settingsRestoreDefaultFolder, action: onResetScreenshotDirectory)
                             }
-                            Button(strings.settingsChooseFolder, action: chooseScreenshotDirectory)
+                            Button(strings.settingsChooseFolder) { _ = onChooseScreenshotDirectory() }
                         }
                     }
                 }
@@ -514,6 +528,10 @@ private struct GeneralSettingsView: View {
                     }
                 }
             }
+            SettingsControlGroup {
+                SettingsLinkRow(title: strings.settingsContactSupport, symbol: "envelope",
+                                destination: URL(string: "mailto:deweyou97@gmail.com")!)
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             launchAtLoginState.refresh(using: launchAtLoginService)
@@ -552,26 +570,13 @@ private struct GeneralSettingsView: View {
         recordingShortcutErrorText = failure.map { strings.settingsShortcutRecorderError($0) }
     }
 
-    private var saveLocation: SettingsSaveLocationSummary {
-        SettingsSaveLocationSummary(url: screenshotDirectoryURL)
-    }
-
-    private func chooseScreenshotDirectory() {
-        guard let directory = onChooseScreenshotDirectory() else {
-            return
+    private var saveLocation: SettingsSaveLocationSummary? {
+        if let screenshotDirectoryPath, !screenshotDirectoryPath.isEmpty {
+            return SettingsSaveLocationSummary(url: URL(fileURLWithPath: screenshotDirectoryPath, isDirectory: true))
         }
-
-        SettingsStore.setScreenshotDirectory(directory)
-        screenshotDirectoryURL = directory
-    }
-
-    private func resetScreenshotDirectory() {
-        onResetScreenshotDirectory()
-        screenshotDirectoryURL = Self.currentScreenshotDirectory()
-    }
-
-    private static func currentScreenshotDirectory() -> URL {
-        (try? SettingsStore.screenshotDirectory()) ?? FileManager.default.homeDirectoryForCurrentUser
+        guard !CaptureSaveDirectory.isSandboxed else { return nil }
+        let directory = (try? SettingsStore.screenshotDirectory()) ?? FileManager.default.homeDirectoryForCurrentUser
+        return SettingsSaveLocationSummary(url: directory)
     }
 }
 
@@ -731,6 +736,25 @@ private struct SettingsControlRow<Content: View>: View {
     }
 }
 
+private struct SettingsLinkRow: View {
+    let title: String
+    let symbol: String
+    let destination: URL
+
+    var body: some View {
+        Link(destination: destination) {
+            SettingsControlRow(title) {
+                Image(systemName: symbol)
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+    }
+}
+
 private struct SettingsMenuPicker<Selection: Hashable, Options: View>: View {
     let title: String
     let value: String
@@ -863,10 +887,11 @@ private struct ScreenshotSettingsView: View {
     }
 }
 
-private struct ShortcutRecorderControl: NSViewRepresentable {
+struct ShortcutRecorderControl: NSViewRepresentable {
     let strings: AppStrings
     let accessibilityLabel: String
     let shortcut: ScreenshotShortcut?
+    var validationMessage: String?
     let allowsEmptyShortcut: Bool
     let reservedShortcuts: Set<ScreenshotShortcut>
     let duplicateShortcut: ScreenshotShortcut?
@@ -898,6 +923,8 @@ private struct ShortcutRecorderControl: NSViewRepresentable {
     }
 
     private func configure(_ button: ShortcutRecorderButton, context: Context) {
+        button.toolTip = validationMessage
+        button.setAccessibilityHelp(validationMessage)
         button.update(
             strings: strings,
             accessibilityLabel: accessibilityLabel,
@@ -954,7 +981,6 @@ final class ShortcutRecorderButton: NSButton {
         super.init(frame: frameRect)
         setButtonType(.momentaryChange)
         isBordered = false
-        focusRingType = .default
         alignment = .center
         lineBreakMode = .byTruncatingTail
         translatesAutoresizingMaskIntoConstraints = false
@@ -1128,6 +1154,7 @@ final class ShortcutRecorderButton: NSButton {
     }
 
     private func updateAppearance() {
+        focusRingType = isRecording ? .none : .default
         let hasShortcut = isRecording || shortcut != nil
         font = .systemFont(ofSize: 12, weight: hasShortcut ? .medium : .regular)
         contentTintColor = hasShortcut ? .labelColor : .secondaryLabelColor
@@ -1137,8 +1164,6 @@ final class ShortcutRecorderButton: NSButton {
             layer?.backgroundColor = isRecording
                 ? NSColor.controlAccentColor.withAlphaComponent(0.12).cgColor
                 : NSColor.labelColor.withAlphaComponent(0.055).cgColor
-            layer?.borderWidth = isRecording ? 1 : 0
-            layer?.borderColor = NSColor.controlAccentColor.cgColor
         }
     }
 }
@@ -1486,7 +1511,7 @@ private struct PermissionsSettingsView: View {
                 strings.settingsScreenRecordingPermission,
                 purpose: strings.settingsScreenRecordingPurpose,
                 hasAccess: hasScreenRecordingAccess,
-                openSettings: ScreenRecordingPermission.openSettings
+                openSettings: { ScreenRecordingPermission.openSettings(strings: strings) }
             )
 
             SettingsControlDivider()

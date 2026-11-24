@@ -137,7 +137,7 @@ final class ReleaseToolingTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 0, result.diagnosticOutput)
         XCTAssertTrue(result.stdout.contains("FRAME_APP_VARIANT=production"), result.diagnosticOutput)
         XCTAssertTrue(result.stdout.contains("FRAME_APP_NAME=dewShot"), result.diagnosticOutput)
-        XCTAssertTrue(result.stdout.contains("FRAME_BUNDLE_ID=dev.deweyou.frame"), result.diagnosticOutput)
+        XCTAssertTrue(result.stdout.contains("FRAME_BUNDLE_ID=dev.deweyou.dewshot"), result.diagnosticOutput)
         XCTAssertTrue(
             result.stdout.contains("FRAME_APP_PATH=\(repositoryRoot.path)/.build/app/dewShot.app"),
             result.diagnosticOutput
@@ -157,11 +157,38 @@ final class ReleaseToolingTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 0, result.diagnosticOutput)
         XCTAssertTrue(result.stdout.contains("FRAME_APP_VARIANT=development"), result.diagnosticOutput)
         XCTAssertTrue(result.stdout.contains("FRAME_APP_NAME=dewShot Dev"), result.diagnosticOutput)
-        XCTAssertTrue(result.stdout.contains("FRAME_BUNDLE_ID=dev.deweyou.frame.dev"), result.diagnosticOutput)
+        XCTAssertTrue(result.stdout.contains("FRAME_BUNDLE_ID=dev.deweyou.dewshot.dev"), result.diagnosticOutput)
         XCTAssertTrue(
             result.stdout.contains("FRAME_APP_PATH=\(repositoryRoot.path)/.build/app/dewShot Dev.app"),
             result.diagnosticOutput
         )
+    }
+
+    func testSandboxedDevelopmentPackageHasSeparateOutput() throws {
+        let result = try run(
+            [
+                "bash",
+                repositoryRoot.appendingPathComponent("scripts/package-app.sh").path,
+                "--print-configuration",
+            ],
+            environment: ["FRAME_APP_VARIANT": "development", "FRAME_APP_SANDBOX": "1"]
+        )
+
+        XCTAssertEqual(result.exitCode, 0, result.diagnosticOutput)
+        XCTAssertTrue(
+            result.stdout.contains("FRAME_APP_PATH=\(repositoryRoot.path)/.build/app-sandbox/dewShot Dev.app"),
+            result.diagnosticOutput
+        )
+    }
+
+    func testAppStorePackageRequiresDistributionSigning() throws {
+        let result = try run(
+            ["bash", repositoryRoot.appendingPathComponent("scripts/package-app-store.sh").path],
+            environment: ["FRAME_APP_STORE_APP_IDENTITY": ""]
+        )
+
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("FRAME_APP_STORE_APP_IDENTITY"), result.diagnosticOutput)
     }
 
     func testPackageAppRejectsUnknownVariant() throws {

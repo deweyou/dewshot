@@ -1,6 +1,6 @@
 ---
 name: frame-gui-verification
-description: Verify user-facing dewShot macOS GUI changes with the correct local signing identity, stable app path, Screen Recording permission handling, focused AppKit tests, and bounded manual smoke evidence. Use for local GUI verification, repeat test-app preparation, or diagnosing signing and TCC verification gaps; do not use for ordinary Swift-only changes or production release and notarization.
+description: Verify dewShot GUI behavior in a signed local Dev app or a designated TestFlight build. Use for focused AppKit checks and live macOS tests of capture, permissions, and sandbox file access.
 ---
 
 # dewShot GUI Verification
@@ -9,7 +9,8 @@ Produce trustworthy local evidence for a user-facing dewShot change. Do not trea
 
 ## Establish The Verification Scope
 
-Work in the assignment's current Harness workspace. Do not switch to another checkout or reuse an app bundle whose source revision is unknown.
+Use the current checkout for local verification. For release acceptance, record
+the installed TestFlight version and build number and test that copy.
 
 Before acting, read:
 
@@ -19,33 +20,24 @@ Before acting, read:
 - `docs/development.md` for the applicable manual smoke flow.
 - `DESIGN.md` and `docs/overlay-interactions.md` when the change affects HUD, overlay, Quick Access, or workspace interaction behavior.
 
-Identify the smallest set of user-visible claims that need live proof. Reuse current test, build, and package Evidence from upstream nodes when it matches the same source revision; rerun only checks needed to close a gap or verify the live bundle.
+Identify the user-visible claims that need live proof. Reuse test and packaging
+results that match the source and configuration under test.
 
-## Preserve Authority Boundaries
+## Select The Test App
 
-Building or packaging inside the workspace does not authorize replacing or launching the user's installed test app.
+For a local Dev session alongside production, execute the [local GUI test SOP](../../../docs/development.md#local-gui-test-sop) through its restoration check.
 
-Before running the stable-sign-and-replace flow from `AGENTS.md`, confirm that the current user request or Harness Commitment explicitly authorizes all of the following actions:
+- For local iteration, follow the installation steps in `docs/development.md`.
+  Check the installed Dev bundle's Apple Development signature, bundle ID and running path.
+- For local sandbox checks, package with `FRAME_APP_SANDBOX=1` and verify the
+  sandbox entitlement on the installed copy before testing saves or permissions.
+- For release acceptance, run the build installed through TestFlight. Check
+  first-run setup, screenshots and recording playback for the scoped change.
 
-- replacing `~/Applications/dewShot Dev.app`;
-- launching that app;
-- interacting with the macOS desktop for the requested verification.
-
-If that authority is absent, stop before the first external mutation. Return a blocked result that names the missing authorization and the exact verification it prevents.
-
-Treat `tccutil reset`, permission changes, Keychain identity creation, Apple signing, notarization, release publication, and edits outside the task workspace as separate actions. Never infer authority for them from a request to verify the GUI.
-
-## Prepare The Live Test App
-
-Follow the Apple Development signing and replacement flow linked from `AGENTS.md`.
-
-After replacement:
-
-1. Verify the installed bundle's code signature and require the expected local signing authority.
-2. Confirm the running executable belongs to the stable installed app path, not `.build/app/dewShot Dev.app` or another checkout.
-3. Keep Screen Recording authorization bound to that exact path and identity. If permission state is ambiguous, diagnose identity, path, and current TCC behavior before proposing a reset.
-
-Do not claim the app is ready when signature, path, or process evidence points to a different bundle.
+Use existing authorization for local installation, launch and desktop testing.
+If an action needs new permission, complete independent checks and identify the
+remaining live check. Keep routine rebuilds on the same app identity and path.
+Check the running app and its signature before considering a permission reset.
 
 ## Verify The Changed Behavior
 
@@ -56,18 +48,10 @@ Choose evidence by claim:
 - Use the smallest relevant section of the manual smoke flow. Do not repeat the complete checklist when the change affects only one bounded surface.
 - Capture screenshots, process details, signature output, or concise observations when they materially prove the claim.
 
-When GUI control is unavailable, provide an exact bounded manual check and mark the live claim unverified. A handoff checklist is not live Evidence.
+When GUI control is unavailable, provide an exact bounded manual check and mark the live claim unverified. A handoff checklist is not live evidence.
 
 ## Report The Result
 
-Return a structured result containing:
-
-- `status`: `verified`, `partial`, `blocked`, or `failed`;
-- `scope`: the user-visible claims checked;
-- `automated`: commands run or reused, revision identity, and outcomes;
-- `bundle`: package path, installed path, signing authority, and running executable evidence;
-- `live`: actions performed and observed results;
-- `permissions`: relevant Screen Recording or TCC state without unrelated system data;
-- `gaps`: every skipped, unavailable, or inconclusive check and its impact.
-
-Use `verified` only when every scoped live claim has current Evidence. Keep raw or large logs out of the summary and attach them as Harness Evidence when available.
+Report the tested build, relevant automated checks, the actions observed in
+the running app, and any unverified behavior. Include signing and permission
+details when they affect the result.

@@ -3,8 +3,18 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_VARIANT="${FRAME_APP_VARIANT:-production}"
-APP_OUTPUT_ROOT="${FRAME_APP_OUTPUT_ROOT:-$ROOT_DIR/.build/app}"
+APP_SANDBOX="${FRAME_APP_SANDBOX:-0}"
 PRINT_CONFIGURATION=false
+
+case "$APP_SANDBOX" in
+    0) DEFAULT_OUTPUT_ROOT="$ROOT_DIR/.build/app" ;;
+    1) DEFAULT_OUTPUT_ROOT="$ROOT_DIR/.build/app-sandbox" ;;
+    *)
+        echo "Unsupported FRAME_APP_SANDBOX: $APP_SANDBOX (expected 0 or 1)" >&2
+        exit 64
+        ;;
+esac
+APP_OUTPUT_ROOT="${FRAME_APP_OUTPUT_ROOT:-$DEFAULT_OUTPUT_ROOT}"
 
 case "${1:-}" in
     "")
@@ -26,11 +36,11 @@ fi
 case "$APP_VARIANT" in
     production)
         APP_NAME="dewShot"
-        BUNDLE_IDENTIFIER="dev.deweyou.frame"
+        BUNDLE_IDENTIFIER="dev.deweyou.dewshot"
         ;;
     development)
         APP_NAME="dewShot Dev"
-        BUNDLE_IDENTIFIER="dev.deweyou.frame.dev"
+        BUNDLE_IDENTIFIER="dev.deweyou.dewshot.dev"
         ;;
     *)
         echo "Unsupported FRAME_APP_VARIANT: $APP_VARIANT (expected production or development)" >&2
@@ -115,10 +125,24 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
     </array>
     <key>LSMinimumSystemVersion</key>
     <string>26.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
+    <key>FIREBASE_ANALYTICS_COLLECTION_ENABLED</key>
+    <false/>
+    <key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS</key>
+    <false/>
+    <key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_STORAGE</key>
+    <false/>
+    <key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_USER_DATA</key>
+    <false/>
+    <key>FirebaseAutomaticScreenReportingEnabled</key>
+    <false/>
     <key>LSUIElement</key>
     <true/>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>dewShot needs screen access to take screenshots and record videos you request.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>
@@ -129,11 +153,48 @@ cp "$EXECUTABLE_PATH" "$MACOS_DIR/dewShot"
 chmod +x "$MACOS_DIR/dewShot"
 
 cp "$APP_RESOURCES_DIR/dewShot.icns" "$RESOURCES_DIR/dewShot.icns"
+cp "$APP_RESOURCES_DIR/PrivacyInfo.xcprivacy" "$RESOURCES_DIR/PrivacyInfo.xcprivacy"
+for bundle in "$ROOT_DIR"/.build/release/*.bundle; do
+    [[ -d "$bundle" ]] && cp -R "$bundle" "$RESOURCES_DIR/"
+done
+sentry_manifest="$ROOT_DIR/.build/release/Sentry.framework/Resources/PrivacyInfo.xcprivacy"
+mkdir -p "$RESOURCES_DIR/Sentry.bundle/Contents/Resources"
+cp "$sentry_manifest" "$RESOURCES_DIR/Sentry.bundle/Contents/Resources/"
+telemetry_root="${FRAME_TELEMETRY_ROOT:-$ROOT_DIR/.local/telemetry}"
+if [[ -d "$telemetry_root" || "${FRAME_REQUIRE_TELEMETRY:-0}" == 1 ]]; then
+    python3 "$ROOT_DIR/scripts/package-telemetry.py" "$telemetry_root" "$RESOURCES_DIR" "$APP_VARIANT"
+fi
 mkdir -p "$RESOURCES_DIR/menubar"
 cp "$APP_RESOURCES_DIR"/menubar/FrameStatusIcon*.png "$RESOURCES_DIR/menubar/"
 cp "$APP_RESOURCES_DIR"/menubar/FrameStatusIconTemplate*.png "$RESOURCES_DIR/"
 
-codesign --force --sign "$CODESIGN_IDENTITY" "$APP_DIR"
+SIGNING_OPTIONS=(--force --sign "$CODESIGN_IDENTITY")
+if [[ "$APP_SANDBOX" == 1 ]]; then
+    entitlements="$ROOT_DIR/scripts/app-sandbox.entitlements"
+    if [[ "$APP_VARIANT" == development && "$CODESIGN_IDENTITY" != "-" && -d "$telemetry_root" ]]; then
+        profile="${FRAME_DEV_PROFILE:-$telemetry_root/development.provisionprofile}"
+        if [[ ! -f "$profile" ]]; then
+            echo "A Mac development provisioning profile for $BUNDLE_IDENTIFIER is required for Firebase Keychain access. Set FRAME_DEV_PROFILE." >&2
+            exit 1
+        fi
+        signing_temp="$(mktemp -d)"
+        trap 'rm -rf "$signing_temp"' EXIT
+        security cms -D -i "$profile" > "$signing_temp/profile.plist"
+        team="$(plutil -extract TeamIdentifier.0 raw "$signing_temp/profile.plist")"
+        app_id="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.application-identifier' "$signing_temp/profile.plist")"
+        if [[ "$app_id" != "$team.$BUNDLE_IDENTIFIER" ]]; then
+            echo "The development profile does not match $BUNDLE_IDENTIFIER." >&2
+            exit 1
+        fi
+        cat "$profile" > "$CONTENTS_DIR/embedded.provisionprofile"
+        cp "$entitlements" "$signing_temp/dev.entitlements"
+        entitlements="$signing_temp/dev.entitlements"
+        /usr/libexec/PlistBuddy -c "Add :com.apple.application-identifier string $app_id" "$entitlements"
+        /usr/libexec/PlistBuddy -c "Add :com.apple.developer.team-identifier string $team" "$entitlements"
+    fi
+    SIGNING_OPTIONS+=(--entitlements "$entitlements")
+fi
+codesign "${SIGNING_OPTIONS[@]}" "$APP_DIR"
 
 echo "Packaged $APP_DIR"
 echo "Variant: $APP_VARIANT ($BUNDLE_IDENTIFIER)"

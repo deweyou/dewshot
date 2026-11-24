@@ -2,7 +2,20 @@
 
 dewShot needs macOS Screen Recording permission because it captures pixels directly from the display instead of using the system screenshot picker.
 
+The first-run window shows both capture shortcuts and offers Screen Recording
+setup and a first screenshot. It also offers optional Accessibility and Input
+Monitoring setup. Those entries open their System Settings pages with the
+drag-in guide. Screen Recording access and two available shortcuts enable Get Started.
+Until the user selects it, DewShot has no menu bar item or active global
+shortcuts. Closing the welcome window quits the app. The next launch resumes
+setup, including after a permission-related relaunch.
+
 On recent macOS versions, the permission prompt may mention bypassing the system private window picker or directly accessing screen and audio. That wording is expected for apps that request Screen Recording or Screen & System Audio Recording access.
+
+When dewShot opens the Screen Recording pane, it shows a guide next to System
+Settings. Turn on dewShot if it is already listed. If it is missing, drag the app
+from the guide into the list or use the system add button. Follow any macOS
+prompt to quit and reopen. The guide dismisses when dewShot can detect access.
 
 dewShot's Settings permission section also reports two feature-specific permissions:
 
@@ -10,9 +23,9 @@ dewShot's Settings permission section also reports two feature-specific permissi
 - Input Monitoring allows live keyboard hints during recordings.
 
 Screenshot and recording capture only require Screen Recording. In dewShot's
-Permissions pane, granted access shows a checkmark. Missing access shows a link
+Privacy & Permissions pane, granted access shows a checkmark. Missing access shows a link
 to the corresponding macOS settings pane. dewShot checks again when the
-Permissions pane appears or the app becomes active.
+Privacy & Permissions pane appears or the app becomes active.
 
 When Accessibility access is missing, the automatic scrolling control in the
 capture HUD explains how to open Settings and leaves manual scrolling available.
@@ -27,16 +40,18 @@ TCC authorization is tied to app identity, path, and code signature. Ad-hoc sign
 
 For repeat local testing, sign the `development` variant with Apple
 Development and keep one installed path, `~/Applications/dewShot Dev.app`.
-When upgrading from `Frame Dev.app`, macOS may ask for Screen Recording permission again because the installed path changes.
+When upgrading from a build with a Frame bundle identifier, grant Screen
+Recording and any optional capture permissions again for the new app identity.
 Follow the [local installation flow](development.md#manual-smoke-test).
 Authorize that installed copy, then quit and reopen it before testing capture.
 
 ## Reset Permission
 
-If macOS keeps a stale entry for a previous local build:
+Use this only to reproduce first-run authorization or after confirming a stale
+Dev entry. With authorization to clear its Screen Recording grant, run:
 
 ```sh
-tccutil reset ScreenCapture dev.deweyou.frame.dev
+tccutil reset ScreenCapture dev.deweyou.dewshot.dev
 ```
 
 Then reopen the current app bundle and request permission again.
@@ -48,7 +63,9 @@ Developer ID Application and submit it for Apple notarization.
 
 The production and development bundle identifiers have separate TCC records:
 
-- `dev.deweyou.frame` for dewShot
-- `dev.deweyou.frame.dev` for dewShot Dev
+- `dev.deweyou.dewshot` for dewShot
+- `dev.deweyou.dewshot.dev` for dewShot Dev
 
 See [Signing and development-device migration](signing-and-device-migration.md) before setting up or replacing a development Mac.
+
+The welcome window shows Screen Recording as required for screenshots and recordings. Accessibility and Input Monitoring are optional. The drag guide pins the on-screen Settings window by its WindowServer ID and follows its position. When that window disappears, the guide hides, including while another Settings window is visible.

@@ -1,46 +1,43 @@
-## Development Workflow
-
-Use `harness.yaml` as the repository's durable agent-work configuration. Deweyou Harness owns Commitment, Plan, execution, Evidence, and delivery boundaries only when the user explicitly invokes it.
-
 ## Project Context
 
 dewShot is a native macOS screenshot and screen recording tool. Editing, saving, and sharing captures are part of its core workflow. See [Product Positioning](docs/product-positioning.md) when deciding what to develop or prioritize.
 
-## Commands
+## Feature telemetry
 
-Run these before claiming a change is ready:
+For each new requirement, identify the product, latency or failure question worth
+measuring. Check the [telemetry PRD](docs/dewshot-telemetry-prd.md) for an existing
+event or parameter that answers it. Record the decision in the requirement or PR,
+including when existing coverage is sufficient or measurement adds no value.
+Add an event only for a distinct observation that needs its own count. Update
+the PRD when event definitions or counting rules change.
 
-```sh
-swift test
-swift build
-scripts/package-app.sh
-```
+## Verification
 
-The packaging script creates the production `.build/app/dewShot.app` by default. Set `FRAME_APP_VARIANT=development` to create `.build/app/dewShot Dev.app` with bundle identifier `dev.deweyou.frame.dev`. It uses ad-hoc signing by default, or `FRAME_CODESIGN_IDENTITY` when a stable local Code Signing identity is available.
+Before committing, review the staged diff and run the checks affected by the change.
+For documentation, check links, anchors, and command examples. For Swift logic,
+run the matching XCTest filter. For packaging, exercise the affected script or
+artifact. Use the [development guide](DEVELOPMENT.md) to choose a check.
 
-For user-facing GUI changes, final handoff must explicitly ask whether to replace the local test app unless the user already declined or replacement was already completed in the same turn.
+Review the [CI result](.github/workflows/ci.yml) for the PR revision before merging.
+CI owns the stable suite, build, packaging, and bundle checks. Real-window tests
+and desktop interactions use the [local test boundaries](docs/testing.md#ci-expectations).
 
-For repeat GUI testing and local replacement, use the `development` variant
-signed with an Apple Development identity from `security find-identity -v -p
-codesigning`. Install it at `~/Applications/dewShot Dev.app` and verify the
-installed signature reports an Apple Development authority before handing off.
-Follow [the local installation flow](docs/development.md#manual-smoke-test).
+For local GUI iteration, use the signed development variant and the
+[local installation flow](docs/development.md#manual-smoke-test). For sandbox
+behavior, use the [sandbox smoke test](docs/development.md#sandbox-smoke-test).
+For release acceptance, use the [designated TestFlight build](docs/development.md#mac-app-store-and-testflight).
+Report the build tested and the interaction observed. Replace a local Dev app
+when the requested verification calls for it and installation is authorized.
+
+The agent owns the [local GUI test SOP](docs/development.md#local-gui-test-sop),
+including starting Dev, keeping it open for user review when needed, and
+restoring and verifying the production app when testing ends. Perform these
+steps in the task without asking the user to run the session commands.
 
 ## Knowledge Base
 
-Use `docs/` as the project knowledge base:
-
-- `docs/architecture.md` explains runtime boundaries and core components.
-- `docs/development.md` explains local setup, verification, packaging, and CI expectations.
-- `docs/overlay-interactions.md` explains screenshot overlay drag, cursor, handle, and HUD tooltip behavior.
-- `docs/testing.md` explains automated test layers, AppKit component e2e boundaries, and the expectation to cover new interactive requirements with e2e tests.
-- `docs/permissions.md` explains macOS Screen Recording/TCC behavior.
-- `docs/signing-and-device-migration.md` explains the development/production App IDs, Apple signing assets, and replacement-Mac recovery flow.
-- `DESIGN.md` explains durable interface principles and HUD/Quick Access behavior.
-- `docs/superpowers/specs/` stores approved product specs.
-- `docs/superpowers/plans/` stores implementation plans.
-
-Keep durable implementation decisions in docs when they affect future agent work.
+Start with the [knowledge base](docs/README.md). Update the document that owns a
+decision when it changes. Keep release commands and manual test procedures there.
 
 ## Product README
 

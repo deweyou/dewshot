@@ -10,48 +10,8 @@ enum ScreenRecordingPermission {
         CGRequestScreenCaptureAccess()
     }
 
-    static func openSettings() {
-        guard let settingsURL = URL(
-            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
-        ) else {
-            return
-        }
-
-        NSWorkspace.shared.open(settingsURL)
-    }
-
     @MainActor
-    static func showMissingPermissionAlert(strings: AppStrings = .current()) {
-        let alert = NSAlert()
-        alert.messageText = strings.screenRecordingPermissionRequiredTitle
-        alert.informativeText = strings.screenRecordingPermissionRequiredMessage
-        alert.addButton(withTitle: strings.screenRecordingPermissionContinue)
-        alert.addButton(withTitle: strings.cancel)
-
-        if alert.runModal() == .alertFirstButtonReturn {
-            requestAccessAndOpenSettingsIfNeeded(strings: strings)
-        }
-    }
-
-    @MainActor
-    private static func requestAccessAndOpenSettingsIfNeeded(strings: AppStrings) {
-        NSLog("dewShot 正在请求屏幕录制权限")
-        let didGrantAccess = requestAccess()
-        NSLog("dewShot 屏幕录制权限请求结果: \(didGrantAccess)")
-
-        if hasAccess {
-            showRestartRequiredAlert(strings: strings)
-        } else {
-            openSettings()
-        }
-    }
-
-    @MainActor
-    private static func showRestartRequiredAlert(strings: AppStrings) {
-        let alert = NSAlert()
-        alert.messageText = strings.screenRecordingPermissionGrantedTitle
-        alert.informativeText = strings.screenRecordingPermissionRestartMessage
-        alert.addButton(withTitle: strings.ok)
-        alert.runModal()
+    static func openSettings(strings: AppStrings = .current()) {
+        PermissionSettingsPage.screenRecording.open(guide: strings)
     }
 }

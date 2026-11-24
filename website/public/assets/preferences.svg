@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <symbol id="language" viewBox="0 0 24 24"><path d="M3 5h12M9 3v2m3 0c-.6 5-4 9-9 12m2-9c1.3 3 3.8 5.4 7 7m1 6 4.5-11L22 21m-7.6-3.4h6.2"/></symbol>
+  <symbol id="moon" viewBox="0 0 24 24"><path d="M20.5 14.3A8.8 8.8 0 0 1 9.7 3.5a9 9 0 1 0 10.8 10.8Z"/></symbol>
+  <symbol id="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol>
+  <symbol id="mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></symbol>
+</svg>

@@ -50,7 +50,9 @@ struct ImageAnnotationRenderer {
         }
 
         return CapturedScreenshot(
-            id: preservingID ? screenshot.id : UUID(), pngData: pngData,
+            id: preservingID ? screenshot.id : UUID(),
+            exportFilename: preservingID ? screenshot.exportFilename : ScreenshotNaming().filename(),
+            pngData: pngData,
             image: NSImage(cgImage: image, size: imageSize), rect: screenshot.rect
         )
     }

@@ -2,6 +2,47 @@
 
 ## Unreleased
 
+- Group system permissions, diagnostics sharing, and the privacy policy in Privacy & Permissions settings. Display the privacy policy as a standalone text link below diagnostics sharing. Use the standard grouped row for email support in General settings.
+
+- Publish the DewShot product website with setup help, support contact, and privacy policy.
+
+- Activate the menu bar item and global shortcuts only after Get Started. Closing unfinished setup resumes it on the next launch.
+
+- Preselect optional diagnostics and usage sharing on the App Store and TestFlight welcome screen.
+
+- Use a subtle background tint when recording a shortcut in onboarding or Settings.
+
+- Show required and optional permissions and separate screenshot and recording shortcut rows with compact conflict indicators and hover details. The welcome window uses a larger, theme-aware DewShot mark, a centered wordmark, and a monochrome Get Started button. Its start button requires screen access and two available shortcuts. Keep the permission guide beside the Settings window when a dialog opens.
+
+- Start each local Dev session with usage statistics and diagnostics turned off.
+
+- Add optional usage statistics and crash diagnostics with separate development and production projects.
+
+- Exclude browser download metadata from the provisioning profile embedded in
+  Mac App Store packages.
+
+- Reuse the authorized save folder when saving a recording from History in the
+  Mac App Store build.
+
+- Assign a filename when taking a screenshot and keep it in History. Reuse an
+  identical PNG in the save folder and keep different screenshots with colliding
+  filenames as separate files.
+
+- Show the destination folder after saving a capture from History.
+
+- Prepare Mac App Store installer packages and include a privacy manifest.
+
+- Show screenshot and recording shortcuts in the welcome window, with a bottom
+  action card for Screen Recording access and a first screenshot.
+  Accessibility and Input Monitoring are available as optional setup steps.
+
+- Show a small permission guide beside System Settings when dewShot needs
+  Screen Recording access. Drag the dewShot icon into the list if it is missing.
+  The guide waits for the Settings window while the system permission prompt is open.
+
+- Add a local App Sandbox test build. It asks for a destination folder on first
+  save and remembers permission to save screenshots and recordings there.
+
 - Double-click a screenshot or recording in Quick Access to open it in the macOS default app.
 
 - Align Quick Access screenshot toolbar icons and use a consistent color for enabled actions.
@@ -75,8 +116,9 @@
 - Add a Launch at Login setting backed by macOS Service Management, with
   approval and failure feedback that reflects the system's real login-item state.
 - Separate development and production packaging as `dewShot Dev`
-  (`dev.deweyou.frame.dev`) and `dewShot` (`dev.deweyou.frame`), and document
-  signing setup and recovery for a new development Mac.
+  (`dev.deweyou.dewshot.dev`) and `dewShot` (`dev.deweyou.dewshot`), and document
+  signing setup and recovery for a new development Mac. Builds with these
+  identifiers require fresh macOS permissions when upgrading from Frame.
 - Make screenshot and screen recording discoverable as separate menu actions,
   with native shortcut labels that follow the configured shortcuts.
 - Show Screen Recording, Accessibility, and Input Monitoring together in

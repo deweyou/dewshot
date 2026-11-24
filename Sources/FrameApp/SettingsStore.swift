@@ -15,6 +15,7 @@ enum QuickAccessDismissal: Int, CaseIterable, Identifiable {
 }
 
 enum SettingsStore {
+    private static let firstRunSetupProgressKey = "firstRunSetupProgress"
     static let screenshotShortcutKey = "screenshotShortcut"
     static let recordingShortcutKey = "recordingShortcut"
     static let appLanguageKey = "appLanguage"
@@ -42,6 +43,17 @@ enum SettingsStore {
     static let imageAnnotationFontSizeKey = "imageAnnotationFontSize"
     private static let imageAnnotationDetailedStyleKey = "imageAnnotationDetailedStyle"
     private static let disabledRecordingShortcut = ""
+
+    static func firstRunSetupProgress(defaults: UserDefaults = .standard) -> FirstRunSetupProgress {
+        FirstRunSetupProgress(rawValue: defaults.string(forKey: firstRunSetupProgressKey) ?? "") ?? .new
+    }
+
+    static func setFirstRunSetupProgress(
+        _ progress: FirstRunSetupProgress,
+        defaults: UserDefaults = .standard
+    ) {
+        defaults.set(progress.rawValue, forKey: firstRunSetupProgressKey)
+    }
 
     static func screenshotShortcut(defaults: UserDefaults = .standard) -> ScreenshotShortcut {
         ScreenshotShortcut.persistedValue(for: defaults.string(forKey: screenshotShortcutKey))
