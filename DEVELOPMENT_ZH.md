@@ -20,3 +20,5 @@
 合入前检查 PR 当前提交的 CI 结果。GitHub Actions 在 PR 和推送到 `main` 时运行稳定测试集、构建、打包并检查产物。三组依赖真实窗口的 AppKit 测试按需在本机运行。提审前用 TestFlight 安装指定构建进行验收。
 
 Dev 签名安装、沙盒验证及分发步骤见[构建与发布手册](docs/development.md)。产品、设计、架构和测试文档见[知识库索引](docs/README.md)。
+
+新版本、线上补丁及上架后的回合见[发包规范](docs/release.md)。
