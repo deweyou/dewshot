@@ -64,6 +64,10 @@ struct AppStrings {
         language == .zhHans ? "隐私" : "Privacy"
     }
 
+    var shareUsageAndDiagnostics: String {
+        language == .zhHans ? "共享使用统计与故障诊断" : "Share usage statistics and diagnostics"
+    }
+
     var settingsPrivacyPolicy: String {
         language == .zhHans ? "隐私政策" : "Privacy Policy"
     }

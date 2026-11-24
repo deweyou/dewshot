@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Group system permissions, diagnostics sharing, and the privacy policy in Privacy & Permissions settings. Keep email support in General settings.
+- Group system permissions, diagnostics sharing, and the privacy policy in Privacy & Permissions settings. Use the standard grouped rows for privacy controls and the email support link in General settings.
 
 - Publish the DewShot product website with setup help, support contact, and privacy policy.
 

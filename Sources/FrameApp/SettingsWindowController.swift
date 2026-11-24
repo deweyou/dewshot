@@ -307,9 +307,16 @@ private struct SettingsDetailView: View {
                 PermissionsSettingsView(strings: strings)
             }
             SettingsSectionGroup(title: strings.settingsPrivacy) {
-                TelemetryConsentToggle(strings: strings)
-                Link(strings.settingsPrivacyPolicy, destination: URL(string: "https://dewshot.oushihao97.workers.dev/privacy/")!)
-                    .font(.callout)
+                SettingsControlGroup {
+                    SettingsControlRow(strings.shareUsageAndDiagnostics) {
+                        TelemetryConsentToggle(strings: strings)
+                            .labelsHidden()
+                            .accessibilityLabel(strings.shareUsageAndDiagnostics)
+                    }
+                    SettingsControlDivider()
+                    SettingsLinkRow(title: strings.settingsPrivacyPolicy, symbol: "arrow.up.forward",
+                                    destination: URL(string: "https://dewshot.oushihao97.workers.dev/privacy/")!)
+                }
             }
         }
     }
@@ -521,8 +528,10 @@ private struct GeneralSettingsView: View {
                     }
                 }
             }
-            Link(strings.settingsContactSupport, destination: URL(string: "mailto:deweyou97@gmail.com")!)
-                .font(.callout)
+            SettingsControlGroup {
+                SettingsLinkRow(title: strings.settingsContactSupport, symbol: "envelope",
+                                destination: URL(string: "mailto:deweyou97@gmail.com")!)
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             launchAtLoginState.refresh(using: launchAtLoginService)
@@ -724,6 +733,25 @@ private struct SettingsControlRow<Content: View>: View {
         .padding(.horizontal, SettingsGroupMetrics.horizontalPadding)
         .padding(.vertical, 7)
         .frame(minHeight: SettingsGroupMetrics.rowMinHeight)
+    }
+}
+
+private struct SettingsLinkRow: View {
+    let title: String
+    let symbol: String
+    let destination: URL
+
+    var body: some View {
+        Link(destination: destination) {
+            SettingsControlRow(title) {
+                Image(systemName: symbol)
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
     }
 }
 

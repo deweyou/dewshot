@@ -206,7 +206,7 @@ struct TelemetryConsentToggle: View {
             AppTelemetry.refresh()
             if value { enabled?() }
         })) {
-            Text(strings.language == .zhHans ? "共享使用统计与故障诊断" : "Share usage statistics and diagnostics")
+            Text(strings.shareUsageAndDiagnostics)
                 .frame(maxWidth: expandsLabel ? .infinity : nil, alignment: .leading)
         }
         .toggleStyle(.switch)
