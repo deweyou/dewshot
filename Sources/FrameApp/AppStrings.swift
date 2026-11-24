@@ -56,6 +56,14 @@ struct AppStrings {
         }
     }
 
+    var settingsPrivacyAndPermissions: String {
+        language == .zhHans ? "隐私与权限" : "Privacy & Permissions"
+    }
+
+    var settingsPrivacy: String {
+        language == .zhHans ? "隐私" : "Privacy"
+    }
+
     var settingsPrivacyPolicy: String {
         language == .zhHans ? "隐私政策" : "Privacy Policy"
     }

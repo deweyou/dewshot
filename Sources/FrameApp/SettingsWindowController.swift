@@ -124,7 +124,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .general: strings.settingsGeneral
         case .capture: strings.settingsCapture
         case .history: strings.settingsHistory
-        case .permissions: strings.settingsPermissions
+        case .permissions: strings.settingsPrivacyAndPermissions
         }
     }
 
@@ -303,7 +303,14 @@ private struct SettingsDetailView: View {
         case .history:
             HistorySettingsView(strings: strings, onClearCaptureHistory: onClearCaptureHistory)
         case .permissions:
-            PermissionsSettingsView(strings: strings)
+            SettingsSectionGroup(title: strings.settingsPermissions) {
+                PermissionsSettingsView(strings: strings)
+            }
+            SettingsSectionGroup(title: strings.settingsPrivacy) {
+                TelemetryConsentToggle(strings: strings)
+                Link(strings.settingsPrivacyPolicy, destination: URL(string: "https://dewshot.oushihao97.workers.dev/privacy/")!)
+                    .font(.callout)
+            }
         }
     }
 }
@@ -388,15 +395,6 @@ private struct GeneralSettingsView: View {
                         SettingsStore.setAppTheme(newTheme)
                         newTheme.apply(to: NSApp)
                     }
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                TelemetryConsentToggle(strings: strings)
-                HStack(spacing: 16) {
-                    Link(strings.settingsPrivacyPolicy, destination: URL(string: "https://dewshot.oushihao97.workers.dev/privacy/")!)
-                    Link(strings.settingsContactSupport, destination: URL(string: "mailto:deweyou97@gmail.com")!)
-                }
-                .font(.callout)
             }
 
             SettingsSectionGroup(title: strings.settingsPreferences) {
@@ -523,6 +521,8 @@ private struct GeneralSettingsView: View {
                     }
                 }
             }
+            Link(strings.settingsContactSupport, destination: URL(string: "mailto:deweyou97@gmail.com")!)
+                .font(.callout)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             launchAtLoginState.refresh(using: launchAtLoginService)

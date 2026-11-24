@@ -23,7 +23,7 @@ Requires macOS 26 or later. If you received a DewShot beta invitation, open it o
 
 Screenshots and recordings are processed on your Mac. No account is required to use DewShot.
 
-The App Store and TestFlight welcome screen preselects sharing of feature usage, operation timings, and crash diagnostics. You can switch sharing off before selecting Get Started or later in General settings.
+The App Store and TestFlight welcome screen preselects sharing of feature usage, operation timings, and crash diagnostics. You can switch sharing off before selecting Get Started or later in Settings → Privacy & Permissions.
 
 ## Menu bar and previews
 

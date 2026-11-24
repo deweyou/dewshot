@@ -23,9 +23,9 @@ dewShot's Settings permission section also reports two feature-specific permissi
 - Input Monitoring allows live keyboard hints during recordings.
 
 Screenshot and recording capture only require Screen Recording. In dewShot's
-Permissions pane, granted access shows a checkmark. Missing access shows a link
+Privacy & Permissions pane, granted access shows a checkmark. Missing access shows a link
 to the corresponding macOS settings pane. dewShot checks again when the
-Permissions pane appears or the app becomes active.
+Privacy & Permissions pane appears or the app becomes active.
 
 When Accessibility access is missing, the automatic scrolling control in the
 capture HUD explains how to open Settings and leaves manual scrolling available.

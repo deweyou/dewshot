@@ -11,10 +11,10 @@ final class SettingsWindowControllerTests: XCTestCase {
         let sections: [SettingsSection] = [.general, .capture, .history, .permissions]
         XCTAssertEqual(SettingsSection.allCases, sections)
         XCTAssertEqual(sections.map { $0.title(strings: AppStrings(language: .zhHans)) }, [
-            "通用", "捕获", "历史", "权限",
+            "通用", "捕获", "历史", "隐私与权限",
         ])
         XCTAssertEqual(sections.map { $0.title(strings: AppStrings(language: .en)) }, [
-            "General", "Capture", "History", "Permissions",
+            "General", "Capture", "History", "Privacy & Permissions",
         ])
     }
 
