@@ -1426,6 +1426,8 @@ struct AppStrings {
         }
     }
 
+    var firstRunWelcome: String { language == .zhHans ? "欢迎使用" : "Welcome to" }
+
     var firstRunTitle: String {
         switch language {
         case .zhHans: "欢迎使用 DewShot"
@@ -1477,8 +1479,8 @@ struct AppStrings {
 
     var firstRunStartCapture: String {
         switch language {
-        case .zhHans: "开始截图"
-        case .en: "Take a Screenshot"
+        case .zhHans: "截取第一张图"
+        case .en: "Take Your First Screenshot"
         }
     }
 

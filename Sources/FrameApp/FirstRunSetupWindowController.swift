@@ -222,9 +222,21 @@ struct FirstRunSetupView: View {
                 .fill(colorScheme == .dark ? Color.white : Color.black)
                 .frame(width: 62, height: 62)
                 .accessibilityHidden(true)
-            Text(strings.firstRunTitle)
-                .font(.system(size: 19, weight: .semibold))
-                .accessibilityAddTraits(.isHeader)
+            VStack(spacing: 2) {
+                Text(strings.firstRunWelcome)
+                    .font(.system(size: 12, weight: .medium))
+                    .tracking(1.4)
+                    .foregroundStyle(.secondary)
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    Text(verbatim: "Dew").italic()
+                    Text(verbatim: "Shot")
+                }
+                .font(.system(size: 29, weight: .semibold, design: .serif))
+                .tracking(-0.8)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(strings.firstRunTitle)
+            .accessibilityAddTraits(.isHeader)
         }
         .frame(maxWidth: .infinity)
     }
@@ -384,15 +396,31 @@ struct FirstRunSetupView: View {
         Button {
             if canStartCapture { onStartCapture() }
         } label: {
-            Text(strings.firstRunStartCapture)
-                .frame(minWidth: 104)
+            Label(strings.firstRunStartCapture, systemImage: "viewfinder")
+                .font(.system(size: 13, weight: .semibold))
+                .padding(.horizontal, 20)
+                .frame(minHeight: 36)
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
+        .buttonStyle(FirstCaptureButtonStyle())
         .keyboardShortcut(.defaultAction)
         .disabled(!canStartCapture)
         .help(permissionMessage)
         .accessibilityHint(permissionMessage)
+    }
+}
+
+private struct FirstCaptureButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.colorScheme) private var colorScheme
+
+    func makeBody(configuration: Configuration) -> some View {
+        let ink = colorScheme == .dark ? Color.white : Color.black
+        let paper = colorScheme == .dark ? Color.black : Color.white
+        return configuration.label
+            .foregroundStyle(isEnabled ? paper : Color.secondary)
+            .background(ink.opacity(isEnabled ? (configuration.isPressed ? 0.75 : 0.92) : 0.07),
+                        in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
