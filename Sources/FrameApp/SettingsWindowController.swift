@@ -313,10 +313,10 @@ private struct SettingsDetailView: View {
                             .labelsHidden()
                             .accessibilityLabel(strings.shareUsageAndDiagnostics)
                     }
-                    SettingsControlDivider()
-                    SettingsLinkRow(title: strings.settingsPrivacyPolicy, symbol: "arrow.up.forward",
-                                    destination: URL(string: "https://dewshot.oushihao97.workers.dev/privacy/")!)
                 }
+                Link(strings.settingsPrivacyPolicy, destination: URL(string: "https://dewshot.oushihao97.workers.dev/privacy/")!)
+                    .font(.callout)
+                    .padding(.leading, SettingsGroupMetrics.horizontalPadding)
             }
         }
     }
