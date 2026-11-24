@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="DewShot 是 Mac 菜单栏里的原生截图与录屏工具。了解快捷键、首次设置、保存方式与技术支持。"
+    />
+    <title>DewShot · Mac 截图与录屏</title>
+    <link rel="icon" href="/assets/dewshot-logo.svg" />
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/demo.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <nav aria-label="主导航">
+        <a class="brand" href="/" aria-label="DewShot 首页"
+          ><img src="/assets/dewshot-logo.svg" alt="" /><img
+            src="/assets/dewshot-wordmark.svg"
+            alt="DewShot"
+        /></a>
+        <div>
+          <a href="#support">使用帮助</a><a href="/privacy/">隐私政策</a>
+        </div>
+      </nav>
+    </header>
+    <main>
+      <section class="hero">
+        <div>
+          <p class="platform">macOS 26+</p>
+          <h1>Mac 菜单栏里的<br />截图与录屏。</h1>
+          <p class="intro">
+            用快捷键框选屏幕上的一块区域。截成一张
+            PNG，或录成一段视频，再从角落的预览复制、拖出或保存。
+          </p>
+          <a class="button" href="#start"
+            >开始使用指南 <span aria-hidden="true">↓</span></a
+          >
+        </div>
+        <figure>
+          <div class="scene">
+            <canvas
+              id="art"
+              width="840"
+              height="620"
+              aria-label="用于框选演示的抽象山景图"
+            ></canvas>
+            <div class="selection" aria-hidden="true">
+              <i></i><i></i><i></i><i></i>
+            </div>
+          </div>
+          <figcaption>
+            <span id="demo-caption" aria-live="polite">框选截图 · 交互演示</span
+            ><button id="crop" hidden>截取选区</button>
+          </figcaption>
+        </figure>
+      </section>
+      <section id="start">
+        <h2>第一次使用</h2>
+        <div class="steps">
+          <article>
+            <h3>设置权限</h3>
+            <p>
+              在欢迎页允许屏幕录制。辅助功能用于自动滚动截图，输入监控用于显示录屏时按下的键，这两项可按需开启。
+            </p>
+          </article>
+          <article>
+            <h3>按下快捷键</h3>
+            <p>
+              确认两组快捷键可用，点击「开始使用」。之后可从菜单栏操作，也可以随时修改快捷键。
+            </p>
+            <dl>
+              <div>
+                <dt>截图</dt>
+                <dd><kbd>⌘ ⇧ A</kbd></dd>
+              </div>
+              <div>
+                <dt>录屏</dt>
+                <dd><kbd>⌘ ⇧ R</kbd></dd>
+              </div>
+            </dl>
+          </article>
+          <article>
+            <h3>取用结果</h3>
+            <p>
+              完成后，预览会出现在屏幕角落。把结果拖进对话框，或选择保存。首次保存时请选择一个文件夹。
+            </p>
+          </article>
+        </div>
+      </section>
+      <section id="support" class="support">
+        <div>
+          <h2>使用帮助</h2>
+          <p>遇到问题或想反馈功能？</p>
+          <a href="mailto:oushihao97@gmail.com">oushihao97@gmail.com ↗</a>
+        </div>
+        <div>
+          <details>
+            <summary>为什么截图也需要屏幕录制权限？</summary>
+            <p>
+              macOS 通过这项权限管理屏幕读取。打开「系统设置 → 隐私与安全性 →
+              录屏与系统录音」，允许 DewShot，按系统提示重新打开应用。
+            </p>
+          </details>
+          <details>
+            <summary>快捷键被占用怎么办？</summary>
+            <p>
+              在欢迎页或「设置 →
+              通用」点对应的快捷键，按下新的组合键。解决冲突后即可开始使用。
+            </p>
+          </details>
+          <details>
+            <summary>如何安装测试版？</summary>
+            <p>
+              DewShot 支持 macOS 26 及以上。如果你已收到邀请，请在 Mac 上通过
+              TestFlight 打开邀请并安装。
+            </p>
+          </details>
+        </div>
+      </section>
+    </main>
+    <footer><span>DewShot</span><a href="/privacy/">隐私政策</a></footer>
+  </body>
+</html>

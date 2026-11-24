@@ -9,6 +9,7 @@
 </p>
 
 <p align="center">
+  <a href="https://dewshot.oushihao97.workers.dev/">官网与使用帮助</a> ·
   <a href="README.md">English</a>
 </p>
 

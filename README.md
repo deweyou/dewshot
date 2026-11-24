@@ -9,6 +9,7 @@
 </p>
 
 <p align="center">
+  <a href="https://dewshot.oushihao97.workers.dev/">Website and support</a> ·
   <a href="README_ZH.md">中文</a>
 </p>
 

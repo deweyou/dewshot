@@ -324,3 +324,12 @@ the same binary can be symbolicated on TestFlight and in production:
 sentry-cli debug-files upload --org dewey-ou --project dewshot-macos-dev "$DEWSHOT_DSYM_ARCHIVE"
 sentry-cli debug-files upload --org dewey-ou --project dewshot-macos "$DEWSHOT_DSYM_ARCHIVE"
 ```
+
+
+## Product website
+
+The Cloudflare Worker `dewshot` serves the static files in `website/public/`.
+Preview them from the repository root with `python3 -m http.server --directory website/public`.
+After checking the home page, capture demo, and privacy link, deploy with
+`npx wrangler deploy --config website/wrangler.jsonc` using an account with Workers write access.
+Website deployments are independent of the macOS release.
