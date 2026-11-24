@@ -130,6 +130,17 @@ final class SettingsWindowControllerTests: XCTestCase {
         XCTAssertEqual(appliedShortcuts, [.default])
     }
 
+    func testShortcutRecorderHidesOutlineOnlyDuringInput() {
+        let button = ShortcutRecorderButton(frame: .zero)
+        button.startRecording()
+
+        XCTAssertEqual(button.focusRingType, .none)
+        XCTAssertEqual(button.layer?.borderWidth, 0)
+
+        button.keyDown(with: keyEvent(characters: "\u{1b}", modifiers: [], keyCode: kVK_Escape))
+        XCTAssertEqual(button.focusRingType, .default)
+    }
+
     func testShortcutRecorderStopsRecordingWhenFirstResponderMovesElsewhere() {
         let button = ShortcutRecorderButton(frame: .zero)
         var recordingStates: [Bool] = []

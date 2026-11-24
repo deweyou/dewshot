@@ -946,7 +946,6 @@ final class ShortcutRecorderButton: NSButton {
         super.init(frame: frameRect)
         setButtonType(.momentaryChange)
         isBordered = false
-        focusRingType = .default
         alignment = .center
         lineBreakMode = .byTruncatingTail
         translatesAutoresizingMaskIntoConstraints = false
@@ -1120,6 +1119,7 @@ final class ShortcutRecorderButton: NSButton {
     }
 
     private func updateAppearance() {
+        focusRingType = isRecording ? .none : .default
         let hasShortcut = isRecording || shortcut != nil
         font = .systemFont(ofSize: 12, weight: hasShortcut ? .medium : .regular)
         contentTintColor = hasShortcut ? .labelColor : .secondaryLabelColor
@@ -1129,8 +1129,6 @@ final class ShortcutRecorderButton: NSButton {
             layer?.backgroundColor = isRecording
                 ? NSColor.controlAccentColor.withAlphaComponent(0.12).cgColor
                 : NSColor.labelColor.withAlphaComponent(0.055).cgColor
-            layer?.borderWidth = isRecording ? 1 : 0
-            layer?.borderColor = NSColor.controlAccentColor.cgColor
         }
     }
 }

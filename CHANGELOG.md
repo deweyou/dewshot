@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Use a subtle background tint when recording a shortcut in onboarding or Settings.
+
 - Show required and optional permissions and separate screenshot and recording shortcut rows with compact conflict indicators and hover details. The welcome window uses a larger, theme-aware DewShot mark, a centered wordmark, and a monochrome Get Started button. Its start button requires screen access and two available shortcuts. Keep the permission guide beside the Settings window when a dialog opens.
 
 - Start each local Dev session with usage statistics and diagnostics turned off.
