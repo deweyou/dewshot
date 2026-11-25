@@ -53,7 +53,7 @@ scripts/package-app-store.sh
 
 Use the exact identity names from `security find-identity -v` and keep the
 profile and private keys outside the repository. The script creates a signed
-`.pkg` in `.build/app-store/` for validation and upload in Transporter.
+`.pkg` in `.build/app-store/`. Follow the [App Store Connect CLI runbook](store-cli.md#上传与-testflight) to verify and upload the registered package.
 For release acceptance, install the selected version and build through TestFlight.
 Run that copy, record its version and build, then check capture, saving from History,
 and playback of a saved recording. For first-run testing use a fresh test account

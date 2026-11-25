@@ -3,7 +3,7 @@ name: release
 description: 为 DewShot 筹备 Mac App Store 首发、major 或 minor 版本，或继续已有候选的送测、审核和上线收尾。
 ---
 
-先读[发包规范](../../../docs/release.md)和[商店文案与素材](../../../store-listing/README.md)。若用户要求继续已有版本，先识别分支、候选记录和 Apple 状态，接着上次的阶段做。
+先读[发包规范](../../../docs/release.md)、[CLI 操作手册](../../../docs/store-cli.md)和[商店文案与素材](../../../store-listing/README.md)。若用户要求继续已有版本，先用 CLI 识别分支、候选记录和 Apple 状态，接着上次的阶段做。
 
 1. 先运行 `scripts/store-release.py review`，列出比较基线、候选 SHA、两个具体版本和初步差异；用该 SHA 审阅完整 diff。找上一正式商店版本及其 tag，查看基线到该 SHA 的 git log、完整 diff 和关联 PR。首发时注明历史 GitHub tag 的用途，并覆盖首次上架的完整用户能力。
 2. **先在对话中展示**仓库 changelog 草案、中英文用户更新说明、基线和候选 SHA。根据实际改动推荐 major 或 minor，给出理由和两个具体版本号。首发说明版本比较起点。等待用户确认范围及版本；这个阶段只读，不建分支、不改文件、不预分配 build。

@@ -22,17 +22,17 @@ DewShot 使用 TestFlight 验收候选，通过 App Store 发布。官网独立�
 
 1. 运行 `scripts/store-release.py reserve 1.0.0`。脚本读取候选、远端 main 和远端已预留的 build，递增全局编号，更新 FrameVersion 并提交，将分支与轻量 tag `store-build/N` 原子推送。首次启用时与 TestFlight 上传历史核对编号上限；现有 0.1.2 (3) 已记录在 FrameVersion。之后所有候选统一从这个入口分配。不要删除或移动候选记录。
 2. 等同一 SHA 的分支 push CI 通过。根据[签名与打包说明](development.md#mac-app-store-and-testflight)运行 `scripts/package-app-store.sh`。入口检查分支、SHA、预留号、双语文案和 CI，校验签名及 dSYM，并将版本、build、SHA 和最终 pkg 的 SHA-256 写入远端附注 tag `store-package/N`。该记录在临时分支删除后仍可读取。
-3. 取得凭据的机器保留对应 pkg 和 dSYM。上传前用 `git tag -l --format='%(contents)' store-package/N` 和 `shasum -a 256 <pkg>` 核对。使用 Transporter 上传登记的 pkg。在 TestFlight 安装该 build，验证首次授权、截图与录屏、保存、历史和隐私入口。验收后在 App Store Connect 选择同一 build 提审。
+3. 取得凭据的机器保留对应 pkg 和 dSYM。按 [App Store Connect CLI 操作手册](store-cli.md)上传已登记的包、等 Apple 处理并加到 TestFlight 内部组。在真机安装该 build，验证首次授权、截图与录屏、保存、历史和隐私入口。验收后挂同一 build 提审。
 4. 若只改商店素材，继续用原包并更新[仓库素材](../store-listing/README.md)。需要修改发包内容时在临时分支提交修复、更新相关说明，再运行 reserve 分配下一号。临时分支允许直接 push，CI 验证每次候选。开发流程自身无需新增产品埋点。
 
 ## 填报与提审
 
-在 CI 或 Apple 处理包期间，用[商店文案与素材](../store-listing/README.md)对照 App Store Connect，把可以独立完成的字段填好。每次准备候选时核对两种语言的资料。功能、界面、隐私做法或发售设置有变化时，在同一任务更新对应的仓库内容与商店表单。
+在 CI 或 Apple 处理包期间，按 [CLI 操作手册](store-cli.md)核对[商店文案与素材](../store-listing/README.md)，把可以独立完成的字段填好。功能、界面、隐私做法或发售设置有变化时，在同一任务更新仓库资料与商店字段。
 
 1. Mac App Store 的版本字段用三段产品版本 `X.Y.Z`。build 是独立的数字，核对 App Store Connect 的 `X.Y.Z (N)`、TestFlight 验收和 `store-package/N` 是同一候选。
-2. 先完成 App Information、Pricing and Availability、App Compliance 和 App Privacy。中国大陆的合规卡点在 App Compliance 对应行填真实答案，保存后核对状态。App Privacy 每个数据项都要完成设置，再由具备权限的人 `Publish`。出现保存超时或通用错误时，先刷新核对行状态，再决定是否重试。本次首发部分表单虽然提示失败，刷新后数据仍已保存。
-3. 在版本页核对两种语言的文案、网址和截图，再核对审核联系人、登录说明、发布方式和选定 build。需要导出合规确认时，到 TestFlight 的候选 build 填问卷。TestFlight 安装成功只证明构建可安装，仍需记录实际交互的验收结果。
-4. 点 `Add for Review` 读取完整缺项清单。能独立解决的缺项一次处理完再重试。版本进入 `Ready for Review` 表示已加入审核草稿。按授权执行 `Submit for Review` 后，到 App Review 核对版本、build 与 `Waiting for Review` 或后续审核状态。
+2. 先核对 App Information、Pricing and Availability、App Compliance 和 App Privacy。预览差异再写入。出现保存超时或通用错误时，先读回状态，再决定是否重试。首发部分表单曾提示失败，后来读回发现数据已保存。
+3. 通过 CLI 同步两种语言的文案、网址和截图，再核对审核联系人、登录说明、发布方式、导出合规和选定 build。记录 TestFlight 上实际完成的交互验收。
+4. 通过 `asc validate` 和 `asc review doctor` 排查缺项，能独立解决的一次处理完。`Ready for Review` 表示已加入审核草稿。按授权执行 `asc review submit` 后，用 `scripts/store-release.py status` 核对版本、build 与 `WAITING_FOR_REVIEW` 或后续状态。
 
 ## 持续推进与交接
 
@@ -43,7 +43,7 @@ DewShot 使用 TestFlight 验收候选，通过 App Store 发布。官网独立�
 3. 遇到需要用户登录、授权、真机操作或即时确认的步骤，尽量把页面停在可执行的位置。一次说清**版本和 build、当前阶段、已完成或已验证项、卡点和证据、具体谁要在哪个页面做什么、完成后如何继续**。同批可预见的操作集中说明，等待回复期间继续独立工作。
 4. 如果当前环境不能继续等待或执行，把上述进度和下一个检查入口留在当前会话。恢复时从该检查点核对实际状态，避免重复上传、分配 build 或提交。审核拒绝时先读 Apple 给出的具体原因，能通过素材和表单处理的继续用原 build，涉及发包变更时按原候选分支返工。
 
-例如：「1.0.0（构建 4）已选定，中国大陆两项声明已保存。`Add for Review` 只剩 App Privacy。请在已打开的隐私页点 `Publish`，这会确认声明的准确性并承诺更新。点完我会核对发布状态，再运行 `Add for Review`。」
+例如：「1.0.0（构建 4）已挂载，公开 API 校验已过。Apple 网页会话已过期，App Privacy 发布状态待核验。请在终端运行 `asc web auth login --apple-id <Apple Account>` 并完成 2FA。登录后我会读回隐私与合规状态，再跑提审校验。」
 
 ## 恢复中断
 
@@ -53,7 +53,7 @@ DewShot 使用 TestFlight 验收候选，通过 App Store 发布。官网独立�
 
 ## 上架核对与回合
 
-命令读取短期 JWT 环境变量 `ASC_JWT`，仅向 Apple 发 GET 请求。使用有权读取 DewShot 版本和构建的 App Store Connect 凭据生成令牌；本机 Xcode 支持 `xcrun altool --generate-jwt --apiKey <key-id> --apiIssuer <issuer-id>`。私钥存于个人凭据目录，避免将 JWT 或私钥写入仓库、日志和聊天。无凭据时可以先在后台检查进度，自动收尾仍需 API 核对。
+`status` 和 `finalize` 通过 `asc` 的公开 API 核对发布状态和关联 build。沿用 `asc` 已设置的凭据，也兼容原先传入的短期 `ASC_JWT`。当 Apple 显示待开发者发布时，按授权使用 `asc versions release --version-id "$VERSION_ID" --confirm`，再核对上架状态。
 
 1. `scripts/store-release.py status 1.0.0` 查询 DewShot 的 macOS 商店版本及其关联 build。首次配置时让商店版本号与三段产品版本一致。
 2. `scripts/store-release.py finalize 1.0.0` 重新查询 Apple。只有状态为 READY_FOR_DISTRIBUTION 且关联 build 与远端候选记录、源码版本一致，才把 v1.0.0 推到实际发布的 SHA。该条件代表版本发布状态，各地区可下载性单独核查。重复执行保留已有同提交 tag；不同提交的同名 tag 不得覆盖。

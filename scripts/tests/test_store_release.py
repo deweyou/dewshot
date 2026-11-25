@@ -97,14 +97,54 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(release.git("tag", "--list", "store-*"), "")
 
     def test_apple_status_reads_attached_build(self):
-        response = {"data": [{"attributes": {"platform": "MAC_OS", "versionString": "1.0.0",
+        response = {"data": {"attributes": {"platform": "MAC_OS", "versionString": "1.0.0",
                     "appVersionState": "READY_FOR_DISTRIBUTION"},
-                    "relationships": {"build": {"data": {"id": "attached"}}}}],
+                    "relationships": {"build": {"data": {"id": "attached"}}}},
                     "included": [{"type": "builds", "id": key, "attributes": {"version": number}}
                                  for key, number in [("another", "6"), ("attached", "4")]]}
-        with patch.dict(os.environ, ASC_JWT="fixture"), patch.object(release, "urlopen",
-                return_value=io.BytesIO(json.dumps(response).encode())):
+        with patch.object(release, "asc", return_value=json.dumps(response)) as command:
             self.assertEqual(release.apple_status("1.0.0"), ("READY_FOR_DISTRIBUTION", "4"))
+        command.assert_called_once_with("versions", "view", "--app", release.APP_ID, "--platform", "MAC_OS",
+                                        "--version", "1.0.0", "--include-build", "--output", "json")
+
+    def test_upload_checks_receipt_and_looks_up_existing_upload(self):
+        release.git("switch", "-c", "release/1.0")
+        release.reserve("1.0.0")
+        release.git("fetch", "--tags", "origin")
+        pkg = Path("../dewShot-1.0.0-build.4-AppStore.pkg")
+        pkg.write_bytes(b"fixture")
+        release.record(pkg, release.git("rev-parse", "HEAD"))
+        empty = json.dumps({"data": []})
+        existing = json.dumps({"data": [{"id": "already-uploaded"}]})
+        with patch.object(release, "asc", side_effect=[empty, existing]) as command:
+            with self.assertRaisesRegex(ValueError, "already has an upload"):
+                release.upload_package(pkg)
+        self.assertEqual(command.call_count, 2)
+        with patch.object(release, "asc", side_effect=[empty, empty, "{}"]) as command:
+            with patch("sys.stdout"):
+                release.upload_package(pkg)
+        command.assert_called_with("builds", "upload", "--app", release.APP_ID, "--platform", "MAC_OS",
+                                   "--output", "json", "--pkg", str(pkg), "--version", "1.0.0", "--build-number", "4")
+        pkg.write_bytes(b"modified")
+        with patch.object(release, "asc") as command:
+            with self.assertRaisesRegex(ValueError, "differs from its registered receipt"):
+                release.upload_package(pkg)
+        command.assert_not_called()
+
+    def test_metadata_uses_launch_copy_and_only_adds_update_notes_on_updates(self):
+        for locale in ("en-US", "zh-Hans"):
+            source = Path("store-listing", locale)
+            source.mkdir(parents=True)
+            (source / "description.txt").write_text(f"Description for {locale}\n")
+            (source / "metadata.json").write_text(json.dumps({"appInfo": {"name": "DewShot"}, "version": {}}))
+        output = Path("metadata")
+        release.prepare_metadata("1.0.0", output)
+        release.prepare_metadata("1.0.1", output)
+        for locale in ("en-US", "zh-Hans"):
+            launch = json.loads((output / "version" / "1.0.0" / f"{locale}.json").read_text())
+            update = json.loads((output / "version" / "1.0.1" / f"{locale}.json").read_text())
+            self.assertEqual(launch, {"description": f"Description for {locale}"})
+            self.assertEqual(update, {**launch, "whatsNew": "Test notes"})
 
 
 if __name__ == "__main__":

@@ -8,8 +8,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 VERSION_FILE = Path("Sources/FrameCore/FrameVersion.swift")
@@ -28,6 +27,16 @@ def run(*args):
 
 def git(*args):
     return run("git", *args)
+
+
+def asc(*args):
+    env = os.environ.copy()
+    if env.get("ASC_JWT"):
+        env.setdefault("ASC_BEARER_TOKEN", env["ASC_JWT"])
+    try:
+        return subprocess.check_output(["asc", *args], text=True, env=env).strip()
+    except FileNotFoundError:
+        raise ValueError("Install App Store Connect CLI: brew install asc") from None
 
 
 def read_version(text):
@@ -130,11 +139,7 @@ def record(package, sha):
     require(git("rev-parse", "HEAD") == sha and not git("status", "--porcelain"),
             "Source changed while packaging")
     require(remote_tag(f"store-build/{build}") == sha, "Build reservation mismatch")
-    digest = hashlib.sha256()
-    with package.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    receipt = dict(version=version, build=build, commit=sha, sha256=digest.hexdigest())
+    receipt = dict(version=version, build=build, commit=sha, sha256=package_digest(package))
     tag = f"store-package/{build}"
     existing = git("tag", "--list", tag)
     if existing:
@@ -146,22 +151,67 @@ def record(package, sha):
     print(json.dumps(receipt))
 
 
+def package_digest(package):
+    digest = hashlib.sha256()
+    with package.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def read_receipt(tag):
     return json.loads(git("for-each-ref", "--format=%(contents)", "refs/tags/" + tag))
 
 
+def upload_package(package):
+    name = re.fullmatch(r"dewShot-(" + SEMVER + r")-build\.([1-9][0-9]*)-AppStore\.pkg", package.name)
+    require(name, "Expected a registered DewShot App Store package")
+    version, build = name.groups()
+    git("fetch", "--tags", "origin")
+    tag = f"store-package/{build}"
+    sha = remote_tag(tag)
+    require(sha and remote_tag(f"store-build/{build}") == sha, "Missing or inconsistent candidate records")
+    require(read_receipt(tag) == dict(version=version, build=int(build), commit=sha,
+                                      sha256=package_digest(package)), "Package differs from its registered receipt")
+    target = ("--app", APP_ID, "--platform", "MAC_OS", "--output", "json")
+    builds = json.loads(asc("builds", "list", *target, "--version", version, "--build-number", build))
+    if builds["data"]:
+        print(f"{version} ({build}) already exists in App Store Connect; check build status")
+        return
+    uploads = json.loads(asc("builds", "uploads", "list", *target,
+                             "--cf-bundle-short-version", version, "--cf-bundle-version", build))
+    require(not uploads["data"], f"Apple already has an upload for {version} ({build}); inspect it before retrying")
+    print(asc("builds", "upload", *target, "--pkg", str(package), "--version", version,
+              "--build-number", build))
+
+
+def prepare_metadata(version, directory):
+    require(re.fullmatch(SEMVER, version), "Expected numeric X.Y.Z")
+    for locale, language in (("en-US", "en"), ("zh-Hans", "zh-Hans")):
+        source = Path("store-listing", locale)
+        fields = json.loads((source / "metadata.json").read_text())
+        listing = fields["version"]
+        listing["description"] = (source / "description.txt").read_text().strip()
+        if version != "1.0.0":
+            listing["whatsNew"] = Path("release-notes", version, language + ".md").read_text().strip()
+        for folder, values in ((directory / "app-info", fields["appInfo"]),
+                               (directory / "version" / version, listing)):
+            folder.mkdir(parents=True, exist_ok=True)
+            (folder / (locale + ".json")).write_text(json.dumps(values, ensure_ascii=False, indent=2) + "\n")
+
+
+def sync_metadata(version, apply=False):
+    with tempfile.TemporaryDirectory(prefix="dewshot-store-metadata-") as directory:
+        prepare_metadata(version, Path(directory))
+        print(asc("metadata", "apply", "--app", APP_ID, "--platform", "MAC_OS", "--version", version,
+                  "--dir", directory, "--confirm" if apply else "--dry-run"))
+
+
 def apple_status(version):
     require(re.fullmatch(SEMVER, version), "Expected numeric X.Y.Z")
-    token = os.environ.get("ASC_JWT")
-    require(token, "Provide a short-lived App Store Connect JWT via ASC_JWT")
-    query = urlencode({"filter[platform]": "MAC_OS", "filter[versionString]": version, "include": "build"})
-    req = Request(f"https://api.appstoreconnect.apple.com/v1/apps/{APP_ID}/appStoreVersions?{query}",
-                  headers={"Authorization": "Bearer " + token})
-    with urlopen(req, timeout=30) as response:
-        payload = json.load(response)
-    versions = payload["data"]
-    require(len(versions) == 1, f"Expected one macOS App Store version {version}")
-    entry = versions[0]
+    payload = json.loads(asc("versions", "view", "--app", APP_ID, "--platform", "MAC_OS", "--version", version,
+                             "--include-build", "--output", "json"))
+    entry = payload["data"]
     attrs = entry["attributes"]
     require(attrs["versionString"] == version and attrs["platform"] == "MAC_OS", "Unexpected Apple version")
     linked = entry["relationships"]["build"]["data"]
@@ -200,9 +250,13 @@ def main():
     commands.choices["reserve"].add_argument("--replacement", action="store_true",
                                               help="Allocate a fresh build for unchanged sources")
     commands.add_parser("preflight")
-    upload = commands.add_parser("record")
-    upload.add_argument("package", type=Path)
-    upload.add_argument("sha")
+    receipt = commands.add_parser("record")
+    receipt.add_argument("package", type=Path)
+    receipt.add_argument("sha")
+    commands.add_parser("upload").add_argument("package", type=Path)
+    metadata = commands.add_parser("metadata")
+    metadata.add_argument("version")
+    metadata.add_argument("--apply", action="store_true", help="Write metadata to Apple instead of previewing")
     args = parser.parse_args()
     if args.command == "review":
         review(args.base)
@@ -212,6 +266,10 @@ def main():
         print(preflight())
     elif args.command == "record":
         record(args.package, args.sha)
+    elif args.command == "upload":
+        upload_package(args.package)
+    elif args.command == "metadata":
+        sync_metadata(args.version, args.apply)
     else:
         state, build = apple_status(args.version)
         print(f"macOS {args.version}: {state}, build {build or 'unassigned'}")

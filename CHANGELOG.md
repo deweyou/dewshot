@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Use App Store Connect CLI to upload registered Mac packages, sync localized metadata, validate submissions, and check the attached build and review state.
+
 - Keep Mac App Store copy, declarations, and localized screenshots in the repository. Continue release work from verified Apple states and give explicit handoffs for blocked steps.
 
 - Prepare Mac App Store releases and patches locally from temporary branches. Record candidate checksums and confirm the published Apple build before tagging and merging back.

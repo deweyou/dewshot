@@ -4,15 +4,12 @@
 
 ## 本地化字段
 
-商店主语言为简体中文。两种语言的 Name 都是 `DewShot`，Subtitle 和 Promotional Text 留空。
+商店主语言为简体中文。两种语言的 Name 都是 `DewShot`，Subtitle 和 Promotional Text 留空。描述与元数据文件是 CLI 同步的输入，更新后按 [CLI 手册](../docs/store-cli.md#版本资料与截图)先预览差异。
 
 | 字段 | 中文（简体）`zh-Hans` | English (U.S.) `en-US` |
 | --- | --- | --- |
 | Description | [中文描述](zh-Hans/description.txt) | [英文描述](en-US/description.txt) |
-| Keywords | `截图,录屏,滚动截图,长截图,文字识别,屏幕录制,GIF,OCR` | `screenshot,screen recording,scrolling capture,screen capture,OCR,GIF` |
-| Support URL | `https://dewshot.deweyou.me/#support` | `https://dewshot.deweyou.me/en/#support` |
-| Marketing URL | `https://dewshot.deweyou.me/` | `https://dewshot.deweyou.me/en/` |
-| Privacy Policy URL | `https://dewshot.deweyou.me/privacy/` | `https://dewshot.deweyou.me/en/privacy/` |
+| Keywords、Support URL、Marketing URL、Privacy Policy URL | [中文元数据](zh-Hans/metadata.json) | [英文元数据](en-US/metadata.json) |
 | macOS Screenshots | [中文 PNG](zh-Hans/screenshots/) | [英文 PNG](en-US/screenshots/) |
 
 每个语言目录有四张 1440 × 900 RGB PNG，按文件名前缀上传：截图、录屏、滚动截图、文字识别。更新时用候选对应的真实界面和可公开的演示内容，沿用[仓库品牌标识](../assets/brand/dewshot-lockup.svg)和衬线标题的海报版式。上传后逐个语言核对图片数量、顺序和预览。
