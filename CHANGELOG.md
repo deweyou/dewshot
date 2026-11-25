@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Open Draft PRs early for Store releases and patches, then merge after Apple confirms the version is live.
+
 - Use App Store Connect CLI to upload registered Mac packages, sync localized metadata, validate submissions, and check the attached build and review state.
 
 - Keep Mac App Store copy, declarations, and localized screenshots in the repository. Continue release work from verified Apple states and give explicit handoffs for blocked steps.

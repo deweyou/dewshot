@@ -16,6 +16,8 @@ DewShot 使用 TestFlight 验收候选，通过 App Store 发布。官网独立�
 
 每个版本提交两份用户文案至 `release-notes/<版本>/zh-Hans.md` 和 `en.md`。两份覆盖同样的用户变化。首发说明描述产品能力，更新版本的正文用于 App Store 的「此版本的新内容」。商店描述长期维护在 [store-listing](../store-listing/README.md)。官网、CI 和纯工程调整按实际用户影响决定是否写入。历史 v0.1.x 是 GitHub 版本，1.0.0 是首个送审的商店版本。已发布 tag 可通过其提交上的 store-package 记录与 Apple 商店版本核对。
 
+切出 release 或 patch 分支后，提交首批已确认的内容并推送。有可比较的提交后就创建指向 `main` 的 Draft PR，提前展示范围、版本和验证进度。后续候选和修复都更新到同一 PR。创建前用 `gh pr list --head "$BRANCH" --base main --state open` 检查能否复用，首次用 `gh pr create --draft --base main --head "$BRANCH" --title "DewShot $VERSION" --body-file "$PR_BODY"`。正文随进度更新候选 build、SHA、验证结果和 Apple 状态。PR 在 TestFlight、审核中和待手动发布阶段保持 Draft。
+
 ## 准备与出包
 
 以下以 1.0.0 为例。在临时分支上提交已审阅的内容，保持工作区干净。日常分支和本地 Dev 沿用原有打包方式。
@@ -57,8 +59,9 @@ DewShot 使用 TestFlight 验收候选，通过 App Store 发布。官网独立�
 
 1. `scripts/store-release.py status 1.0.0` 查询 DewShot 的 macOS 商店版本及其关联 build。首次配置时让商店版本号与三段产品版本一致。
 2. `scripts/store-release.py finalize 1.0.0` 重新查询 Apple。只有状态为 READY_FOR_DISTRIBUTION 且关联 build 与远端候选记录、源码版本一致，才把 v1.0.0 推到实际发布的 SHA。该条件代表版本发布状态，各地区可下载性单独核查。重复执行保留已有同提交 tag；不同提交的同名 tag 不得覆盖。
-3. **从这一步才启动回合。** 用普通 merge PR 把获批提交合回 main。分支 tip 与 tag 不同就从 tag 建收尾分支，再带入应保留的商店素材和流程文档提交。整理 CHANGELOG.md，把本次条目移至带实际发布日期的版本段，保留 main 新增的 Unreleased 条目、更新的产品版本和 build。正式 tag 始终指向出包提交。如果 patch 还影响正在送审的版本，单独将修复同步到其候选分支并重新验收。
-4. PR 合入后 fetch，核对远端 tag，运行 `git merge-base --is-ancestor v1.0.0 origin/main`。检查原临时分支 tip 已合入或其额外提交已妥善保留，再删临时分支；保留正式 tag 和候选记录。
+3. 核对 Draft PR 的分支包含正式 tag，逐项审阅 tag 之后的提交。只有商店素材、发布文档和收尾说明等确认可以回合的改动时，沿用原 Draft PR。若分支还有未上线的代码，从正式 tag 建收尾分支，带入应保留的提交，并用新 PR 关联原 Draft PR，避免一起合入。整理 CHANGELOG.md，把本次条目移至带实际发布日期的版本段，保留 main 新增的 Unreleased 条目、更新的产品版本和 build。正式 tag 始终指向出包提交。
+4. 确认 App Store 已正式上架、PR 内容核对完毕后，用 `gh pr ready "$PR"` 转为可审阅。等当前 PR SHA 的 CI 和必要评审通过，以普通 merge commit 合回 main。如果 patch 还影响正在送审的版本，单独将修复同步到其候选分支并重新验收。
+5. PR 合入后 fetch，核对远端 tag，运行 `git merge-base --is-ancestor v1.0.0 origin/main`。检查原临时分支 tip 已合入或其额外提交已妥善保留，再删临时分支。保留正式 tag 和候选记录。
 
 仓库规则应允许维护者在 release/*、patch/* 直接推送，合入 main 走 PR。
 正式 tag 及 store-build/*、store-package/* 应限制改写和删除，临时分支须允许收尾后删除。

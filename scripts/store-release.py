@@ -237,7 +237,7 @@ def finalize(version, state, build):
     else:
         git("tag", "-a", public, sha, "-m", f"DewShot {version} ({build})\n\nSHA256 {receipt['sha256']}")
     git("push", "origin", "refs/tags/" + public)
-    print(f"{public} -> {sha}; open the merge-back PR from this commit")
+    print(f"{public} -> {sha}; verify the draft PR includes this commit before merge-back")
 
 
 def main():
